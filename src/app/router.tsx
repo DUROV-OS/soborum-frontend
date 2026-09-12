@@ -11,6 +11,8 @@ import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPag
 import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
 import { MontageOverviewPage } from '@/montage/pages/MontageOverviewPage'
 import { MarketingPage } from '@/marketing/pages/MarketingPage'
+import { HouseModelsListPage } from '@/house_models/pages/HouseModelsListPage'
+import { HouseModelDetailPage } from '@/house_models/pages/HouseModelDetailPage'
 import { CycleDetailPage } from '@/cycles/pages/CycleDetailPage'
 import { CyclesListPage } from '@/cycles/pages/CyclesListPage'
 import { WarehousePage } from '@/warehouse/pages/WarehousePage'
@@ -144,6 +146,22 @@ export function AppRouter() {
           element={
             <AccessGate section="marketing">
               <MarketingPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/house-models"
+          element={
+            <AccessGate section="house_models">
+              <HouseModelsListPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/house-models/:key"
+          element={
+            <AccessGate section="house_models">
+              <HouseModelDetailPage />
             </AccessGate>
           }
         />
