@@ -17,8 +17,8 @@ interface ClientsState {
   clearLastAdvanced: () => void
   load: () => Promise<void>
   create: (input: ClientCreateInput) => Promise<Client>
-  updateProject: (id: number, patch: clientsApi.ProjectUpdateInput) => Promise<ActionResult>
   updateDocuments: (id: number, patch: clientsApi.DocumentsUpdateInput) => Promise<ActionResult>
+  updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
   setMaxChat: (id: number, maxChatId: number | null) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
@@ -77,8 +77,8 @@ export const useClientsStore = create<ClientsState>((set, get) => {
       return client
     },
 
-    updateProject: (id, patch) => applyClientMutation(() => clientsApi.updateProject(id, patch)),
     updateDocuments: (id, patch) => applyClientMutation(() => clientsApi.updateDocuments(id, patch)),
+    updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
     setMaxChat: (id, maxChatId) => applyClientMutation(() => clientsApi.setMaxChat(id, maxChatId)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),

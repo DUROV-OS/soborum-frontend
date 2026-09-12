@@ -5,7 +5,7 @@ import { Button } from '@/shared/ui/Button'
 import { Textarea } from '@/shared/ui/Field'
 import { useClientsStore } from '../store'
 import { Client } from '../types'
-import { Section } from './ProjectPanel'
+import { Section } from './PanelPrimitives'
 
 export function NotesPanel({ client }: { client: Client }) {
   const current = useAuthStore((s) => s.current)

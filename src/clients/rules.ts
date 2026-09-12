@@ -15,10 +15,9 @@ export function nextStageOf(stage: ClientStage): ClientStage | null {
   return index < STAGE_ORDER.length - 1 ? STAGE_ORDER[index + 1] : null
 }
 
-export type ClientFieldGroup = 'project' | 'documents' | 'payment'
+export type ClientFieldGroup = 'documents' | 'payment'
 
 const GROUP_APPEARS_AT: Record<ClientFieldGroup, ClientStage> = {
-  project: 'discussion',
   documents: 'approval',
   payment: 'payment',
 }
@@ -33,7 +32,6 @@ export function isGroupVisible(client: Client, group: ClientFieldGroup): boolean
 }
 
 export function isGroupEditable(client: Client, group: ClientFieldGroup): boolean {
-  if (group === 'project') return client.project_locked_at === null
   if (group === 'documents') return client.documents_locked_at === null
   return client.payment_locked_at === null
 }

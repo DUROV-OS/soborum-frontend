@@ -8,7 +8,7 @@ import { MaxMessage } from '@/max/types'
 import { useClientsStore } from '../store'
 import { Client } from '../types'
 import { MaxAttachList } from './MaxAttachments'
-import { Section } from './ProjectPanel'
+import { Section } from './PanelPrimitives'
 
 /** Как часто подтягивать новые сообщения открытого чата, мс. */
 const POLL_MS = 20000

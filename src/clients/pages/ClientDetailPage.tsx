@@ -8,13 +8,12 @@ import { Stepper } from '@/shared/ui/Stepper'
 import { useClientsStore } from '../store'
 import { CLIENT_STAGES } from '../types'
 import { nextStageOf, stageLabel } from '../rules'
-import { ReadRow, Section } from '../components/ProjectPanel'
+import { ReadRow, Section } from '../components/PanelPrimitives'
 import { DocumentPanel } from '../components/DocumentPanel'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { NotesPanel } from '../components/NotesPanel'
 import { MaxChatPanel } from '../components/MaxChatPanel'
-import { ProjectPanel } from '../components/ProjectPanel'
 
 export function ClientDetailPage() {
   const { id = '' } = useParams()
@@ -116,7 +115,6 @@ export function ClientDetailPage() {
             : <ReadRow label="Способы связи" value={undefined} />}
         </Section>
 
-        <ProjectPanel client={client} />
         <DocumentPanel client={client} />
         <PaymentPanel client={client} />
         <BalancePaymentPanel client={client} />
