@@ -27,6 +27,7 @@ export interface HouseModelCatalog {
 
 export interface HouseModelDetail extends HouseModelBrief {
   source_note_path: string
+  planning_image_id: number | null
   characteristics_md: string | null
   planning_md: string | null
   configurations_md: string | null
