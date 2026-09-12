@@ -107,8 +107,8 @@ export function ClientsBoardPage() {
           <div>
             <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
             <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
-            {client.house_area && (
-              <div className="mt-2 text-[12px] text-brand-dark">{client.house_area} м²</div>
+            {client.house_model && (
+              <div className="mt-2 text-[12px] text-brand-dark">{client.house_model.title}</div>
             )}
           </div>
         )}
