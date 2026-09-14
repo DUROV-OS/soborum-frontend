@@ -1,7 +1,9 @@
 import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useRef, useState } from 'react'
-import { Download, Film, Link2, Loader2, Paperclip, Play, X } from 'lucide-react'
+import { Download, Eye, Film, Link2, Loader2, Paperclip, Play } from 'lucide-react'
 import { ApiError } from '@/shared/lib/httpClient'
+import { Button } from '@/shared/ui/Button'
 import * as maxApi from '@/max/api'
+import { Lightbox } from '@/max/components/Lightbox'
 import { MaxAttach } from '@/max/types'
 
 /* ------------------------------------------------------------------ utils */
@@ -49,40 +51,25 @@ function Placeholder({ icon, text }: { icon: ReactNode; text: string }) {
   )
 }
 
-function Lightbox({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [onClose])
+/* ------------------------------------------------------------------ FILE */
 
-  return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
-      onClick={onClose}
-    >
-      <button
-        type="button"
-        aria-label="Закрыть"
-        className="absolute right-4 top-4 text-white/80 hover:text-white"
-      >
-        <X size={24} />
-      </button>
-      <div className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  )
+/** Расширения, показываемые в предпросмотре — синхронно с backend
+ * `app.max.service.PREVIEWABLE_EXTENSIONS`. Всё остальное — сразу скачивание. */
+const PREVIEWABLE_EXT = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'txt'])
+/** Файлы крупнее — сразу кнопка скачивания, без попытки загрузить в предпросмотр
+ * (синхронно с backend PREVIEW_MAX_SIZE). */
+const PREVIEW_MAX_SIZE = 15 * 1024 * 1024
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot === -1 ? '' : name.slice(dot + 1).toLowerCase()
 }
 
-/* ------------------------------------------------------------------ FILE */
+function isPreviewable(attach: MaxAttach): boolean {
+  if (!attach.name || !attach.fileId) return false
+  if (attach.size && attach.size > PREVIEW_MAX_SIZE) return false
+  return PREVIEWABLE_EXT.has(extensionOf(attach.name))
+}
 
 function FileAttach({
   attach,
@@ -121,11 +108,14 @@ function FileAttach({
     }
   }
 
+  const previewable = isPreviewable(attach)
+  const [previewOpen, setPreviewOpen] = useState(false)
+
   return (
     <div>
       <button
         type="button"
-        onClick={download}
+        onClick={previewable ? () => setPreviewOpen(true) : download}
         disabled={busy || !attach.fileId}
         className="flex w-full max-w-[260px] items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-2 text-left hover:bg-surface-muted disabled:opacity-60"
       >
@@ -138,12 +128,98 @@ function FileAttach({
         </span>
         {busy ? (
           <Loader2 size={14} className="shrink-0 animate-spin text-muted" />
+        ) : previewable ? (
+          <Eye size={14} className="shrink-0 text-muted" />
         ) : (
           <Download size={14} className="shrink-0 text-muted" />
         )}
       </button>
       {error && <p className="mt-1 text-[11px] text-danger">{error}</p>}
+      {previewOpen && attach.fileId && (
+        <FilePreviewModal
+          name={name}
+          chatId={chatId}
+          messageId={messageId}
+          fileId={attach.fileId}
+          onClose={() => setPreviewOpen(false)}
+          onFallbackDownload={download}
+        />
+      )}
     </div>
+  )
+}
+
+/** Предпросмотр файла (pdf/jpg/png/webp/txt) через прокси-эндпоинт бэка —
+ * без него одноразовая ссылка MAX (без CORS) не грузится в `fetch`/`<embed>`. */
+function FilePreviewModal({
+  name,
+  chatId,
+  messageId,
+  fileId,
+  onClose,
+  onFallbackDownload,
+}: {
+  name: string
+  chatId: number
+  messageId: string
+  fileId: string
+  onClose: () => void
+  onFallbackDownload: () => void
+}) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [text, setText] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const ext = extensionOf(name)
+  const mime = ext === 'pdf' ? 'application/pdf' : ext === 'txt' ? 'text/plain' : `image/${ext === 'jpg' ? 'jpeg' : ext}`
+
+  useEffect(() => {
+    let cancelled = false
+    let url: string | null = null
+    maxApi
+      .getAttachmentPreviewBlob(chatId, messageId, fileId, name)
+      .then(async (blob) => {
+        if (cancelled) return
+        if (ext === 'txt') {
+          setText(await blob.text())
+        } else {
+          url = URL.createObjectURL(blob)
+          setObjectUrl(url)
+        }
+      })
+      .catch((e) => !cancelled && setError(reasonOf(e)))
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [chatId, messageId, fileId, name, ext])
+
+  return (
+    <Lightbox onClose={onClose}>
+      <div className="flex max-h-[90vh] w-[90vw] max-w-3xl flex-col overflow-hidden rounded-md bg-surface">
+        <div className="border-b border-border px-3 py-2 text-[13px] font-medium text-ink">{name}</div>
+        <div className="flex-1 overflow-auto p-3">
+          {error && (
+            <div className="flex flex-col items-start gap-2 text-[13px] text-danger">
+              <span>{error}</span>
+              <Button size="sm" onClick={onFallbackDownload}>
+                <Download size={14} />
+                Скачать вместо просмотра
+              </Button>
+            </div>
+          )}
+          {!error && text !== null && (
+            <pre className="whitespace-pre-wrap break-words text-[12px] text-ink">{text}</pre>
+          )}
+          {!error && text === null && objectUrl && ext === 'pdf' && (
+            <embed src={objectUrl} type={mime} className="h-[75vh] w-full" />
+          )}
+          {!error && text === null && objectUrl && ext !== 'pdf' && (
+            <img src={objectUrl} alt={name} className="max-h-[75vh] max-w-full object-contain" />
+          )}
+          {!error && text === null && !objectUrl && <p className="text-[13px] text-muted">Загрузка предпросмотра…</p>}
+        </div>
+      </div>
+    </Lightbox>
   )
 }
 
