@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
@@ -42,6 +42,31 @@ const SOURCE_LABEL: Record<SourceFilter, string> = {
   production: 'Производство',
   marketing: 'Маркетинг',
   warehouse: 'Склад',
+}
+
+const EMPLOYEE_ALL = 'all'
+const EMPLOYEE_UNASSIGNED = 'unassigned'
+
+/**
+ * Список сотрудников для фильтра строится из фактических исполнителей уже
+ * загруженных задач (а не из useAuthStore().accounts — тот список грузится
+ * только для admin, см. src/auth/store.ts).
+ */
+function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
+  const byId = new Map<number, string>()
+  for (const task of tasks) {
+    for (const assignee of task.assignees) byId.set(assignee.id, assignee.full_name)
+  }
+  return Array.from(byId, ([id, full_name]) => ({ id, full_name })).sort((a, b) =>
+    a.full_name.localeCompare(b.full_name, 'ru'),
+  )
+}
+
+function matchesEmployee(task: Task, employeeFilter: string): boolean {
+  if (employeeFilter === EMPLOYEE_ALL) return true
+  if (employeeFilter === EMPLOYEE_UNASSIGNED) return task.assignees.length === 0
+  const id = Number(employeeFilter)
+  return task.assignees.some((a) => a.id === id)
 }
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
