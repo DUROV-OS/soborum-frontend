@@ -6,6 +6,7 @@ declare global {
 
 // webvisor (запись сессий сотрудников) по умолчанию выключен — включить можно только по явному запросу.
 export function initYandexMetrika(): void {
+  if (import.meta.env.DEV) return
   const counterId = import.meta.env.VITE_YANDEX_METRIKA_ID
   if (!counterId) return
 
