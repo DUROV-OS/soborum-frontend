@@ -38,6 +38,9 @@ export interface SectionSignal {
   section: string
   action: DashboardAction | null
   checked: boolean
+  /** Текст «что именно проверили и что там чисто» — есть только когда
+   * checked=true и action=null. */
+  clear_text: string | null
   generated_at: string
 }
 

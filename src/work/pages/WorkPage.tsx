@@ -166,6 +166,7 @@ function WorkTile({
 }) {
   const [action, setAction] = useState<DashboardAction | null>(null)
   const [checked, setChecked] = useState(false)
+  const [clearText, setClearText] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -176,12 +177,14 @@ function WorkTile({
         if (!cancelled) {
           setAction(signal.action)
           setChecked(signal.checked)
+          setClearText(signal.clear_text)
         }
       })
       .catch(() => {
         if (!cancelled) {
           setAction(null)
           setChecked(false)
+          setClearText(null)
         }
       })
       .finally(() => {
@@ -229,10 +232,11 @@ function WorkTile({
         </div>
       ) : checked && (
         <div className={`mt-4 flex-1 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK.green}`}>
-          <div className={`flex items-center gap-1.5 text-[13px] font-semibold ${HEAT_TEXT.green}`}>
+          <div className={`mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold ${HEAT_TEXT.green}`}>
             <CircleCheck size={14} />
             всё в порядке
           </div>
+          {clearText && <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>}
         </div>
       )}
     </NavLink>
