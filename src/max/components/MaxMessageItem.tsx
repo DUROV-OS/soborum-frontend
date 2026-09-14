@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { Download, FileText, Loader2, Mic, Play } from 'lucide-react'
 import { getAttachmentUrl, getMediaUrl } from '../api'
 import { MaxAttach, MaxMessage } from '../types'
+import { Lightbox } from './Lightbox'
 
 function humanSize(bytes?: number): string | null {
   if (!bytes || bytes <= 0) return null
@@ -64,20 +65,33 @@ function AttachAction({
   )
 }
 
+/** Фото открывается в лайтбоксе по клику, а не просто как инлайн-картинка. */
+function PhotoAttachment({ url, name }: { url: string; name?: string | null }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="block">
+        <img
+          src={url}
+          alt={name ?? 'Фото'}
+          loading="lazy"
+          className="max-h-64 max-w-full rounded-md border border-border/50 object-cover"
+        />
+      </button>
+      {open && (
+        <Lightbox onClose={() => setOpen(false)}>
+          <img src={url} alt={name ?? 'Фото'} className="max-h-[90vh] max-w-[90vw] object-contain" />
+        </Lightbox>
+      )}
+    </>
+  )
+}
+
 function Attachment({ attach, chatId, messageId }: { attach: MaxAttach; chatId: number; messageId: string }) {
   const type = attach.type
 
   if (type === 'PHOTO' && attach.baseUrl) {
-    return (
-      <a href={attach.baseUrl} target="_blank" rel="noopener noreferrer" className="block">
-        <img
-          src={attach.baseUrl}
-          alt={attach.name ?? 'Фото'}
-          loading="lazy"
-          className="max-h-64 max-w-full rounded-md border border-border/50 object-cover"
-        />
-      </a>
-    )
+    return <PhotoAttachment url={attach.baseUrl} name={attach.name} />
   }
 
   if (type === 'SHARE' && attach.url) {
