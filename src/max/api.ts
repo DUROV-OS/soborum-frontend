@@ -1,4 +1,4 @@
-import { apiRequest } from '@/shared/lib/httpClient'
+import { API_BASE, apiRequest, ApiError, getToken } from '@/shared/lib/httpClient'
 import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult } from './types'
 
 const SECTION = 'max'
@@ -53,6 +53,40 @@ export async function getAttachmentUrl(
     query: { chat_id: chatId, message_id: messageId, file_id: fileId },
   })
   return res.url
+}
+
+/**
+ * GET /api/max/attachment/preview — файл вложения FILE с корректным
+ * content-type и CORS (в отличие от getAttachmentUrl — прокси через наш
+ * бэк, поэтому годится для `fetch`). Требует Authorization-заголовок, его не
+ * подставить в `<img src>`/`<embed src>` напрямую — поэтому возвращаем Blob,
+ * а не URL; вызывающий код сам делает `URL.createObjectURL`.
+ */
+export async function getAttachmentPreviewBlob(
+  chatId: number,
+  messageId: string,
+  fileId: string,
+  filename: string,
+): Promise<Blob> {
+  const url = new URL(`${API_BASE}/${SECTION}/attachment/preview`, window.location.origin)
+  url.searchParams.set('chat_id', String(chatId))
+  url.searchParams.set('message_id', messageId)
+  url.searchParams.set('file_id', fileId)
+  url.searchParams.set('filename', filename)
+  const token = getToken()
+  const res = await fetch(url.toString(), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      detail = (await res.json()).detail ?? detail
+    } catch {
+      /* тело не JSON — оставляем statusText */
+    }
+    throw new ApiError(res.status, detail)
+  }
+  return res.blob()
 }
 
 /**
