@@ -6,6 +6,7 @@ import { LoadingState } from '@/shared/ui/LoadingState'
 import { Markdown } from '@/shared/ui/Markdown'
 import { getHouseModel } from '../api'
 import { ConfirmationBadge } from '../components/ConfirmationBadge'
+import { PlanningImage } from '../components/PlanningImage'
 import { HouseModelDetail } from '../types'
 
 function Section({ title, content }: { title: string; content: string | null }) {
@@ -75,7 +76,19 @@ export function HouseModelDetailPage() {
           </div>
 
           <Section title="Характеристики" content={model.characteristics_md} />
-          <Section title="Планировка" content={model.planning_md} />
+
+          <section className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-2 text-[14px] font-medium text-ink">Планировка</h2>
+            {model.planning_image_id != null && (
+              <PlanningImage fileId={model.planning_image_id} alt={`Планировка: ${model.title}`} />
+            )}
+            {model.planning_md ? (
+              <Markdown text={model.planning_md} className="text-[13px] leading-relaxed text-ink" />
+            ) : (
+              <p className="text-[13px] text-muted">Не задокументировано.</p>
+            )}
+          </section>
+
           <Section title="Конфигурации / тарифы" content={model.configurations_md} />
           <Section title="Модули" content={model.modules_md} />
           <Section title="Экономика" content={model.economics_md} />
