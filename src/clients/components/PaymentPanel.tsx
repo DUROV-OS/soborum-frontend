@@ -6,7 +6,7 @@ import { Chip } from '@/shared/ui/Chip'
 import { useClientsStore } from '../store'
 import { isGroupEditable, isGroupVisible, paymentStageRule } from '../rules'
 import { Client } from '../types'
-import { Section } from './ProjectPanel'
+import { Section } from './PanelPrimitives'
 
 export function PaymentPanel({ client }: { client: Client }) {
   const updatePayment = useClientsStore((s) => s.updatePayment)

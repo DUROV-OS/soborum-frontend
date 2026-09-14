@@ -1,3 +1,5 @@
+import { HouseModelBrief } from '@/house_models/types'
+
 export type ClientStage = 'lead' | 'discussion' | 'approval' | 'payment' | 'postpayment'
 
 /** Одиночный заказ — один дом в производстве. Множественный — несколько домов
@@ -85,11 +87,10 @@ export interface Client {
    * не привязан, редактируется в любой момент. */
   max_chat_id: number | null
   order_type: OrderType | null
-  wishes_description: string | null
-  estimated_price: number | null
-  house_area: number | null
-  layout_notes: string | null
-  project_locked_at: string | null
+  /** Ключ карточки каталога типовых проектов (0043), если дом клиента совпадает
+   * с одной из моделей — необязателен, индивидуальный дом может не совпасть ни с одной. */
+  house_model_key: string | null
+  house_model: HouseModelBrief | null
   houses_count: number
   final_price: number | null
   installation_address: string | null

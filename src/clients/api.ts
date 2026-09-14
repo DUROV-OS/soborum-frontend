@@ -18,23 +18,12 @@ export function createClient(input: ClientCreateInput): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: '/', method: 'POST', body: input })
 }
 
-export interface ProjectUpdateInput {
-  order_type?: OrderType
-  wishes_description?: string
-  estimated_price?: number
-  house_area?: number
-  layout_notes?: string
-}
-
-/** PATCH /api/clients/:id/project */
-export function updateProject(id: number, patch: ProjectUpdateInput): Promise<Client> {
-  return apiRequest<Client>({ section: SECTION, path: `/${id}/project`, method: 'PATCH', body: patch })
-}
-
 export interface DocumentsUpdateInput {
+  order_type?: OrderType
+  /** `null` снимает привязку к модели каталога. */
+  house_model_key?: string | null
   final_price?: number
   installation_address?: string
-  houses_count?: number
   payment_plan?: PaymentPlan
   /** Обязателен для payment_plan === 'advance_then_balance', меньше final_price. */
   advance_amount?: number
@@ -43,6 +32,15 @@ export interface DocumentsUpdateInput {
 /** PATCH /api/clients/:id/documents */
 export function updateDocuments(id: number, patch: DocumentsUpdateInput): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: `/${id}/documents`, method: 'PATCH', body: patch })
+}
+
+export interface HousesCountUpdateInput {
+  houses_count: number
+}
+
+/** PATCH /api/clients/:id/houses-count — не блокируется documents_locked_at, редактируется в любой момент. */
+export function updateHousesCount(id: number, patch: HousesCountUpdateInput): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/houses-count`, method: 'PATCH', body: patch })
 }
 
 /** PATCH /api/clients/:id/max-chat — привязать/отвязать чат MAX (`null` отвязывает). */

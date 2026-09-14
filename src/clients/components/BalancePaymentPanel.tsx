@@ -6,7 +6,7 @@ import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { useClientsStore } from '../store'
 import { Client, planHasBalance } from '../types'
-import { Section } from './ProjectPanel'
+import { Section } from './PanelPrimitives'
 
 /**
  * Приём остатка после получения дома — только на стадии «Постоплата» и только
