@@ -151,7 +151,7 @@ function WorkTile({
       </div>
 
       {loading ? (
-        <div role="status" aria-label="Загрузка сигнала" className="mt-4 flex-1 space-y-2 rounded-lg border-l-[3px] border-border bg-surface-muted/60 p-3.5">
+        <div role="status" aria-label="Загрузка сигнала" className="mt-4 space-y-2 rounded-lg border-l-[3px] border-border bg-surface-muted/60 p-3.5">
           <div className="h-3 w-24 animate-pulse rounded bg-surface-muted" />
           <div className="h-4 w-full animate-pulse rounded bg-surface-muted" />
         </div>
