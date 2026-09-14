@@ -120,6 +120,7 @@ export function TasksPage() {
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
+  const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
@@ -130,6 +131,10 @@ export function TasksPage() {
   useEffect(() => {
     if (!canSeeAll && subTab === 'all') setSubTab('mine')
   }, [canSeeAll, subTab])
+
+  useEffect(() => {
+    if (subTab !== 'all') setEmployeeFilter(EMPLOYEE_ALL)
+  }, [subTab])
 
   useEffect(() => {
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
@@ -202,6 +207,15 @@ export function TasksPage() {
             {Object.entries(SOURCE_LABEL).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
+              </option>
+            ))}
+          </Select>
+          <Select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="w-full sm:w-48">
+            <option value={EMPLOYEE_ALL}>Все сотрудники</option>
+            <option value={EMPLOYEE_UNASSIGNED}>Без исполнителя</option>
+            {employeeOptions(tasks).map((e) => (
+              <option key={e.id} value={String(e.id)}>
+                {e.full_name}
               </option>
             ))}
           </Select>
