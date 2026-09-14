@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, RefreshCw, Search, Send } from 'lucide-react'
+import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -13,6 +13,7 @@ import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { getChat, listChats, sendMessage } from '../api'
 import { MaxChatHistory, MaxChatSummary } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
+import { LinkClientModal } from '../components/LinkClientModal'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -228,12 +229,13 @@ export function AllChatsPage() {
               >
                 <ArrowLeft size={16} />
               </button>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-[14px] font-medium text-ink">
                   {history?.title ?? chats.find((c) => c.id === activeId)?.title ?? `Чат ${activeId}`}
                 </div>
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
               </div>
+              <ClientLinkAction chat={chats.find((c) => c.id === activeId)} onLinked={loadChats} />
             </div>
 
             <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -287,5 +289,37 @@ export function AllChatsPage() {
         pages={ONBOARDING_PAGES}
       />
     </div>
+  )
+}
+
+/** Обратная привязка чата к клиенту (0012): бейдж, если уже привязан, иначе действие. */
+function ClientLinkAction({ chat, onLinked }: { chat: MaxChatSummary | undefined; onLinked: () => void }) {
+  const [open, setOpen] = useState(false)
+  if (!chat) return null
+
+  if (chat.linkedClientId != null) {
+    return (
+      <Link
+        to={`/clients/${chat.linkedClientId}`}
+        className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
+      >
+        <UserCheck size={13} />
+        {chat.linkedClientName ?? 'Клиент'}
+      </Link>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
+      >
+        <Link2 size={13} />
+        Привязать к клиенту
+      </button>
+      <LinkClientModal chatId={chat.id} open={open} onClose={() => setOpen(false)} onLinked={onLinked} />
+    </>
   )
 }
