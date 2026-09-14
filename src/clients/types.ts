@@ -47,6 +47,18 @@ export const CLIENT_STAGES: { key: ClientStage; label: string }[] = [
   { key: 'postpayment', label: 'Постоплата' },
 ]
 
+export type ClientChatState = 'agreement' | 'waiting' | 'analysis'
+
+export const CLIENT_CHAT_STATES: { key: ClientChatState; label: string }[] = [
+  { key: 'agreement', label: 'Согласование' },
+  { key: 'waiting', label: 'Ожидание' },
+  { key: 'analysis', label: 'Анализ' },
+]
+
+export function chatStateLabel(state: ClientChatState | null): string {
+  return CLIENT_CHAT_STATES.find((s) => s.key === state)?.label ?? '—'
+}
+
 export interface FileAsset {
   id: number
   filename: string
@@ -86,6 +98,8 @@ export interface Client {
    * `null` — переписка не привязана; `0` — «Избранное». Ни к одной стадии
    * не привязан, редактируется в любой момент. */
   max_chat_id: number | null
+  /** Состояние переписки — хранится на связи, осмысленно только пока чат привязан. */
+  max_chat_state: ClientChatState | null
   order_type: OrderType | null
   /** Ключ карточки каталога типовых проектов (0043), если дом клиента совпадает
    * с одной из моделей — необязателен, индивидуальный дом может не совпасть ни с одной. */
