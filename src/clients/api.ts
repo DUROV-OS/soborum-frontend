@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Client, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
+import { Client, ClientChatState, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
 
 const SECTION = 'clients'
 
@@ -51,6 +51,11 @@ export function setMaxChat(id: number, maxChatId: number | null): Promise<Client
     method: 'PATCH',
     body: { max_chat_id: maxChatId },
   })
+}
+
+/** PATCH /api/clients/:id/chat-state — только для клиента с уже привязанным чатом. */
+export function setChatState(id: number, state: ClientChatState): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/chat-state`, method: 'PATCH', body: { state } })
 }
 
 /** PATCH /api/clients/:id/payment */

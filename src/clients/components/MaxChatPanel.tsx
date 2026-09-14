@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link2, Send } from 'lucide-react'
+import { Link2, MessageSquareText, Send } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
-import { Input, Textarea } from '@/shared/ui/Field'
+import { Select, Textarea } from '@/shared/ui/Field'
+import { ChatPickerModal } from '@/max/components/ChatPickerModal'
 import * as maxApi from '@/max/api'
 import { MaxMessage } from '@/max/types'
 import { useClientsStore } from '../store'
-import { Client } from '../types'
+import { CLIENT_CHAT_STATES, Client, ClientChatState } from '../types'
 import { MaxAttachList } from './MaxAttachments'
 import { Section } from './PanelPrimitives'
 
@@ -23,57 +25,36 @@ export function MaxChatPanel({ client }: { client: Client }) {
   const setMaxChat = useClientsStore((s) => s.setMaxChat)
 
   if (client.max_chat_id === null) {
-    return <LinkChatForm client={client} onLink={(id) => setMaxChat(client.id, id)} />
+    return <LinkChatPrompt client={client} onLink={(chatId) => setMaxChat(client.id, chatId)} />
   }
   return <ChatThread client={client} chatId={client.max_chat_id} onUnlink={() => setMaxChat(client.id, null)} />
 }
 
-function LinkChatForm({
+function LinkChatPrompt({
   client,
   onLink,
 }: {
   client: Client
   onLink: (chatId: number) => Promise<{ ok: boolean; reason?: string }>
 }) {
-  const [value, setValue] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function submit() {
-    const trimmed = value.trim()
-    if (trimmed === '' || Number.isNaN(Number(trimmed))) {
-      setError('Введите числовой id чата MAX')
-      return
-    }
-    setSaving(true)
-    const result = await onLink(Number(trimmed))
-    setSaving(false)
-    setError(result.ok ? null : result.reason ?? 'Не удалось привязать чат')
-    if (result.ok) setValue('')
-  }
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   return (
     <Section title="Переписка в MAX">
       <p className="mb-3 text-[13px] text-muted">
-        Переписка с {client.full_name} ещё не привязана к чату MAX. Укажите id чата — после этого здесь
-        появятся сообщения и поле для ответа.
+        Переписка с {client.full_name} ещё не привязана к чату MAX. Найдите нужный чат — после привязки
+        здесь появятся сообщения и поле для ответа.
       </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
-          type="number"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="id чата MAX (0 — «Избранное»)"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit()
-          }}
-        />
-        <Button size="sm" onClick={submit} disabled={saving} className="shrink-0">
-          <Link2 size={14} />
-          {saving ? 'Привязка…' : 'Привязать'}
-        </Button>
-      </div>
-      {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
+      <Button size="sm" onClick={() => setPickerOpen(true)}>
+        <Link2 size={14} />
+        Привязать чат
+      </Button>
+      <ChatPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(chat) => onLink(chat.id)}
+        title="Привязать чат к клиенту"
+      />
     </Section>
   )
 }
@@ -147,19 +128,52 @@ function ChatThread({
     }
   }
 
+  const setChatState = useClientsStore((s) => s.setChatState)
+  const [stateSaving, setStateSaving] = useState(false)
+
+  async function changeState(state: ClientChatState) {
+    setStateSaving(true)
+    await setChatState(client.id, state)
+    setStateSaving(false)
+  }
+
   return (
     <Section title="Переписка в MAX">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <p className="text-[13px] text-muted">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-[13px] text-muted">
           {title ? `Чат «${title}»` : `Чат MAX #${chatId}`}
         </p>
-        <button
-          type="button"
-          onClick={onUnlink}
-          className="text-[12px] text-muted underline-offset-2 hover:text-danger hover:underline"
-        >
-          Отвязать
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <Select
+            value={client.max_chat_state ?? ''}
+            onChange={(e) => changeState(e.target.value as ClientChatState)}
+            disabled={stateSaving}
+            className="h-7 py-0 text-[12px]"
+          >
+            <option value="" disabled>
+              Состояние переписки
+            </option>
+            {CLIENT_CHAT_STATES.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+          <Link
+            to={`/chats/${chatId}`}
+            className="inline-flex items-center gap-1 text-[12px] text-muted underline-offset-2 hover:text-brand-dark hover:underline"
+          >
+            <MessageSquareText size={13} />
+            Открыть в MAX
+          </Link>
+          <button
+            type="button"
+            onClick={onUnlink}
+            className="text-[12px] text-muted underline-offset-2 hover:text-danger hover:underline"
+          >
+            Отвязать
+          </button>
+        </div>
       </div>
 
       <div

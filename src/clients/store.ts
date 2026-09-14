@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
-import { Client, ClientCreateInput } from './types'
+import { Client, ClientChatState, ClientCreateInput } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -21,6 +21,7 @@ interface ClientsState {
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
   setMaxChat: (id: number, maxChatId: number | null) => Promise<ActionResult>
+  setChatState: (id: number, state: ClientChatState) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
   uploadContractFile: (id: number, file: File) => Promise<ActionResult>
   uploadHouseProjectFile: (id: number, file: File) => Promise<ActionResult>
@@ -81,6 +82,7 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
     setMaxChat: (id, maxChatId) => applyClientMutation(() => clientsApi.setMaxChat(id, maxChatId)),
+    setChatState: (id, state) => applyClientMutation(() => clientsApi.setChatState(id, state)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),
     uploadContractFile: (id, file) => applyClientMutation(() => clientsApi.uploadContractFile(id, file)),
     uploadHouseProjectFile: (id, file) => applyClientMutation(() => clientsApi.uploadHouseProjectFile(id, file)),

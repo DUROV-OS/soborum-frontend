@@ -57,6 +57,9 @@ export interface MaxChatSummary {
   /** Unix-время последнего события в чате (мс) — по нему список отсортирован. */
   lastEventTime: number | null
   lastMessage: MaxMessage | null
+  /** Клиент (app.clients), к которому привязан чат — null, если не привязан. */
+  linkedClientId: number | null
+  linkedClientName: string | null
 }
 
 /** Ответ GET /api/max/chats — все чаты, самые свежие сверху. */
