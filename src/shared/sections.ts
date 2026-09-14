@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Factory,
   Handshake,
+  Home,
   Landmark,
   Layers,
   Network,
@@ -50,6 +51,7 @@ export type SectionId =
   | 'cycle'
   | 'warehouse'
   | 'marketing'
+  | 'house_models'
   | 'tasks'
   | 'tasks_all'
   | 'admin'
@@ -83,6 +85,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'installation', label: 'Монтаж', path: '/montage', icon: Truck },
   { id: 'warehouse', label: 'Склад', path: '/warehouse', icon: Boxes },
   { id: 'marketing', label: 'Маркетинг', path: '/marketing', icon: Megaphone },
+  { id: 'house_models', label: 'Типовые проекты домов', path: '/house-models', icon: Home },
   { id: 'tasks', label: 'Задачи', path: '/tasks', icon: ClipboardList },
   { id: 'tasks_all', label: 'Все задачи', path: '/tasks', icon: Layers },
   { id: 'board', label: 'Совет директоров', path: '/board', icon: Landmark },
@@ -107,6 +110,7 @@ export const WORK_SECTION_IDS: SectionId[] = [
   'warehouse',
   'installation',
   'marketing',
+  'house_models',
   'meetings',
   'chats',
   'accounting',
