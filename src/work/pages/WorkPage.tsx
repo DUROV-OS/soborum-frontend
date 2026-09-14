@@ -150,7 +150,12 @@ function WorkTile({
         </div>
       </div>
 
-      {action && heat && (
+      {loading ? (
+        <div role="status" aria-label="Загрузка сигнала" className="mt-4 flex-1 space-y-2 rounded-lg border-l-[3px] border-border bg-surface-muted/60 p-3.5">
+          <div className="h-3 w-24 animate-pulse rounded bg-surface-muted" />
+          <div className="h-4 w-full animate-pulse rounded bg-surface-muted" />
+        </div>
+      ) : action && heat && (
         <div className={`mt-4 flex-1 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK[heat]}`}>
           <div className={`mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold ${HEAT_TEXT[heat]}`}>
             <Sparkles size={14} className="text-ai-accent" />
