@@ -108,15 +108,20 @@ function WorkTile({
   badge?: 'dev'
 }) {
   const [action, setAction] = useState<DashboardAction | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     getSectionSignal(id)
       .then((signal) => {
         if (!cancelled) setAction(signal.action)
       })
       .catch(() => {
         if (!cancelled) setAction(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
       })
     return () => {
       cancelled = true
