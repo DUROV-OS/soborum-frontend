@@ -158,3 +158,26 @@ export interface TaskPrioritiesOut {
   generated_at: string
   priorities: PriorityTaskOut[]
 }
+
+export type GrowthProposalStatus = 'open' | 'task_created'
+
+/** GET /api/ai/growth-proposals — подраздел «Развитие» в «Марине» (0036-a).
+ * Общий (не по владельцу) список, сейчас наполняется только демо-сидом на
+ * localhost — реальная генерация предложений Мариной вне скоупа 0036. */
+export interface GrowthProposalOut {
+  id: number
+  title: string
+  problem: string
+  checkable_result: string
+  executor_and_estimate: string
+  expected_effect: string
+  status: GrowthProposalStatus
+  task_id: number | null
+  created_at: string
+}
+
+/** POST /api/ai/growth-proposals/:id/prepare-task */
+export interface GrowthProposalPrepareTaskOut {
+  proposal: GrowthProposalOut
+  task: Task
+}
