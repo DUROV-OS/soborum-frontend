@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
@@ -44,6 +44,31 @@ const SOURCE_LABEL: Record<SourceFilter, string> = {
   warehouse: 'Склад',
 }
 
+const EMPLOYEE_ALL = 'all'
+const EMPLOYEE_UNASSIGNED = 'unassigned'
+
+/**
+ * Список сотрудников для фильтра строится из фактических исполнителей уже
+ * загруженных задач (а не из useAuthStore().accounts — тот список грузится
+ * только для admin, см. src/auth/store.ts).
+ */
+function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
+  const byId = new Map<number, string>()
+  for (const task of tasks) {
+    for (const assignee of task.assignees) byId.set(assignee.id, assignee.full_name)
+  }
+  return Array.from(byId, ([id, full_name]) => ({ id, full_name })).sort((a, b) =>
+    a.full_name.localeCompare(b.full_name, 'ru'),
+  )
+}
+
+function matchesEmployee(task: Task, employeeFilter: string): boolean {
+  if (employeeFilter === EMPLOYEE_ALL) return true
+  if (employeeFilter === EMPLOYEE_UNASSIGNED) return task.assignees.length === 0
+  const id = Number(employeeFilter)
+  return task.assignees.some((a) => a.id === id)
+}
+
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     title: 'Мои задачи',
@@ -68,7 +93,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         Вкладка «Все задачи» (видна не всем — нужен отдельный доступ) — общий борд по всем разделам и
-        пользователям, с поиском по названию и описанию, фильтром по разделу-источнику и по сроку.
+        пользователям, с поиском по названию и описанию, фильтром по разделу-источнику, по сотруднику
+        и по сроку.
       </p>
     ),
   },
@@ -95,6 +121,7 @@ export function TasksPage() {
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
+  const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
@@ -105,6 +132,10 @@ export function TasksPage() {
   useEffect(() => {
     if (!canSeeAll && subTab === 'all') setSubTab('mine')
   }, [canSeeAll, subTab])
+
+  useEffect(() => {
+    if (subTab !== 'all') setEmployeeFilter(EMPLOYEE_ALL)
+  }, [subTab])
 
   useEffect(() => {
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
@@ -120,12 +151,14 @@ export function TasksPage() {
 
   const range = dateFilterRange(dateFilter)
   const q = query.trim().toLowerCase()
+  const employees = useMemo(() => employeeOptions(tasks), [tasks])
   const filtered = tasks
     .filter((t) => sourceFilter === 'all' || sourceOf(t) === sourceFilter)
     // Нет дедлайна (авто-задачи из разделов) → фильтруем по дате создания,
     // чтобы выбранный период их не терял целиком.
     .filter((t) => matchesDateFilter(t.deadline ?? t.created_at, range))
     .filter((t) => !q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
+    .filter((t) => matchesEmployee(t, employeeFilter))
 
   return (
     <div>
@@ -177,6 +210,15 @@ export function TasksPage() {
             {Object.entries(SOURCE_LABEL).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
+              </option>
+            ))}
+          </Select>
+          <Select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="w-full sm:w-48">
+            <option value={EMPLOYEE_ALL}>Все сотрудники</option>
+            <option value={EMPLOYEE_UNASSIGNED}>Без исполнителя</option>
+            {employees.map((e) => (
+              <option key={e.id} value={String(e.id)}>
+                {e.full_name}
               </option>
             ))}
           </Select>
