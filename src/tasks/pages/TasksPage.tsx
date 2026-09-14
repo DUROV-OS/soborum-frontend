@@ -93,7 +93,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         Вкладка «Все задачи» (видна не всем — нужен отдельный доступ) — общий борд по всем разделам и
-        пользователям, с поиском по названию и описанию, фильтром по разделу-источнику и по сроку.
+        пользователям, с поиском по названию и описанию, фильтром по разделу-источнику, по сотруднику
+        и по сроку.
       </p>
     ),
   },
@@ -150,12 +151,14 @@ export function TasksPage() {
 
   const range = dateFilterRange(dateFilter)
   const q = query.trim().toLowerCase()
+  const employees = useMemo(() => employeeOptions(tasks), [tasks])
   const filtered = tasks
     .filter((t) => sourceFilter === 'all' || sourceOf(t) === sourceFilter)
     // Нет дедлайна (авто-задачи из разделов) → фильтруем по дате создания,
     // чтобы выбранный период их не терял целиком.
     .filter((t) => matchesDateFilter(t.deadline ?? t.created_at, range))
     .filter((t) => !q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
+    .filter((t) => matchesEmployee(t, employeeFilter))
 
   return (
     <div>
@@ -213,7 +216,7 @@ export function TasksPage() {
           <Select value={employeeFilter} onChange={(e) => setEmployeeFilter(e.target.value)} className="w-full sm:w-48">
             <option value={EMPLOYEE_ALL}>Все сотрудники</option>
             <option value={EMPLOYEE_UNASSIGNED}>Без исполнителя</option>
-            {employeeOptions(tasks).map((e) => (
+            {employees.map((e) => (
               <option key={e.id} value={String(e.id)}>
                 {e.full_name}
               </option>
