@@ -28,10 +28,16 @@ export interface TodayDashboard {
 }
 
 /** GET /api/dashboard/today/section/{section} — один раздел «Работы» отдельным
- * кэшируемым (6ч) запросом, вместо общего /today на всю страницу. */
+ * кэшируемым (6ч) запросом, вместо общего /today на всю страницу.
+ *
+ * `checked` — по разделу вообще есть проверка сигнала внимания на бэке: true,
+ * если `action === null` значит «проверили, проблем нет»; false — раздел не
+ * входит в проверяемые (или нет доступа), `action === null` там ничего не
+ * говорит о состоянии раздела, только «не проверяли». */
 export interface SectionSignal {
   section: string
   action: DashboardAction | null
+  checked: boolean
   generated_at: string
 }
 
