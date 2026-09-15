@@ -47,10 +47,16 @@ interface AiState {
   /** Подраздел «Развитие» — общий список, не зависит от activeChat. */
   growthProposals: GrowthProposalOut[]
   growthProposalsLoading: boolean
+  /** Кнопка «Обновить» (reload=true, реальная генерация, 0050-b) — отдельное
+   * состояние от начальной загрузки: список не мигает пустым, ошибка не
+   * затирает то, что уже показано. */
+  growthProposalsRefreshing: boolean
+  growthProposalsRefreshError: string | null
 
   loadChats: (domain?: ChatDomain) => Promise<void>
   loadAgentActivity: () => Promise<void>
   loadGrowthProposals: () => Promise<void>
+  refreshGrowthProposals: () => Promise<void>
   prepareGrowthProposalTask: (id: number) => Promise<void>
   openChat: (id: number) => Promise<void>
   startDraft: (domain: ChatDomain, mode?: ChatMode) => void
@@ -96,6 +102,8 @@ export const useAiStore = create<AiState>((set, get) => {
     agentActivityLoading: false,
     growthProposals: [],
     growthProposalsLoading: false,
+    growthProposalsRefreshing: false,
+    growthProposalsRefreshError: null,
 
     loadAgentActivity: async () => {
       set({ agentActivityLoading: true })
@@ -114,6 +122,17 @@ export const useAiStore = create<AiState>((set, get) => {
         set({ growthProposals, growthProposalsLoading: false })
       } catch (error) {
         set({ growthProposalsLoading: false, error: reasonOf(error) })
+      }
+    },
+
+    refreshGrowthProposals: async () => {
+      set({ growthProposalsRefreshing: true, growthProposalsRefreshError: null })
+      try {
+        const growthProposals = await aiApi.listGrowthProposals(true)
+        set({ growthProposals, growthProposalsRefreshing: false })
+      } catch (error) {
+        // Список нарочно не трогаем — старые предложения остаются на экране.
+        set({ growthProposalsRefreshing: false, growthProposalsRefreshError: reasonOf(error) })
       }
     },
 
