@@ -11,6 +11,7 @@ import {
   ChatMode,
   ChatOut,
   FileAssetOut,
+  GrowthProposalOut,
   PendingActionOut,
 } from './types'
 
@@ -43,9 +44,14 @@ interface AiState {
   /** Панель «Действия агента» справа от чата — общий лог, не зависит от activeChat. */
   agentActivity: AgentActivityOut[]
   agentActivityLoading: boolean
+  /** Подраздел «Развитие» — общий список, не зависит от activeChat. */
+  growthProposals: GrowthProposalOut[]
+  growthProposalsLoading: boolean
 
   loadChats: (domain?: ChatDomain) => Promise<void>
   loadAgentActivity: () => Promise<void>
+  loadGrowthProposals: () => Promise<void>
+  prepareGrowthProposalTask: (id: number) => Promise<void>
   openChat: (id: number) => Promise<void>
   startDraft: (domain: ChatDomain, mode?: ChatMode) => void
   send: (message: string, contextNote?: string) => Promise<AskResponse | null>
@@ -88,6 +94,8 @@ export const useAiStore = create<AiState>((set, get) => {
     error: null,
     agentActivity: [],
     agentActivityLoading: false,
+    growthProposals: [],
+    growthProposalsLoading: false,
 
     loadAgentActivity: async () => {
       set({ agentActivityLoading: true })
@@ -97,6 +105,23 @@ export const useAiStore = create<AiState>((set, get) => {
       } catch (error) {
         set({ agentActivityLoading: false, error: reasonOf(error) })
       }
+    },
+
+    loadGrowthProposals: async () => {
+      set({ growthProposalsLoading: true })
+      try {
+        const growthProposals = await aiApi.listGrowthProposals()
+        set({ growthProposals, growthProposalsLoading: false })
+      } catch (error) {
+        set({ growthProposalsLoading: false, error: reasonOf(error) })
+      }
+    },
+
+    prepareGrowthProposalTask: async (id) => {
+      const { proposal } = await aiApi.prepareGrowthProposalTask(id)
+      set((state) => ({
+        growthProposals: state.growthProposals.map((p) => (p.id === id ? proposal : p)),
+      }))
     },
 
     loadChats: async (domain) => {

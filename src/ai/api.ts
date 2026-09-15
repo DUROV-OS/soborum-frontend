@@ -10,6 +10,8 @@ import {
   ChatMode,
   ChatOut,
   FileAssetOut,
+  GrowthProposalOut,
+  GrowthProposalPrepareTaskOut,
   PendingActionOut,
   SectionAnalyticsOut,
   TaskPrioritiesOut,
@@ -130,4 +132,18 @@ export function rejectPendingAction(id: number): Promise<AskResponse> {
 /** GET /api/ai/agent-actions — лог «Действия агента» (панель справа от чата) */
 export function listAgentActivity(limit = 30): Promise<AgentActivityOut[]> {
   return apiRequest<AgentActivityOut[]>({ section: SECTION, path: '/agent-actions', query: { limit } })
+}
+
+/** GET /api/ai/growth-proposals — подраздел «Развитие» */
+export function listGrowthProposals(): Promise<GrowthProposalOut[]> {
+  return apiRequest<GrowthProposalOut[]>({ section: SECTION, path: '/growth-proposals' })
+}
+
+/** POST /api/ai/growth-proposals/:id/prepare-task — кнопка «Подготовить задачу» */
+export function prepareGrowthProposalTask(id: number): Promise<GrowthProposalPrepareTaskOut> {
+  return apiRequest<GrowthProposalPrepareTaskOut>({
+    section: SECTION,
+    path: `/growth-proposals/${id}/prepare-task`,
+    method: 'POST',
+  })
 }

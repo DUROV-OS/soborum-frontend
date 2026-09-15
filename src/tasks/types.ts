@@ -17,6 +17,7 @@ export type TaskLinkType =
   | 'content_stage'
   | 'warehouse_request'
   | 'warehouse_shortage'
+  | 'growth_proposal'
 
 export interface Task {
   id: number
