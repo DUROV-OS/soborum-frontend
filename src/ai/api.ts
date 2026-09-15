@@ -134,9 +134,11 @@ export function listAgentActivity(limit = 30): Promise<AgentActivityOut[]> {
   return apiRequest<AgentActivityOut[]>({ section: SECTION, path: '/agent-actions', query: { limit } })
 }
 
-/** GET /api/ai/growth-proposals — подраздел «Развитие» */
-export function listGrowthProposals(): Promise<GrowthProposalOut[]> {
-  return apiRequest<GrowthProposalOut[]>({ section: SECTION, path: '/growth-proposals' })
+/** GET /api/ai/growth-proposals — подраздел «Развитие».
+ * reload=true запускает реальную генерацию через Claude (0050-a) и заменяет
+ * открытые предложения новым набором; без reload — то что уже есть в базе. */
+export function listGrowthProposals(reload = false): Promise<GrowthProposalOut[]> {
+  return apiRequest<GrowthProposalOut[]>({ section: SECTION, path: '/growth-proposals', query: { reload } })
 }
 
 /** POST /api/ai/growth-proposals/:id/prepare-task — кнопка «Подготовить задачу» */
