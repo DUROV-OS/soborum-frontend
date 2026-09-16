@@ -33,6 +33,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         {task.deadline && <Row label="Дедлайн" value={new Date(task.deadline).toLocaleDateString('ru-RU')} />}
 
         <Row label="Исполнители" value={task.assignees.map((a) => a.full_name).join(', ') || '—'} />
+        <Row label="Ответственный" value={task.responsible?.full_name ?? '—'} />
         <Row label="Проверяющие" value={task.reviewers.map((a) => a.full_name).join(', ') || 'нет — проверка не требуется'} />
 
         {task.depends_on_ids.length > 0 && <Row label="Зависит от" value={`${task.depends_on_ids.length} задач(и)`} />}
