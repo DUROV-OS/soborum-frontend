@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { List, Plus, Workflow } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
@@ -7,6 +7,9 @@ import { Field, Input, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { Production } from '../types'
 import { useProductionStore } from '../store'
+import { BlockGraph } from './BlockGraph'
+
+type ViewMode = 'list' | 'graph'
 
 /** Содержимое вкладки «Сборка» одного производства — блоки этого дома (узлы
  * направленного графа этапов производства) и их материалы. Раньше это было
@@ -16,52 +19,81 @@ export function ProductionBlocksTab() {
   const { production } = useOutletContext<{ production: Production }>()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
+  const [view, setView] = useState<ViewMode>('list')
 
   const blocks = [...production.blocks].sort((a, b) => a.sequence - b.sequence)
   const blockById = new Map(blocks.map((b) => [b.id, b]))
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-[15px] font-medium text-ink">Блоки</h2>
-        <Button size="sm" onClick={() => setCreating(true)}>
-          <Plus size={16} />
-          Блок
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-border p-0.5">
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              aria-pressed={view === 'list'}
+              className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                view === 'list' ? 'bg-brand/10 text-brand-dark' : 'text-muted hover:text-ink'
+              }`}
+            >
+              <List size={14} />
+              Список
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('graph')}
+              aria-pressed={view === 'graph'}
+              className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                view === 'graph' ? 'bg-brand/10 text-brand-dark' : 'text-muted hover:text-ink'
+              }`}
+            >
+              <Workflow size={14} />
+              Граф
+            </button>
+          </div>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <Plus size={16} />
+            Блок
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {blocks.map((block) => {
-          const waitingFor = block.depends_on_ids.map((id) => blockById.get(id)?.name ?? `Блок №${id}`)
-          return (
-            <button
-              key={block.id}
-              type="button"
-              onClick={() => navigate(`/production/blocks/${block.id}`)}
-              className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[14px] font-medium text-ink">{block.name}</div>
-                <span
-                  className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-medium ${
-                    waitingFor.length > 0 ? 'bg-warning/10 text-warning' : 'bg-brand/10 text-brand-dark'
-                  }`}
-                >
-                  {waitingFor.length > 0 ? 'заблокирован' : 'готов к старту'}
-                </span>
-              </div>
-              {block.description && <div className="mt-1 text-[13px] text-muted">{block.description}</div>}
-              {waitingFor.length > 0 && (
-                <div className="mt-2 text-[12px] text-muted">Ждёт: {waitingFor.join(', ')}</div>
-              )}
-              <div className="mt-2 text-[12px] text-muted">{block.materials.length} материал(ов)</div>
-            </button>
-          )
-        })}
-        {blocks.length === 0 && (
-          <p className="text-[13px] text-muted">Блоков пока нет — добавьте первый.</p>
-        )}
-      </div>
+      {view === 'graph' ? (
+        <BlockGraph blocks={blocks} onSelect={(block) => navigate(`/production/blocks/${block.id}`)} />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {blocks.map((block) => {
+            const waitingFor = block.depends_on_ids.map((id) => blockById.get(id)?.name ?? `Блок №${id}`)
+            return (
+              <button
+                key={block.id}
+                type="button"
+                onClick={() => navigate(`/production/blocks/${block.id}`)}
+                className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[14px] font-medium text-ink">{block.name}</div>
+                  <span
+                    className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-medium ${
+                      waitingFor.length > 0 ? 'bg-warning/10 text-warning' : 'bg-brand/10 text-brand-dark'
+                    }`}
+                  >
+                    {waitingFor.length > 0 ? 'заблокирован' : 'готов к старту'}
+                  </span>
+                </div>
+                {block.description && <div className="mt-1 text-[13px] text-muted">{block.description}</div>}
+                {waitingFor.length > 0 && (
+                  <div className="mt-2 text-[12px] text-muted">Ждёт: {waitingFor.join(', ')}</div>
+                )}
+                <div className="mt-2 text-[12px] text-muted">{block.materials.length} материал(ов)</div>
+              </button>
+            )
+          })}
+          {blocks.length === 0 && <p className="text-[13px] text-muted">Блоков пока нет — добавьте первый.</p>}
+        </div>
+      )}
 
       <CreateBlockModal productionId={production.id} open={creating} onClose={() => setCreating(false)} />
     </div>
