@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, FileText } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Lock } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { PlanningImage } from '@/house_models/components/PlanningImage'
+import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
@@ -23,7 +24,8 @@ const STATUS_LABEL: Record<ProductionStageTemplate['status'], string> = {
 
 /** Экран проверки предложенного ИИ графа этапов производства (0066-e): слева —
  * страница КР, выбранная кликом на «стр. N» справа, справа — предложенные
- * блоки/задачи/материалы. Правка полей переводит шаблон в `reviewed`. */
+ * блоки/задачи/материалы. Правка полей переводит шаблон в `reviewed`; после
+ * `confirm` экран уходит в locked-состояние — правки больше не отправляются. */
 export function StageTemplateReviewPage() {
   const { id = '' } = useParams()
   const templateId = Number(id)
@@ -33,6 +35,7 @@ export function StageTemplateReviewPage() {
   const [selectedPage, setSelectedPage] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -75,6 +78,20 @@ export function StageTemplateReviewPage() {
     setTemplate(updated)
   }
 
+  async function handleConfirm() {
+    if (!template) return
+    if (!window.confirm('Подтвердить граф этапов? Дальше правки будут недоступны.')) return
+    setConfirming(true)
+    try {
+      const updated = await stageTemplateApi.confirmStageTemplate(template.id)
+      refresh(updated)
+    } catch {
+      setError('Не удалось подтвердить шаблон')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   if (loading) return <LoadingState label="Загружаем предложенный план…" />
   if (error || !template) {
     return <EmptyState icon={<FileText size={24} />} title="Шаблон не найден" description={error ?? undefined} />
@@ -99,9 +116,22 @@ export function StageTemplateReviewPage() {
             производства.
           </p>
         </div>
-        <Chip tone={locked ? 'success' : template.status === 'reviewed' ? 'brand' : 'neutral'}>
-          {STATUS_LABEL[template.status]}
-        </Chip>
+        <div className="flex items-center gap-2">
+          <Chip tone={locked ? 'success' : template.status === 'reviewed' ? 'brand' : 'neutral'}>
+            {STATUS_LABEL[template.status]}
+          </Chip>
+          {locked ? (
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
+              <Lock size={13} />
+              Правки недоступны
+            </span>
+          ) : (
+            <Button size="sm" onClick={handleConfirm} disabled={confirming}>
+              <CheckCircle2 size={14} />
+              {confirming ? 'Подтверждаем…' : 'Подтвердить'}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
