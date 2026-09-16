@@ -6,8 +6,10 @@ import { ClientDetailPage } from '@/clients/pages/ClientDetailPage'
 import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { ModuleDetailPage } from '@/production/pages/ModuleDetailPage'
-import { ProductionDetailPage } from '@/production/pages/ProductionDetailPage'
-import { ProductionSectionPage } from '@/production/pages/ProductionSectionPage'
+import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
+import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
+import { ProductionModulesTab } from '@/production/components/ProductionModulesTab'
+import { SectionStub } from '@/production/components/SectionStub'
 import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
 import { MontageOverviewPage } from '@/montage/pages/MontageOverviewPage'
 import { MarketingPage } from '@/marketing/pages/MarketingPage'
@@ -81,7 +83,7 @@ export function AppRouter() {
           path="/production"
           element={
             <AccessGate section="production">
-              <ProductionSectionPage />
+              <ProductionOverviewPage />
             </AccessGate>
           }
         />
@@ -97,10 +99,16 @@ export function AppRouter() {
           path="/production/:id"
           element={
             <AccessGate section="production">
-              <ProductionDetailPage />
+              <ProductionDetailShell />
             </AccessGate>
           }
-        />
+        >
+          <Route index element={<Navigate to="sborka" replace />} />
+          <Route path="glavnaya" element={<SectionStub title="Главная" />} />
+          <Route path="postavka" element={<SectionStub title="Поставка" />} />
+          <Route path="sborka" element={<ProductionModulesTab />} />
+          <Route path="ostalnoe" element={<SectionStub title="Остальное" />} />
+        </Route>
         <Route
           path="/montage"
           element={
