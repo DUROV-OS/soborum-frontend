@@ -47,3 +47,22 @@ export function updateAccountAccess(id: number, module_access: SectionId[]): Pro
     body: { module_access },
   })
 }
+
+/** POST /api/auth/users/:id/reset-password */
+export function resetAccountPassword(id: number): Promise<Account> {
+  return apiRequest<Account>({
+    section: SECTION,
+    path: `/users/${id}/reset-password`,
+    method: 'POST',
+  })
+}
+
+/** POST /api/auth/me/password */
+export function changePassword(currentPassword: string, newPassword: string): Promise<Account> {
+  return apiRequest<Account>({
+    section: SECTION,
+    path: '/me/password',
+    method: 'POST',
+    body: { current_password: currentPassword, new_password: newPassword },
+  })
+}
