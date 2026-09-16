@@ -121,7 +121,7 @@ function AktualnoeSection({ aktualnoe }: { aktualnoe: ProductionHomeData['aktual
           <div className="h-2 overflow-hidden rounded-pill bg-surface-muted" role="progressbar" aria-valuenow={aktualnoe.percent} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full rounded-pill bg-brand transition-[width] duration-500" style={{ width: `${aktualnoe.percent}%` }} />
           </div>
-          <p className="mt-2 text-[12px] text-muted">{aktualnoe.stage}</p>
+          {aktualnoe.phrase && <p className="mt-2 text-[12px] text-muted">{aktualnoe.stage}</p>}
         </div>
       )}
     </section>
