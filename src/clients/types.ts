@@ -112,7 +112,11 @@ export interface Client {
   /** Сумма аванса — только для payment_plan === 'advance_then_balance', меньше final_price. */
   advance_amount: number | null
   contract_file: FileAsset | null
+  contract_appendix_file: FileAsset | null
+  /** Необязателен с 0061 — не у каждого клиента есть проект дома в системе. */
   house_project_file: FileAsset | null
+  ar_file: FileAsset | null
+  kr_file: FileAsset | null
   documents_locked_at: string | null
   is_paid: boolean | null
   payment_locked_at: string | null

@@ -23,8 +23,10 @@ interface ClientsState {
   setMaxChat: (id: number, maxChatId: number | null) => Promise<ActionResult>
   setChatState: (id: number, state: ClientChatState) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
-  uploadContractFile: (id: number, file: File) => Promise<ActionResult>
+  uploadContractFiles: (id: number, contract: File, appendix: File) => Promise<ActionResult>
   uploadHouseProjectFile: (id: number, file: File) => Promise<ActionResult>
+  uploadArFile: (id: number, file: File) => Promise<ActionResult>
+  uploadKrFile: (id: number, file: File) => Promise<ActionResult>
   addNote: (id: number, text: string) => Promise<ActionResult>
   updateNote: (id: number, noteId: number, text: string) => Promise<ActionResult>
   deleteNote: (id: number, noteId: number) => Promise<ActionResult>
@@ -84,8 +86,11 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     setMaxChat: (id, maxChatId) => applyClientMutation(() => clientsApi.setMaxChat(id, maxChatId)),
     setChatState: (id, state) => applyClientMutation(() => clientsApi.setChatState(id, state)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),
-    uploadContractFile: (id, file) => applyClientMutation(() => clientsApi.uploadContractFile(id, file)),
+    uploadContractFiles: (id, contract, appendix) =>
+      applyClientMutation(() => clientsApi.uploadContractFiles(id, contract, appendix)),
     uploadHouseProjectFile: (id, file) => applyClientMutation(() => clientsApi.uploadHouseProjectFile(id, file)),
+    uploadArFile: (id, file) => applyClientMutation(() => clientsApi.uploadArFile(id, file)),
+    uploadKrFile: (id, file) => applyClientMutation(() => clientsApi.uploadKrFile(id, file)),
     advance: async (id) => {
       const result = await applyClientMutation(() => clientsApi.advanceStage(id))
       if (result.ok) set({ lastAdvancedId: id })
