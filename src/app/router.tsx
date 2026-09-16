@@ -9,6 +9,7 @@ import { ModuleDetailPage } from '@/production/pages/ModuleDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
 import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
 import { ProductionModulesTab } from '@/production/components/ProductionModulesTab'
+import { ProductionHomeTab } from '@/production/pages/ProductionHomeTab'
 import { SectionStub } from '@/production/components/SectionStub'
 import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
 import { MontageOverviewPage } from '@/montage/pages/MontageOverviewPage'
@@ -104,7 +105,7 @@ export function AppRouter() {
           }
         >
           <Route index element={<Navigate to="sborka" replace />} />
-          <Route path="glavnaya" element={<SectionStub title="Главная" />} />
+          <Route path="glavnaya" element={<ProductionHomeTab />} />
           <Route path="postavka" element={<SectionStub title="Поставка" />} />
           <Route path="sborka" element={<ProductionModulesTab />} />
           <Route path="ostalnoe" element={<SectionStub title="Остальное" />} />
