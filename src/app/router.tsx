@@ -7,7 +7,7 @@ import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { ModuleDetailPage } from '@/production/pages/ModuleDetailPage'
 import { ProductionDetailPage } from '@/production/pages/ProductionDetailPage'
-import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
+import { ProductionSectionPage } from '@/production/pages/ProductionSectionPage'
 import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
 import { MontageOverviewPage } from '@/montage/pages/MontageOverviewPage'
 import { MarketingPage } from '@/marketing/pages/MarketingPage'
@@ -81,7 +81,7 @@ export function AppRouter() {
           path="/production"
           element={
             <AccessGate section="production">
-              <ProductionOverviewPage />
+              <ProductionSectionPage />
             </AccessGate>
           }
         />
