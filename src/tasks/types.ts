@@ -32,6 +32,9 @@ export interface Task {
   link_meta: Record<string, unknown> | null
   assignees: Account[]
   reviewers: Account[]
+  /** Один человек, отвечающий за задачу, когда исполнителей несколько —
+   * отдельно от assignees/reviewers, не обязан быть среди исполнителей. */
+  responsible: Account | null
   images: FileAsset[]
   depends_on_ids: number[]
 }
