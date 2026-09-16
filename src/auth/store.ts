@@ -16,6 +16,8 @@ interface AuthState {
   hasAccess: (section: SectionId) => boolean
   updateAccess: (id: number, moduleAccess: SectionId[]) => Promise<void>
   addAccount: (input: Omit<authApi.CreateAccountInput, 'email'> & { email: string }) => Promise<void>
+  resetPassword: (id: number) => Promise<void>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -84,5 +86,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   addAccount: async (input) => {
     const created = await authApi.createAccount(input)
     set((state) => ({ accounts: [...state.accounts, created] }))
+  },
+
+  resetPassword: async (id) => {
+    const updated = await authApi.resetAccountPassword(id)
+    set((state) => ({ accounts: state.accounts.map((a) => (a.id === id ? updated : a)) }))
+  },
+
+  changePassword: async (currentPassword, newPassword) => {
+    const updated = await authApi.changePassword(currentPassword, newPassword)
+    set({ current: updated })
   },
 }))
