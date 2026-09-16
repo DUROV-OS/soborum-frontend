@@ -21,7 +21,9 @@ export function BlockDetailPage() {
   const { id = '' } = useParams()
   const blockId = Number(id)
   const block = useProductionStore((s) => s.block)
+  const production = useProductionStore((s) => s.production)
   const loadBlock = useProductionStore((s) => s.loadBlock)
+  const loadProduction = useProductionStore((s) => s.loadProduction)
   const deleteBlock = useProductionStore((s) => s.deleteBlock)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const navigate = useNavigate()
@@ -42,6 +44,12 @@ export function BlockDetailPage() {
     warehouseApi.listMaterials().then(setMaterials)
   }, [blockId, loadBlock, loadTasks])
 
+  useEffect(() => {
+    if (block && block.id === blockId && production?.id !== block.production_id) {
+      loadProduction(block.production_id)
+    }
+  }, [block, blockId, production, loadProduction])
+
   if (!block || block.id !== blockId) {
     return <p className="text-[13px] text-muted">Загрузка…</p>
   }
@@ -51,6 +59,9 @@ export function BlockDetailPage() {
   }
 
   const blockTasks = tasks.filter((t) => t.block_id === blockId)
+  const dependencyNames = block.depends_on_ids.map(
+    (depId) => production?.blocks.find((b) => b.id === depId)?.name ?? `Блок №${depId}`
+  )
 
   async function handleDelete() {
     if (!block) return
@@ -79,6 +90,9 @@ export function BlockDetailPage() {
         <div>
           <h1 className="text-[18px] font-medium text-ink">{block.name}</h1>
           {block.description && <p className="mt-1 text-[13px] text-muted">{block.description}</p>}
+          {dependencyNames.length > 0 && (
+            <p className="mt-1 text-[12px] text-warning">Ждёт: {dependencyNames.join(', ')}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <AskAiButton
