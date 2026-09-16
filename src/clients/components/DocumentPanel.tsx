@@ -136,12 +136,28 @@ export function DocumentPanel({ client }: { client: Client }) {
           )}
           <ReadRow label="Адрес установки" value={client.installation_address ?? undefined} />
           <ReadRow
-            label="Проект дома"
-            value={client.house_project_file && <FileLink id={client.house_project_file.id} filename={client.house_project_file.filename} />}
+            label="АР"
+            value={client.ar_file && <FileLink id={client.ar_file.id} filename={client.ar_file.filename} />}
+          />
+          <ReadRow
+            label="КР"
+            value={client.kr_file && <FileLink id={client.kr_file.id} filename={client.kr_file.filename} />}
           />
           <ReadRow
             label="Договор"
             value={client.contract_file && <FileLink id={client.contract_file.id} filename={client.contract_file.filename} />}
+          />
+          <ReadRow
+            label="Приложение к договору"
+            value={
+              client.contract_appendix_file && (
+                <FileLink id={client.contract_appendix_file.id} filename={client.contract_appendix_file.filename} />
+              )
+            }
+          />
+          <ReadRow
+            label="Проект дома (необязательно)"
+            value={client.house_project_file && <FileLink id={client.house_project_file.id} filename={client.house_project_file.filename} />}
           />
         </Section>
         <HousesCountControl client={client} />
@@ -200,16 +216,31 @@ export function DocumentPanel({ client }: { client: Client }) {
               />
             </Field>
           )}
-          <Field label="Проект дома" required>
+          <Field label="АР" required>
+            <FileUploadButton
+              asset={client.ar_file}
+              onUpload={(file) => useClientsStore.getState().uploadArFile(client.id, file)}
+            />
+          </Field>
+          <Field label="КР" required>
+            <FileUploadButton
+              asset={client.kr_file}
+              onUpload={(file) => useClientsStore.getState().uploadKrFile(client.id, file)}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Договор + приложение к договору" required hint="Грузятся одним действием — оба файла разом.">
+              <ContractUploadButton
+                contract={client.contract_file}
+                appendix={client.contract_appendix_file}
+                onUpload={(contract, appendix) => useClientsStore.getState().uploadContractFiles(client.id, contract, appendix)}
+              />
+            </Field>
+          </div>
+          <Field label="Проект дома" hint="Необязательно — не у каждого клиента есть в системе.">
             <FileUploadButton
               asset={client.house_project_file}
               onUpload={(file) => useClientsStore.getState().uploadHouseProjectFile(client.id, file)}
-            />
-          </Field>
-          <Field label="Договор" required>
-            <FileUploadButton
-              asset={client.contract_file}
-              onUpload={(file) => useClientsStore.getState().uploadContractFile(client.id, file)}
             />
           </Field>
         </div>
@@ -281,6 +312,98 @@ function FileUploadButton({
         {uploading ? 'Загрузка…' : 'Прикрепить файл'}
       </button>
       {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
+    </div>
+  )
+}
+
+/** Договор и приложение к договору — одно действие: нельзя загрузить один без
+ * другого (0061). Пока не выбраны оба локальных файла, запрос не уходит. */
+function ContractUploadButton({
+  contract,
+  appendix,
+  onUpload,
+}: {
+  contract: FileAsset | null
+  appendix: FileAsset | null
+  onUpload: (contract: File, appendix: File) => Promise<{ ok: boolean; reason?: string }>
+}) {
+  const contractRef = useRef<HTMLInputElement>(null)
+  const appendixRef = useRef<HTMLInputElement>(null)
+  const [pendingContract, setPendingContract] = useState<File | null>(null)
+  const [pendingAppendix, setPendingAppendix] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(nextContract: File | null, nextAppendix: File | null) {
+    if (!nextContract || !nextAppendix) return
+    setUploading(true)
+    const result = await onUpload(nextContract, nextAppendix)
+    setUploading(false)
+    setPendingContract(null)
+    setPendingAppendix(null)
+    setError(result.ok ? null : result.reason ?? 'Не удалось загрузить файлы')
+  }
+
+  const bothUploaded = contract && appendix
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex-1">
+        <div className="mb-1 text-[11px] text-muted">Договор</div>
+        {bothUploaded && !pendingContract ? (
+          <FileLink id={contract.id} filename={contract.filename} />
+        ) : (
+          <span className="text-[12px] text-muted">{pendingContract ? pendingContract.name : 'не выбран'}</span>
+        )}
+        <input
+          ref={contractRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null
+            e.target.value = ''
+            setPendingContract(file)
+            void submit(file, pendingAppendix)
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => contractRef.current?.click()}
+          disabled={uploading}
+          className="mt-1 block text-[12px] text-brand-dark hover:underline disabled:opacity-50"
+        >
+          {bothUploaded ? 'Заменить' : 'Выбрать файл'}
+        </button>
+      </div>
+      <div className="flex-1">
+        <div className="mb-1 text-[11px] text-muted">Приложение к договору</div>
+        {bothUploaded && !pendingAppendix ? (
+          <FileLink id={appendix.id} filename={appendix.filename} />
+        ) : (
+          <span className="text-[12px] text-muted">{pendingAppendix ? pendingAppendix.name : 'не выбрано'}</span>
+        )}
+        <input
+          ref={appendixRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0] ?? null
+            e.target.value = ''
+            setPendingAppendix(file)
+            void submit(pendingContract, file)
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => appendixRef.current?.click()}
+          disabled={uploading}
+          className="mt-1 block text-[12px] text-brand-dark hover:underline disabled:opacity-50"
+        >
+          {bothUploaded ? 'Заменить' : 'Выбрать файл'}
+        </button>
+      </div>
+      {uploading && <span className="text-[12px] text-muted">Загрузка…</span>}
+      {error && <p className="text-[12px] text-danger">{error}</p>}
     </div>
   )
 }
