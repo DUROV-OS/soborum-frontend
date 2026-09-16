@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { ChevronDown, LogOut } from 'lucide-react'
+import { ChevronDown, KeyRound, LogOut } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
+import { ChangePasswordModal } from './ChangePasswordModal'
 
 export function RoleSwitcher() {
   const [open, setOpen] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
   const navigate = useNavigate()
   const current = useAuthStore((s) => s.current)
   const logout = useAuthStore((s) => s.logout)
@@ -41,6 +43,17 @@ export function RoleSwitcher() {
             <button
               type="button"
               onClick={() => {
+                setChangingPassword(true)
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-2.5 py-2 text-left text-[13px] text-ink hover:bg-surface-muted"
+            >
+              <KeyRound size={14} />
+              Изменить пароль
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 logout()
                 setOpen(false)
                 navigate('/login', { replace: true })
@@ -53,6 +66,8 @@ export function RoleSwitcher() {
           </div>
         </>
       )}
+
+      <ChangePasswordModal open={changingPassword} onClose={() => setChangingPassword(false)} />
     </div>
   )
 }
