@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight, KeyRound, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ASSIGNABLE_SECTIONS, SectionId } from '@/shared/sections'
 import { Button } from '@/shared/ui/Button'
@@ -45,8 +45,10 @@ export function AccessMatrixPage() {
   const loadAccounts = useAuthStore((s) => s.loadAccounts)
   const updateAccess = useAuthStore((s) => s.updateAccess)
   const addAccount = useAuthStore((s) => s.addAccount)
+  const resetPassword = useAuthStore((s) => s.resetPassword)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const onboarding = useSectionOnboarding('admin')
 
   useEffect(() => {
@@ -69,6 +71,18 @@ export function AccessMatrixPage() {
     }
   }
 
+  async function handleResetPassword(account: { id: number; full_name: string }) {
+    if (!window.confirm(`Сбросить пароль сотрудника «${account.full_name}» до default-пароля?`)) return
+    setError(null)
+    setNotice(null)
+    try {
+      await resetPassword(account.id)
+      setNotice(`Пароль сотрудника «${account.full_name}» сброшен: password1234`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось сбросить пароль')
+    }
+  }
+
   return (
     <div>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -88,6 +102,7 @@ export function AccessMatrixPage() {
       </div>
 
       {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}
+      {notice && <p className="mb-4 rounded-md bg-success-bg p-2.5 text-[13px] text-success">{notice}</p>}
 
       <Link
         to="/agents"
@@ -112,6 +127,7 @@ export function AccessMatrixPage() {
                   {section.label}
                 </th>
               ))}
+              <th className="px-3 py-2.5 text-center font-medium text-muted">Пароль</th>
             </tr>
           </thead>
           <tbody>
@@ -135,6 +151,16 @@ export function AccessMatrixPage() {
                     </td>
                   )
                 })}
+                <td className="px-3 py-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => handleResetPassword(account)}
+                    className="inline-flex items-center gap-1.5 rounded-pill border border-border px-2.5 py-1 text-[12px] text-ink hover:border-brand/40"
+                  >
+                    <KeyRound size={13} />
+                    Сбросить
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
