@@ -73,20 +73,37 @@ export function markBalancePayment(id: number): Promise<Client> {
   })
 }
 
-async function uploadFile(id: number, kind: 'contract-file' | 'house-project-file', file: File): Promise<Client> {
+async function uploadFile(
+  id: number,
+  kind: 'house-project-file' | 'ar-file' | 'kr-file',
+  file: File,
+): Promise<Client> {
   const form = new FormData()
   form.append('file', file)
   return apiRequest<Client>({ section: SECTION, path: `/${id}/${kind}`, method: 'POST', form })
 }
 
-/** POST /api/clients/:id/contract-file */
-export function uploadContractFile(id: number, file: File): Promise<Client> {
-  return uploadFile(id, 'contract-file', file)
+/** POST /api/clients/:id/contract-file — договор и приложение одним действием, нельзя раздельно (0061) */
+export function uploadContractFiles(id: number, contract: File, appendix: File): Promise<Client> {
+  const form = new FormData()
+  form.append('contract', contract)
+  form.append('appendix', appendix)
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/contract-file`, method: 'POST', form })
 }
 
 /** POST /api/clients/:id/house-project-file */
 export function uploadHouseProjectFile(id: number, file: File): Promise<Client> {
   return uploadFile(id, 'house-project-file', file)
+}
+
+/** POST /api/clients/:id/ar-file */
+export function uploadArFile(id: number, file: File): Promise<Client> {
+  return uploadFile(id, 'ar-file', file)
+}
+
+/** POST /api/clients/:id/kr-file */
+export function uploadKrFile(id: number, file: File): Promise<Client> {
+  return uploadFile(id, 'kr-file', file)
 }
 
 /** POST /api/clients/:id/notes */
