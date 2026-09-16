@@ -1,3 +1,7 @@
+import { FileAsset } from '@/clients/types'
+import { HouseModelBrief } from '@/house_models/types'
+import { WidgetTone } from '@/today/types'
+
 export type MaterialRequestStatus = 'pending' | 'approved' | 'rejected'
 
 export interface MaterialRequest {
@@ -56,4 +60,44 @@ export interface ProductionListItem {
   cycle_status: 'client' | 'production' | 'installation' | 'completed'
   created_at: string
   module_count: number
+}
+
+// ----------------------------------------------------------------- «Главная» --
+// GET /api/production/:id/home (0065) — те же виджеты, что на «Пульсе»
+// («Требует внимания», «Актуальное»), но по одному циклу/дому, плюс «Сроки»
+// и урезанные документы клиента (без цены/контактов).
+
+export interface ProductionAttention {
+  id: string
+  title: string
+  description: string
+  href: string
+  tone: WidgetTone
+}
+
+export interface ProductionAktualnoe {
+  stage: string
+  percent: number
+  phrase: string
+}
+
+export interface DeadlineInsight {
+  title: string
+  description: string
+  impact: string
+  source: 'ai' | 'fallback' | 'none'
+}
+
+export interface ProductionHomeDocuments {
+  house_model: HouseModelBrief | null
+  ar_file: FileAsset | null
+  kr_file: FileAsset | null
+  house_project_file: FileAsset | null
+}
+
+export interface ProductionHome {
+  actions: ProductionAttention[]
+  aktualnoe: ProductionAktualnoe | null
+  deadlines: DeadlineInsight
+  documents: ProductionHomeDocuments
 }
