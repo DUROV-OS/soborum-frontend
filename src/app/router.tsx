@@ -5,10 +5,10 @@ import { useAuthStore } from '@/auth/store'
 import { ClientDetailPage } from '@/clients/pages/ClientDetailPage'
 import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
-import { ModuleDetailPage } from '@/production/pages/ModuleDetailPage'
+import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
 import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
-import { ProductionModulesTab } from '@/production/components/ProductionModulesTab'
+import { ProductionBlocksTab } from '@/production/components/ProductionBlocksTab'
 import { ProductionHomeTab } from '@/production/pages/ProductionHomeTab'
 import { SectionStub } from '@/production/components/SectionStub'
 import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
@@ -89,10 +89,10 @@ export function AppRouter() {
           }
         />
         <Route
-          path="/production/modules/:id"
+          path="/production/blocks/:id"
           element={
             <AccessGate section="production">
-              <ModuleDetailPage />
+              <BlockDetailPage />
             </AccessGate>
           }
         />
@@ -107,7 +107,7 @@ export function AppRouter() {
           <Route index element={<Navigate to="sborka" replace />} />
           <Route path="glavnaya" element={<ProductionHomeTab />} />
           <Route path="postavka" element={<SectionStub title="Поставка" />} />
-          <Route path="sborka" element={<ProductionModulesTab />} />
+          <Route path="sborka" element={<ProductionBlocksTab />} />
           <Route path="ostalnoe" element={<SectionStub title="Остальное" />} />
         </Route>
         <Route

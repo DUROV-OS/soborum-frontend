@@ -63,7 +63,7 @@ export function CycleDetailPage() {
                 <div key={production.id} className="flex items-center justify-between gap-3">
                   <span className="text-[13px] text-muted">
                     {cycle.productions.length > 1 ? production.name : 'Проект'} ·{' '}
-                    {production.modules.length} модул(ей)
+                    {production.blocks.length} блок(ов)
                   </span>
                   <LinkRow to={`/production/${production.id}`} label="Открыть" />
                 </div>

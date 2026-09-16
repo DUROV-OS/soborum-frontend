@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as productionApi from './api'
-import { ProductionListItem, Module, Production } from './types'
+import { ProductionListItem, Block, Production } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -11,19 +11,21 @@ export interface ActionResult {
 interface ProductionState {
   productions: ProductionListItem[]
   production: Production | null
-  module: Module | null
+  block: Block | null
   loading: boolean
   error: string | null
   loadProductions: () => Promise<void>
   loadProduction: (id: number) => Promise<void>
-  loadModule: (id: number) => Promise<void>
-  createModule: (productionId: number, name: string, description?: string) => Promise<ActionResult>
-  updateModule: (id: number, patch: { name?: string; description?: string }) => Promise<ActionResult>
+  loadBlock: (id: number) => Promise<void>
+  createBlock: (productionId: number, name: string, description?: string) => Promise<ActionResult>
+  updateBlock: (id: number, patch: { name?: string; description?: string }) => Promise<ActionResult>
   deleteProduction: (id: number) => Promise<ActionResult>
-  deleteModule: (id: number) => Promise<ActionResult>
-  addModuleMaterial: (moduleId: number, input: productionApi.AddModuleMaterialInput) => Promise<ActionResult>
-  updateModuleMaterial: (id: number, quantityRequired: number) => Promise<ActionResult>
-  requestMaterial: (moduleMaterialId: number, quantity: number) => Promise<ActionResult>
+  deleteBlock: (id: number) => Promise<ActionResult>
+  addBlockDependency: (blockId: number, dependsOnId: number) => Promise<ActionResult>
+  removeBlockDependency: (blockId: number, dependsOnId: number) => Promise<ActionResult>
+  addBlockMaterial: (blockId: number, input: productionApi.AddBlockMaterialInput) => Promise<ActionResult>
+  updateBlockMaterial: (id: number, quantityRequired: number) => Promise<ActionResult>
+  requestMaterial: (blockMaterialId: number, quantity: number) => Promise<ActionResult>
 }
 
 function reasonOf(error: unknown): string {
@@ -33,7 +35,7 @@ function reasonOf(error: unknown): string {
 export const useProductionStore = create<ProductionState>((set, get) => ({
   productions: [],
   production: null,
-  module: null,
+  block: null,
   loading: true,
   error: null,
 
@@ -52,14 +54,14 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     set({ production })
   },
 
-  loadModule: async (id) => {
-    const module = await productionApi.getModule(id)
-    set({ module })
+  loadBlock: async (id) => {
+    const block = await productionApi.getBlock(id)
+    set({ block })
   },
 
-  createModule: async (productionId, name, description) => {
+  createBlock: async (productionId, name, description) => {
     try {
-      await productionApi.createModule(productionId, name, description)
+      await productionApi.createBlock(productionId, name, description)
       await get().loadProduction(productionId)
       return { ok: true }
     } catch (error) {
@@ -67,10 +69,10 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
-  updateModule: async (id, patch) => {
+  updateBlock: async (id, patch) => {
     try {
-      const module = await productionApi.updateModule(id, patch)
-      set({ module })
+      const block = await productionApi.updateBlock(id, patch)
+      set({ block })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
@@ -87,43 +89,65 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
     }
   },
 
-  deleteModule: async (id) => {
+  deleteBlock: async (id) => {
     try {
-      await productionApi.deleteModule(id)
+      await productionApi.deleteBlock(id)
       const current = get().production
-      if (current) set({ production: { ...current, modules: current.modules.filter((m) => m.id !== id) } })
+      if (current) set({ production: { ...current, blocks: current.blocks.filter((b) => b.id !== id) } })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
     }
   },
 
-  addModuleMaterial: async (moduleId, input) => {
+  addBlockDependency: async (blockId, dependsOnId) => {
     try {
-      await productionApi.addModuleMaterial(moduleId, input)
-      await get().loadModule(moduleId)
+      const current = get().production
+      await productionApi.addBlockDependency(blockId, dependsOnId)
+      if (current) await get().loadProduction(current.id)
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
     }
   },
 
-  updateModuleMaterial: async (id, quantityRequired) => {
+  removeBlockDependency: async (blockId, dependsOnId) => {
     try {
-      const current = get().module
-      await productionApi.updateModuleMaterial(id, quantityRequired)
-      if (current) await get().loadModule(current.id)
+      const current = get().production
+      await productionApi.removeBlockDependency(blockId, dependsOnId)
+      if (current) await get().loadProduction(current.id)
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
     }
   },
 
-  requestMaterial: async (moduleMaterialId, quantity) => {
+  addBlockMaterial: async (blockId, input) => {
     try {
-      const current = get().module
-      await productionApi.requestMaterial(moduleMaterialId, quantity)
-      if (current) await get().loadModule(current.id)
+      await productionApi.addBlockMaterial(blockId, input)
+      await get().loadBlock(blockId)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  updateBlockMaterial: async (id, quantityRequired) => {
+    try {
+      const current = get().block
+      await productionApi.updateBlockMaterial(id, quantityRequired)
+      if (current) await get().loadBlock(current.id)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  requestMaterial: async (blockMaterialId, quantity) => {
+    try {
+      const current = get().block
+      await productionApi.requestMaterial(blockMaterialId, quantity)
+      if (current) await get().loadBlock(current.id)
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }

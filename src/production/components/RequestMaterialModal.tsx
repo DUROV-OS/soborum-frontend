@@ -3,13 +3,13 @@ import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useProductionStore } from '../store'
-import { ModuleMaterial } from '../types'
+import { BlockMaterial } from '../types'
 
 export function RequestMaterialModal({
   line,
   onClose,
 }: {
-  line: ModuleMaterial | null
+  line: BlockMaterial | null
   onClose: () => void
 }) {
   const requestMaterial = useProductionStore((s) => s.requestMaterial)

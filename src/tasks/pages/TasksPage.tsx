@@ -28,7 +28,7 @@ function isClaimable(task: Task): boolean {
 type SourceFilter = 'all' | 'manual' | 'clients' | 'production' | 'marketing' | 'warehouse'
 
 function sourceOf(task: Task): SourceFilter {
-  if (task.module_id !== null) return 'production'
+  if (task.block_id !== null) return 'production'
   if (task.link_type === 'client_stage') return 'clients'
   if (task.link_type === 'content_stage') return 'marketing'
   if (task.link_type === 'warehouse_request' || task.link_type === 'warehouse_shortage') return 'warehouse'
