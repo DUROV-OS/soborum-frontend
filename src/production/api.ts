@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { ProductionListItem, MaterialRequest, Module, ModuleMaterial, Production } from './types'
+import { ProductionHome, ProductionListItem, MaterialRequest, Module, ModuleMaterial, Production } from './types'
 
 const SECTION = 'production'
 
@@ -11,6 +11,11 @@ export function listProductions(): Promise<ProductionListItem[]> {
 /** GET /api/production/:id */
 export function getProduction(id: number): Promise<Production> {
   return apiRequest<Production>({ section: SECTION, path: `/${id}` })
+}
+
+/** GET /api/production/:id/home — виджеты вкладки «Главная» этого производства. */
+export function getProductionHome(id: number): Promise<ProductionHome> {
+  return apiRequest<ProductionHome>({ section: SECTION, path: `/${id}/home` })
 }
 
 /** DELETE /api/production/:id — только администратор */
