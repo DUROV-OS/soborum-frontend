@@ -32,6 +32,7 @@ export interface CreateTaskInput {
   deadline?: string
   assignee_ids: number[]
   reviewer_ids: number[]
+  responsible_id?: number
   depends_on_ids: number[]
   image_ids?: number[]
   block_id?: number

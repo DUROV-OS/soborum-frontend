@@ -6,6 +6,7 @@ import { useAuthStore } from '@/auth/store'
 import { useTasksStore } from '@/tasks/store'
 import { TaskDetailDrawer } from '@/tasks/components/TaskDetailDrawer'
 import { CreateTaskModal } from '@/tasks/components/CreateTaskModal'
+import { TaskPeopleBadges } from '@/tasks/components/TaskPeopleBadges'
 import { Task, TASK_STATES } from '@/tasks/types'
 import * as warehouseApi from '@/warehouse/api'
 import { Material } from '@/warehouse/types'
@@ -160,10 +161,13 @@ export function BlockDetailPage() {
               key={task.id}
               type="button"
               onClick={() => setSelectedTask(task)}
-              className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-3 text-left hover:border-brand/40"
+              className="flex flex-col gap-1.5 rounded-md border border-border bg-surface px-4 py-3 text-left hover:border-brand/40"
             >
-              <span className="text-[13px] text-ink">{task.title}</span>
-              <Chip tone="neutral">{TASK_STATES.find((s) => s.key === task.status)?.label}</Chip>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] text-ink">{task.title}</span>
+                <Chip tone="neutral">{TASK_STATES.find((s) => s.key === task.status)?.label}</Chip>
+              </div>
+              <TaskPeopleBadges task={task} />
             </button>
           ))}
           {blockTasks.length === 0 && <p className="text-[13px] text-muted">Задач пока нет.</p>}

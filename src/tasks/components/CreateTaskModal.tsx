@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuthStore } from '@/auth/store'
 import { Button } from '@/shared/ui/Button'
-import { Field, Input, Textarea } from '@/shared/ui/Field'
+import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useTasksStore } from '../store'
 import { Task } from '../types'
@@ -25,6 +25,7 @@ export function CreateTaskModal({
   const [deadline, setDeadline] = useState('')
   const [assigneeIds, setAssigneeIds] = useState<number[]>([])
   const [reviewerIds, setReviewerIds] = useState<number[]>([])
+  const [responsibleId, setResponsibleId] = useState<number | ''>('')
   const [dependsOn, setDependsOn] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +38,7 @@ export function CreateTaskModal({
     setDeadline('')
     setAssigneeIds([])
     setReviewerIds([])
+    setResponsibleId('')
     setDependsOn([])
     setError(null)
   }
@@ -54,6 +56,7 @@ export function CreateTaskModal({
       deadline: deadline || undefined,
       assignee_ids: assigneeIds,
       reviewer_ids: reviewerIds,
+      responsible_id: responsibleId === '' ? undefined : responsibleId,
       depends_on_ids: dependsOn,
       block_id: blockId,
     })
@@ -134,6 +137,22 @@ export function CreateTaskModal({
                   </label>
                 ))}
               </div>
+            </Field>
+            <Field
+              label="Ответственный"
+              hint="Необязательно — один человек, который отвечает за задачу; не обязан быть среди исполнителей"
+            >
+              <Select
+                value={responsibleId}
+                onChange={(e) => setResponsibleId(e.target.value === '' ? '' : Number(e.target.value))}
+              >
+                <option value="">— не назначен —</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.full_name}
+                  </option>
+                ))}
+              </Select>
             </Field>
           </>
         )}

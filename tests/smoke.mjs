@@ -117,9 +117,9 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
     else if (url.pathname === '/api/tasks/') body = [
       // задача-ссылка смены стадии клиента: без дедлайна, создана давно —
       // должна быть видна в борде задач при фильтрах по умолчанию (регрессия 0013)
-      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', block_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
+      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', block_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], responsible: null, images: [], depends_on_ids: [] },
       // задача без проверяющих в работе: кнопка сдачи не должна звать это «проверкой» (регрессия 0020)
-      { id: 502, title: 'Собрать блок №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', block_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
+      { id: 502, title: 'Собрать блок №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', block_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], responsible: null, images: [], depends_on_ids: [] },
     ]
     else if (url.pathname === '/api/ai/chats') body = []
     else if (url.pathname === '/api/clients/22/documents' && route.request().method() === 'PATCH') {

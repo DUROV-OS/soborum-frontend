@@ -18,6 +18,7 @@ import { TASK_STATES, Task } from '../types'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { MyTasksPanel } from '../components/MyTasksPanel'
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer'
+import { TaskPeopleBadges } from '../components/TaskPeopleBadges'
 
 type SubTab = 'mine' | 'all'
 
@@ -241,6 +242,9 @@ export function TasksPage() {
               {task.deadline && (
                 <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
               )}
+            </div>
+            <div className="mt-1.5">
+              <TaskPeopleBadges task={task} />
             </div>
             {subTab === 'mine' && isClaimable(task) && (
               <Button
