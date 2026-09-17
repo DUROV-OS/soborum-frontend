@@ -15,14 +15,16 @@ import { DataTable } from '@/shared/ui/DataTable'
 import { useProductionStore } from '../store'
 import { AddMaterialModal } from '../components/AddMaterialModal'
 import { RequestMaterialModal } from '../components/RequestMaterialModal'
-import { ModuleMaterial } from '../types'
+import { BlockMaterial } from '../types'
 
-export function ModuleDetailPage() {
+export function BlockDetailPage() {
   const { id = '' } = useParams()
-  const moduleId = Number(id)
-  const module = useProductionStore((s) => s.module)
-  const loadModule = useProductionStore((s) => s.loadModule)
-  const deleteModule = useProductionStore((s) => s.deleteModule)
+  const blockId = Number(id)
+  const block = useProductionStore((s) => s.block)
+  const production = useProductionStore((s) => s.production)
+  const loadBlock = useProductionStore((s) => s.loadBlock)
+  const loadProduction = useProductionStore((s) => s.loadProduction)
+  const deleteBlock = useProductionStore((s) => s.deleteBlock)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const navigate = useNavigate()
   const tasks = useTasksStore((s) => s.tasks)
@@ -30,19 +32,25 @@ export function ModuleDetailPage() {
 
   const [materials, setMaterials] = useState<Material[]>([])
   const [addingMaterial, setAddingMaterial] = useState(false)
-  const [requestingLine, setRequestingLine] = useState<ModuleMaterial | null>(null)
+  const [requestingLine, setRequestingLine] = useState<BlockMaterial | null>(null)
   const [creatingTask, setCreatingTask] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadModule(moduleId)
-    loadTasks({ module_id: moduleId })
+    loadBlock(blockId)
+    loadTasks({ block_id: blockId })
     warehouseApi.listMaterials().then(setMaterials)
-  }, [moduleId, loadModule, loadTasks])
+  }, [blockId, loadBlock, loadTasks])
 
-  if (!module || module.id !== moduleId) {
+  useEffect(() => {
+    if (block && block.id === blockId && production?.id !== block.production_id) {
+      loadProduction(block.production_id)
+    }
+  }, [block, blockId, production, loadProduction])
+
+  if (!block || block.id !== blockId) {
     return <p className="text-[13px] text-muted">Загрузка…</p>
   }
 
@@ -50,25 +58,28 @@ export function ModuleDetailPage() {
     return materials.find((m) => m.id === warehouseMaterialId)?.title ?? `Материал №${warehouseMaterialId}`
   }
 
-  const moduleTasks = tasks.filter((t) => t.module_id === moduleId)
+  const blockTasks = tasks.filter((t) => t.block_id === blockId)
+  const dependencyNames = block.depends_on_ids.map(
+    (depId) => production?.blocks.find((b) => b.id === depId)?.name ?? `Блок №${depId}`
+  )
 
   async function handleDelete() {
-    if (!module) return
-    if (!window.confirm(`Удалить модуль «${module.name}»? Отменить нельзя.`)) return
+    if (!block) return
+    if (!window.confirm(`Удалить блок «${block.name}»? Отменить нельзя.`)) return
     setDeleting(true)
-    const result = await deleteModule(module.id)
+    const result = await deleteBlock(block.id)
     if (result.ok) {
-      navigate(`/production/${module.production_id}`, { replace: true })
+      navigate(`/production/${block.production_id}`, { replace: true })
       return
     }
     setDeleting(false)
-    setDeleteError(result.reason ?? 'Не удалось удалить модуль')
+    setDeleteError(result.reason ?? 'Не удалось удалить блок')
   }
 
   return (
     <div className="mx-auto max-w-3xl">
       <Link
-        to={`/production/${module.production_id}`}
+        to={`/production/${block.production_id}`}
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink"
       >
         <ArrowLeft size={14} />
@@ -77,22 +88,25 @@ export function ModuleDetailPage() {
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-[18px] font-medium text-ink">{module.name}</h1>
-          {module.description && <p className="mt-1 text-[13px] text-muted">{module.description}</p>}
+          <h1 className="text-[18px] font-medium text-ink">{block.name}</h1>
+          {block.description && <p className="mt-1 text-[13px] text-muted">{block.description}</p>}
+          {dependencyNames.length > 0 && (
+            <p className="mt-1 text-[12px] text-warning">Ждёт: {dependencyNames.join(', ')}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <AskAiButton
             domain="production"
-            contextLabel={`Модуль: ${module.name}`}
-            contextNote={`[module_id=${module.id}, production_id=${module.production_id}, ${module.name}] `}
+            contextLabel={`Блок: ${block.name}`}
+            contextNote={`[block_id=${block.id}, production_id=${block.production_id}, ${block.name}] `}
           />
           {isAdmin && (
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              aria-label="Удалить модуль"
-              title="Удалить модуль"
+              aria-label="Удалить блок"
+              title="Удалить блок"
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger text-white transition-colors hover:bg-danger/90 disabled:cursor-not-allowed disabled:bg-danger/40"
             >
               <Trash2 size={14} />
@@ -112,21 +126,21 @@ export function ModuleDetailPage() {
         </div>
         <DataTable
           columns={[
-            { header: 'Материал', accessor: (m: ModuleMaterial) => materialTitle(m.warehouse_material_id) },
-            { header: 'Инв. №', accessor: (m: ModuleMaterial) => m.inventory_number },
-            { header: 'Необходимо', align: 'right', className: 'tabular', accessor: (m: ModuleMaterial) => `${m.quantity_required} ${m.unit}` },
-            { header: 'Запрошено', align: 'right', className: 'tabular', accessor: (m: ModuleMaterial) => `${m.quantity_requested} ${m.unit}` },
-            { header: 'Выдано', align: 'right', className: 'tabular', accessor: (m: ModuleMaterial) => `${m.quantity_provided} ${m.unit}` },
+            { header: 'Материал', accessor: (m: BlockMaterial) => materialTitle(m.warehouse_material_id) },
+            { header: 'Инв. №', accessor: (m: BlockMaterial) => m.inventory_number },
+            { header: 'Необходимо', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_required} ${m.unit}` },
+            { header: 'Запрошено', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_requested} ${m.unit}` },
+            { header: 'Выдано', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_provided} ${m.unit}` },
             {
               header: '',
-              accessor: (m: ModuleMaterial) => (
+              accessor: (m: BlockMaterial) => (
                 <Button size="sm" variant="ghost" onClick={() => setRequestingLine(m)}>
                   Запросить
                 </Button>
               ),
             },
           ]}
-          rows={module.materials}
+          rows={block.materials}
           keyOf={(m) => String(m.id)}
           emptyLabel="Материалы пока не добавлены"
         />
@@ -134,14 +148,14 @@ export function ModuleDetailPage() {
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[14px] font-medium text-ink">Задачи модуля</h2>
+          <h2 className="text-[14px] font-medium text-ink">Задачи блока</h2>
           <Button size="sm" variant="secondary" onClick={() => setCreatingTask(true)}>
             <Plus size={14} />
             Задача
           </Button>
         </div>
         <div className="flex flex-col gap-2">
-          {moduleTasks.map((task) => (
+          {blockTasks.map((task) => (
             <button
               key={task.id}
               type="button"
@@ -152,18 +166,18 @@ export function ModuleDetailPage() {
               <Chip tone="neutral">{TASK_STATES.find((s) => s.key === task.status)?.label}</Chip>
             </button>
           ))}
-          {moduleTasks.length === 0 && <p className="text-[13px] text-muted">Задач пока нет.</p>}
+          {blockTasks.length === 0 && <p className="text-[13px] text-muted">Задач пока нет.</p>}
         </div>
       </section>
 
       <AddMaterialModal
-        moduleId={module.id}
+        blockId={block.id}
         materials={materials}
         open={addingMaterial}
         onClose={() => setAddingMaterial(false)}
       />
       <RequestMaterialModal line={requestingLine} onClose={() => setRequestingLine(null)} />
-      <CreateTaskModal moduleId={module.id} open={creatingTask} onClose={() => setCreatingTask(false)} />
+      <CreateTaskModal blockId={block.id} open={creatingTask} onClose={() => setCreatingTask(false)} />
       <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
     </div>
   )

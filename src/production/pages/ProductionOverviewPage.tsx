@@ -22,11 +22,11 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     ),
   },
   {
-    title: 'Модули производства',
+    title: 'Блоки производства',
     body: (
       <p>
-        Кликните по карточке, чтобы открыть производство: внутри — список модулей, их статусы и материалы,
-        нужные для сборки каждого модуля.
+        Кликните по карточке, чтобы открыть производство: внутри — направленный граф блоков (этапов
+        производства), их порядок, зависимости и материалы, нужные для сборки каждого блока.
       </p>
     ),
   },
@@ -51,7 +51,7 @@ export function ProductionOverviewPage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[20px] font-medium text-ink">Производство</h1>
-          <p className="mt-1 text-[13px] text-muted">Модули и материалы по каждому запущенному производству</p>
+          <p className="mt-1 text-[13px] text-muted">Блоки и материалы по каждому запущенному производству</p>
         </div>
         <HelpButton onClick={onboarding.show} />
       </div>
@@ -81,7 +81,7 @@ export function ProductionOverviewPage() {
                 <div className="mt-0.5 text-[12px] text-brand-dark">{production.name}</div>
               )}
               <div className="mt-1 text-[12px] text-muted">
-                Модулей: {production.module_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
+                Блоков: {production.block_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
               </div>
             </button>
           ))}

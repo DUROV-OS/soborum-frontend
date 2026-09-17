@@ -23,7 +23,7 @@ const overview = {
     { id: 'warehouse', section: 'warehouse', title: 'Проверить пополнение склада', description: 'Остатки и текущая потребность требуют внимания.', count: 3, href: '/warehouse', tone: 'warning' },
     { id: 'clients', section: 'clients', title: 'Проверить поступление оплаты', description: 'Клиенты на этапе оплаты без подтверждённого поступления.', count: 1, href: '/clients', tone: 'warning' },
   ],
-  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Модули ждут материалы', '2', 'warning'), widget('tasks', 'Открытых задач', '8'), widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
+  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Блоки ждут материалы', '2', 'warning'), widget('tasks', 'Открытых задач', '8'), widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
 }
 const clientFixture = {
   // created_at must fall within the current calendar month — the clients board
@@ -105,7 +105,7 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
     else if (url.pathname === '/api/auth/users' && route.request().method() === 'GET') body = [admin, worker]
     else if (url.pathname === '/api/auth/users/2/access') { status = 403; body = { detail: 'Изменение доступа отклонено сервером' } }
     else if (url.pathname === '/api/dashboard/today') body = user.role === 'admin' ? overview : { ...overview, actions: [], widgets: overview.widgets.filter(w => w.section === 'production'), summary: 'По доступным данным отклонений для очереди внимания нет.' }
-    else if (url.pathname === '/api/production/') body = [{ id: 7, cycle_id: 11, cycle_status: 'production', created_at: '2026-09-05T08:00:00Z', module_count: 4 }]
+    else if (url.pathname === '/api/production/') body = [{ id: 7, cycle_id: 11, cycle_status: 'production', created_at: '2026-09-05T08:00:00Z', block_count: 4 }]
     else if (url.pathname === '/api/dashboard/aktualnoe') body = user.role === 'admin'
       ? { generated_at: '2026-09-05T09:30:00Z', ai_configured: false, degraded: true, items: [
           { cycle_id: 11, client_name: 'Иванов И.', stage: 'Согласование', percent: 55, phrase: 'правят планировку' },
@@ -117,9 +117,9 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
     else if (url.pathname === '/api/tasks/') body = [
       // задача-ссылка смены стадии клиента: без дедлайна, создана давно —
       // должна быть видна в борде задач при фильтрах по умолчанию (регрессия 0013)
-      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', module_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
+      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', block_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
       // задача без проверяющих в работе: кнопка сдачи не должна звать это «проверкой» (регрессия 0020)
-      { id: 502, title: 'Собрать модуль №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', module_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
+      { id: 502, title: 'Собрать блок №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', block_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], images: [], depends_on_ids: [] },
     ]
     else if (url.pathname === '/api/ai/chats') body = []
     else if (url.pathname === '/api/clients/22/documents' && route.request().method() === 'PATCH') {
@@ -207,7 +207,7 @@ try {
   await owner.page.getByText('Клиент «Иванов И.»: перевести со стадии на следующую', { exact: true }).waitFor()
   checks.push('Client-stage link task (no deadline) is visible on the tasks board by default')
 
-  await owner.page.getByRole('button', { name: /Собрать модуль №3/ }).click()
+  await owner.page.getByRole('button', { name: /Собрать блок №3/ }).click()
   await owner.page.getByRole('button', { name: 'Сдать задачу', exact: true }).waitFor()
   assert.equal(await owner.page.getByText('Отправить на проверку', { exact: true }).count(), 0)
   checks.push('Task without reviewers shows "Сдать задачу" instead of "Отправить на проверку"')

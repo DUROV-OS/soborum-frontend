@@ -9,12 +9,12 @@ import { Task } from '../types'
 export function CreateTaskModal({
   open,
   onClose,
-  moduleId,
+  blockId,
 }: {
   open: boolean
   onClose: () => void
-  /** Если задача создаётся из модуля производства — привязывает её к нему. */
-  moduleId?: number
+  /** Если задача создаётся из блока производства — привязывает её к нему. */
+  blockId?: number
 }) {
   const accounts = useAuthStore((s) => s.accounts)
   const tasks = useTasksStore((s) => s.tasks)
@@ -55,7 +55,7 @@ export function CreateTaskModal({
       assignee_ids: assigneeIds,
       reviewer_ids: reviewerIds,
       depends_on_ids: dependsOn,
-      module_id: moduleId,
+      block_id: blockId,
     })
     setSaving(false)
     if (result.ok) {

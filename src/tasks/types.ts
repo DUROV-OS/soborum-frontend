@@ -26,7 +26,7 @@ export interface Task {
   deadline: string | null
   status: TaskStatus
   created_at: string
-  module_id: number | null
+  block_id: number | null
   link_type: TaskLinkType
   link_id: number | null
   link_meta: Record<string, unknown> | null

@@ -6,17 +6,17 @@ import { Modal } from '@/shared/ui/Modal'
 import { useProductionStore } from '../store'
 
 export function AddMaterialModal({
-  moduleId,
+  blockId,
   materials,
   open,
   onClose,
 }: {
-  moduleId: number
+  blockId: number
   materials: Material[]
   open: boolean
   onClose: () => void
 }) {
-  const addModuleMaterial = useProductionStore((s) => s.addModuleMaterial)
+  const addBlockMaterial = useProductionStore((s) => s.addBlockMaterial)
   const [materialId, setMaterialId] = useState<number>(materials[0]?.id ?? 0)
   const [inventoryNumber, setInventoryNumber] = useState('')
   const [quantity, setQuantity] = useState<number | ''>('')
@@ -39,7 +39,7 @@ export function AddMaterialModal({
   async function handleSubmit() {
     if (!valid || !selected) return
     setSaving(true)
-    const result = await addModuleMaterial(moduleId, {
+    const result = await addBlockMaterial(blockId, {
       warehouse_material_id: materialId,
       inventory_number: inventoryNumber,
       unit: selected.unit,
@@ -61,7 +61,7 @@ export function AddMaterialModal({
         reset()
         onClose()
       }}
-      title="Добавить материал в модуль"
+      title="Добавить материал в блок"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

@@ -6,7 +6,7 @@ export type MaterialRequestStatus = 'pending' | 'approved' | 'rejected'
 
 export interface MaterialRequest {
   id: number
-  module_material_id: number
+  block_material_id: number
   warehouse_material_id: number
   quantity: number
   status: MaterialRequestStatus
@@ -16,9 +16,9 @@ export interface MaterialRequest {
   decided_at: string | null
 }
 
-export interface ModuleMaterial {
+export interface BlockMaterial {
   id: number
-  module_id: number
+  block_id: number
   warehouse_material_id: number
   inventory_number: string
   unit: string
@@ -28,12 +28,16 @@ export interface ModuleMaterial {
   requests: MaterialRequest[]
 }
 
-export interface Module {
+export interface Block {
   id: number
   production_id: number
   name: string
   description: string | null
-  materials: ModuleMaterial[]
+  /** Порядок блока внутри производства — узел направленного графа этапов. */
+  sequence: number
+  /** id блоков, которые должны быть закрыты раньше этого. */
+  depends_on_ids: number[]
+  materials: BlockMaterial[]
 }
 
 export interface Production {
@@ -44,7 +48,7 @@ export interface Production {
   /** Название проекта дома, напр. «Дом 1». */
   name: string
   created_at: string
-  modules: Module[]
+  blocks: Block[]
 }
 
 /** Строка списка /api/production/ — по одной на каждый дом (множественный
@@ -59,7 +63,7 @@ export interface ProductionListItem {
   name: string
   cycle_status: 'client' | 'production' | 'installation' | 'completed'
   created_at: string
-  module_count: number
+  block_count: number
 }
 
 // ----------------------------------------------------------------- «Главная» --

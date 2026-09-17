@@ -9,7 +9,7 @@ export interface TaskFilters {
   scope?: TaskScope
   assignee_id?: number
   reviewer_id?: number
-  module_id?: number
+  block_id?: number
   link_type?: TaskLinkType
   status?: TaskStatus
   overdue?: boolean
@@ -34,7 +34,7 @@ export interface CreateTaskInput {
   reviewer_ids: number[]
   depends_on_ids: number[]
   image_ids?: number[]
-  module_id?: number
+  block_id?: number
 }
 
 /** POST /api/tasks/ */
