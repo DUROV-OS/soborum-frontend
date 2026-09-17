@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Mic, Volume2, VolumeX } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { ChatComposer } from '@/ai/components/ChatComposer'
 import { MessageBubble } from '@/ai/components/MessageBubble'
 import { PendingActionModal } from '@/ai/components/PendingActionModal'
@@ -68,12 +69,15 @@ export function ConsultChatCore({
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastSpokenId = useRef<number | null>(null)
   const readyToSpeak = useRef(false)
+  const lastNavigatedId = useRef<number | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     hydrate()
-    // Don't auto-speak history after reload — only fresh answers.
+    // Don't auto-speak/auto-navigate on history after reload — only fresh answers.
     const lastAssistant = [...useConsultStore.getState().messages].reverse().find((m) => m.role === 'assistant')
     lastSpokenId.current = lastAssistant?.id ?? null
+    lastNavigatedId.current = lastAssistant?.id ?? null
     readyToSpeak.current = true
   }, [hydrate])
 
@@ -107,6 +111,17 @@ export function ConsultChatCore({
   }, [messages, sending, voiceReply])
 
   useEffect(() => () => stopSpeaking(), [])
+
+  useEffect(() => {
+    const last = [...messages].reverse().find((message) => message.role === 'assistant')
+    if (!last || last.id === lastNavigatedId.current) return
+    lastNavigatedId.current = last.id
+    const navBlock = last.content.find((block) => block.type === 'tool_use' && block.name === 'navigate_to')
+    if (!navBlock?.id) return
+    const resolution = last.tool_resolutions?.[navBlock.id] as { content?: { found?: boolean; path?: string } } | undefined
+    const result = resolution?.content
+    if (result?.found && typeof result.path === 'string') navigate(result.path)
+  }, [messages, navigate])
 
   const inlinePending = pendingActions.filter((action) => !modalActions.some((item) => item.id === action.id))
 
