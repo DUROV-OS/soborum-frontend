@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ExternalLink, Package, Plus, StickyNote, Trash2, Upload } from 'lucide-react'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Drawer } from '@/shared/ui/Drawer'
@@ -45,7 +46,9 @@ export function SupplierDetailDrawer({
   const addNote = useSuppliersStore((s) => s.addNote)
   const removeNote = useSuppliersStore((s) => s.removeNote)
   const removeSupplier = useSuppliersStore((s) => s.remove)
-  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const level = useAccessLevel('warehouse')
+  const canEdit = accessLevelAtLeast(level, 'edit')
+  const canFull = accessLevelAtLeast(level, 'full')
   const navigate = useNavigate()
 
   const [tab, setTab] = useState<TabKey>('overview')
@@ -190,10 +193,10 @@ export function SupplierDetailDrawer({
           <section className="flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Название" required>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />
               </Field>
               <Field label="Статус">
-                <Select value={status} onChange={(e) => setStatus(e.target.value as SupplierStatus)}>
+                <Select value={status} onChange={(e) => setStatus(e.target.value as SupplierStatus)} disabled={!canEdit}>
                   {Object.entries(SUPPLIER_STATUS_LABEL).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
@@ -203,7 +206,7 @@ export function SupplierDetailDrawer({
               </Field>
             </div>
             <Field label="Категории" hint="Через запятую">
-              <Input value={categories} onChange={(e) => setCategories(e.target.value)} />
+              <Input value={categories} onChange={(e) => setCategories(e.target.value)} disabled={!canEdit} />
             </Field>
 
             {/* Контакты */}
@@ -216,6 +219,7 @@ export function SupplierDetailDrawer({
                       value={contact.kind}
                       onChange={(e) => patchContact(index, { kind: e.target.value as ContactKind })}
                       className="w-36"
+                      disabled={!canEdit}
                     >
                       {CONTACT_KINDS.map((kind) => (
                         <option key={kind} value={kind}>
@@ -228,38 +232,46 @@ export function SupplierDetailDrawer({
                       onChange={(e) => patchContact(index, { value: e.target.value })}
                       placeholder="Значение"
                       className="min-w-[10rem] flex-1"
+                      disabled={!canEdit}
                     />
                     <Input
                       value={contact.person ?? ''}
                       onChange={(e) => patchContact(index, { person: e.target.value })}
                       placeholder="Контактное лицо"
                       className="min-w-[9rem] flex-1"
+                      disabled={!canEdit}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setContacts(contacts.filter((_, i) => i !== index))}
-                      aria-label="Удалить контакт"
-                      className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setContacts(contacts.filter((_, i) => i !== index))}
+                        aria-label="Удалить контакт"
+                        className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => setContacts([...contacts, { kind: 'phone', value: '', person: '' }])}
-                  className="inline-flex w-fit items-center gap-1.5 text-[13px] text-brand hover:text-brand-dark"
-                >
-                  <Plus size={14} /> Добавить контакт
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setContacts([...contacts, { kind: 'phone', value: '', person: '' }])}
+                    className="inline-flex w-fit items-center gap-1.5 text-[13px] text-brand hover:text-brand-dark"
+                  >
+                    <Plus size={14} /> Добавить контакт
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <Button size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile || !name.trim()}>
-                {savingProfile ? 'Сохранение…' : 'Сохранить'}
-              </Button>
-              {isAdmin && (
+              {canEdit && (
+                <Button size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile || !name.trim()}>
+                  {savingProfile ? 'Сохранение…' : 'Сохранить'}
+                </Button>
+              )}
+              {canFull && (
                 <button
                   type="button"
                   onClick={handleDeleteSupplier}
@@ -284,16 +296,20 @@ export function SupplierDetailDrawer({
                 <Button size="sm" variant="secondary" onClick={() => navigate(`/chats/${supplier.max_chat_id}`)}>
                   <ExternalLink size={14} /> Открыть чат
                 </Button>
-                <Button size="sm" variant="ghost" onClick={unlinkChat}>
-                  Открепить
-                </Button>
+                {canEdit && (
+                  <Button size="sm" variant="ghost" onClick={unlinkChat}>
+                    Открепить
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-[13px] text-muted">Чат не привязан.</span>
-                <Button size="sm" variant="secondary" onClick={() => setLinkOpen(true)}>
-                  Привязать чат
-                </Button>
+                {canEdit && (
+                  <Button size="sm" variant="secondary" onClick={() => setLinkOpen(true)}>
+                    Привязать чат
+                  </Button>
+                )}
               </div>
             )}
           </section>
@@ -304,17 +320,19 @@ export function SupplierDetailDrawer({
         <section>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="text-[13px] font-medium text-ink">Прайс-лист</div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => setImportOpen(true)}>
-                <Upload size={14} /> Загрузить таблицей
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setAdding((v) => !v)}>
-                <Plus size={14} /> Строка прайса
-              </Button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setImportOpen(true)}>
+                  <Upload size={14} /> Загрузить таблицей
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setAdding((v) => !v)}>
+                  <Plus size={14} /> Строка прайса
+                </Button>
+              </div>
+            )}
           </div>
 
-          {adding && (
+          {adding && canEdit && (
             <PriceItemForm
               onCancel={() => setAdding(false)}
               onDone={() => {
@@ -348,14 +366,16 @@ export function SupplierDetailDrawer({
                         {item.round != null && <span>раунд: {item.round}</span>}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => deletePrice(item.id)}
-                      aria-label="Удалить строку прайса"
-                      className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => deletePrice(item.id)}
+                        aria-label="Удалить строку прайса"
+                        className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {item.tiers.map((tier, i) => (
@@ -387,22 +407,24 @@ export function SupplierDetailDrawer({
         <section>
           <div className="mb-2 text-[13px] font-medium text-ink">Заметки</div>
           <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <Textarea
-                rows={2}
-                value={noteDraft}
-                onChange={(e) => setNoteDraft(e.target.value)}
-                placeholder="Напр.: завышает цены на метизы; долго отвечает; сменился менеджер"
-              />
-              <Button
-                size="sm"
-                className="self-start"
-                disabled={!noteDraft.trim() || noteBusy}
-                onClick={saveNote}
-              >
-                {noteBusy ? '…' : 'Добавить'}
-              </Button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-2">
+                <Textarea
+                  rows={2}
+                  value={noteDraft}
+                  onChange={(e) => setNoteDraft(e.target.value)}
+                  placeholder="Напр.: завышает цены на метизы; долго отвечает; сменился менеджер"
+                />
+                <Button
+                  size="sm"
+                  className="self-start"
+                  disabled={!noteDraft.trim() || noteBusy}
+                  onClick={saveNote}
+                >
+                  {noteBusy ? '…' : 'Добавить'}
+                </Button>
+              </div>
+            )}
             {supplier.notes.length === 0 && (
               <p className="text-[12px] text-muted">Заметок пока нет.</p>
             )}
@@ -417,14 +439,16 @@ export function SupplierDetailDrawer({
                     {note.author_name ?? 'сотрудник'} · {new Date(note.created_at).toLocaleString('ru-RU')}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeNote(supplierId_, note.id)}
-                  aria-label="Удалить заметку"
-                  className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => removeNote(supplierId_, note.id)}
+                    aria-label="Удалить заметку"
+                    className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))}
           </div>

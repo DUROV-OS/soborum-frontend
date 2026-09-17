@@ -5,7 +5,7 @@ import { Input, Textarea } from '@/shared/ui/Field'
 import { useMarketingStore } from '../store'
 import { ContentItem } from '../types'
 
-export function AnalysisPanel({ item }: { item: ContentItem }) {
+export function AnalysisPanel({ item, canEdit }: { item: ContentItem; canEdit: boolean }) {
   const updateAnalysis = useMarketingStore((s) => s.updateAnalysis)
   const [notes, setNotes] = useState(item.analysis_notes ?? '')
   const [reach, setReach] = useState<{ platform: string; value: number }[]>(
@@ -20,6 +20,19 @@ export function AnalysisPanel({ item }: { item: ContentItem }) {
     const result = await updateAnalysis(item.id, notes || undefined, reach.length > 0 ? reachObj : undefined)
     setSaving(false)
     setError(result.ok ? null : result.reason ?? 'Не удалось сохранить')
+  }
+
+  if (!canEdit) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] text-ink">{item.analysis_notes || '—'}</p>
+        {Object.entries(item.analysis_reach ?? {}).map(([platform, value]) => (
+          <p key={platform} className="text-[13px] text-muted">
+            {platform}: {value}
+          </p>
+        ))}
+      </div>
+    )
   }
 
   return (

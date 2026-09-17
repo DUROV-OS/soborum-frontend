@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { KanbanBoard } from '@/shared/ui/KanbanBoard'
@@ -82,6 +84,7 @@ export function MarketingPage() {
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [dateFilter, setDateFilter] = useState<DateFilter>(DEFAULT_DATE_FILTER)
   const onboarding = useSectionOnboarding('marketing')
+  const canEdit = accessLevelAtLeast(useAccessLevel('marketing'), 'edit')
 
   useEffect(() => {
     load()
@@ -101,7 +104,7 @@ export function MarketingPage() {
         </div>
         <div className="flex gap-2 self-start">
           <AskAiButton domain="marketing" />
-          {view !== 'trends' && (
+          {view !== 'trends' && canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
               Новый контент

@@ -5,7 +5,15 @@ import { Input } from '@/shared/ui/Field'
 import { useMarketingStore } from '../store'
 import { PostLink } from '../types'
 
-export function PostLinksEditor({ contentId, links }: { contentId: number; links: PostLink[] }) {
+export function PostLinksEditor({
+  contentId,
+  links,
+  canEdit,
+}: {
+  contentId: number
+  links: PostLink[]
+  canEdit: boolean
+}) {
   const setPostLinks = useMarketingStore((s) => s.setPostLinks)
   const [rows, setRows] = useState(links.map((l) => ({ platform: l.platform, url: l.url })))
   const [saving, setSaving] = useState(false)
@@ -16,6 +24,20 @@ export function PostLinksEditor({ contentId, links }: { contentId: number; links
     const result = await setPostLinks(contentId, rows.filter((r) => r.platform && r.url))
     setSaving(false)
     setError(result.ok ? null : result.reason ?? 'Не удалось сохранить')
+  }
+
+  if (!canEdit) {
+    return links.length === 0 ? (
+      <p className="text-[13px] text-muted">Ссылок пока нет.</p>
+    ) : (
+      <ul className="flex flex-col gap-1">
+        {links.map((l, i) => (
+          <li key={i} className="text-[13px] text-ink">
+            {l.platform}: <a href={l.url} target="_blank" rel="noreferrer" className="text-brand-dark hover:underline">{l.url}</a>
+          </li>
+        ))}
+      </ul>
+    )
   }
 
   return (

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
@@ -11,6 +13,9 @@ import { Material, MOVEMENT_REASON_LABEL, StockMovement } from '../types'
 export function MaterialDetailDrawer({ material, onClose }: { material: Material | null; onClose: () => void }) {
   const updateMaterial = useWarehouseStore((s) => s.updateMaterial)
   const writeOffMaterial = useWarehouseStore((s) => s.writeOffMaterial)
+  const level = useAccessLevel('warehouse')
+  const canEdit = accessLevelAtLeast(level, 'edit')
+  const canFull = accessLevelAtLeast(level, 'full')
   const [threshold, setThreshold] = useState<number | ''>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -82,18 +87,21 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
           <Row label="Закупочная цена" value={material.purchase_price ? `${material.purchase_price} ₽` : '—'} />
         </div>
 
-        <div>
-          <Field label="Пороговое значение">
-            <div className="flex gap-2">
-              <Input type="number" value={threshold} onChange={(e) => setThreshold(e.target.value === '' ? '' : Number(e.target.value))} />
-              <Button size="sm" onClick={save} disabled={saving}>
-                {saving ? '…' : 'Сохранить'}
-              </Button>
-            </div>
-          </Field>
-          {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
-        </div>
+        {canEdit && (
+          <div>
+            <Field label="Пороговое значение">
+              <div className="flex gap-2">
+                <Input type="number" value={threshold} onChange={(e) => setThreshold(e.target.value === '' ? '' : Number(e.target.value))} />
+                <Button size="sm" onClick={save} disabled={saving}>
+                  {saving ? '…' : 'Сохранить'}
+                </Button>
+              </div>
+            </Field>
+            {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
+          </div>
+        )}
 
+        {canFull && (
         <div>
           {!writingOff ? (
             <Button size="sm" variant="danger" onClick={() => setWritingOff(true)}>
@@ -137,6 +145,7 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
             </div>
           )}
         </div>
+        )}
 
         {material.request_breakdown.length > 0 && (
           <div>

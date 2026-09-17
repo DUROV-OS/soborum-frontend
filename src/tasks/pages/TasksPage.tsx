@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
+import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { HelpButton } from '@/shared/ui/HelpButton'
@@ -117,6 +119,7 @@ export function TasksPage() {
   const claim = useTasksStore((s) => s.claim)
   const canSeeAll = useAuthStore((s) => s.hasAccess('tasks_all'))
   const [creating, setCreating] = useState(false)
+  const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [selected, setSelected] = useState<Task | null>(null)
   const [subTab, setSubTab] = useState<SubTab>('mine')
   const [claimingId, setClaimingId] = useState<number | null>(null)
@@ -174,10 +177,12 @@ export function TasksPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start">
           <AskAiButton domain="tasks" />
-          <Button onClick={() => setCreating(true)}>
-            <Plus size={16} />
-            Новая задача
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus size={16} />
+              Новая задача
+            </Button>
+          )}
           <HelpButton onClick={onboarding.show} />
         </div>
       </div>
@@ -246,7 +251,7 @@ export function TasksPage() {
             <div className="mt-1.5">
               <TaskPeopleBadges task={task} />
             </div>
-            {subTab === 'mine' && isClaimable(task) && (
+            {subTab === 'mine' && isClaimable(task) && canEdit && (
               <Button
                 size="sm"
                 className="mt-2 h-7 px-2.5 text-[12px]"

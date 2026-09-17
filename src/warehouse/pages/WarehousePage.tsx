@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Plus, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { DataTable } from '@/shared/ui/DataTable'
@@ -82,6 +84,7 @@ export function WarehousePage() {
   const [onlyNeedsSupply, setOnlyNeedsSupply] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const onboarding = useSectionOnboarding('warehouse')
+  const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
 
   useEffect(() => {
     load()
@@ -120,14 +123,18 @@ export function WarehousePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <AskAiButton domain="warehouse" />
-          <Button variant="secondary" onClick={() => setCreatingMaterial(true)}>
-            <Plus size={16} />
-            Материал
-          </Button>
-          <Button onClick={() => setSupplying(true)}>
-            <Truck size={16} />
-            Оформить поставку
-          </Button>
+          {canEdit && (
+            <>
+              <Button variant="secondary" onClick={() => setCreatingMaterial(true)}>
+                <Plus size={16} />
+                Материал
+              </Button>
+              <Button onClick={() => setSupplying(true)}>
+                <Truck size={16} />
+                Оформить поставку
+              </Button>
+            </>
+          )}
           <HelpButton onClick={onboarding.show} />
         </div>
       </div>
