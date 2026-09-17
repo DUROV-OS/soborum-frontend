@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, Volume2, VolumeX } from 'lucide-react'
+import { Mic, Volume2, VolumeX, Wrench } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { ChatComposer } from '@/ai/components/ChatComposer'
 import { MessageBubble } from '@/ai/components/MessageBubble'
 import { PendingActionModal } from '@/ai/components/PendingActionModal'
 import { PendingActionOut } from '@/ai/types'
 import { useHandsFreeVoice } from '@/shared/hooks/useHandsFreeVoice'
+import { describeToolCall } from '@/shared/lib/describeToolCall'
 import { speakPrincess, splitVoiceReply, stopSpeaking } from '@/shared/lib/speechReply'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -22,6 +23,22 @@ function loadVoiceReplyPref(): boolean {
   } catch {
     return true
   }
+}
+
+const VOICE_CONFIRM_WORDS = new Set(['да', 'подтверждаю', 'подтвердить', 'ок', 'окей', 'согласен', 'согласна'])
+const VOICE_REJECT_WORDS = new Set(['нет', 'отмени', 'отменить', 'отклони', 'отклонить'])
+
+/**
+ * Голосовое «да, подтверждаю» / «отмени» по последнему ожидающему действию
+ * (0051-e) — только для короткой фразы (≤4 слов), чтобы не путать с обычным
+ * вопросом, начинающимся с «да» как со связки («да сколько там...»).
+ */
+function detectVoiceDecision(text: string): 'approve' | 'reject' | null {
+  const words = text.trim().toLowerCase().replace(/[.,!?]/g, '').split(/\s+/).filter(Boolean)
+  if (words.length === 0 || words.length > 4) return null
+  if (words.some((w) => VOICE_CONFIRM_WORDS.has(w))) return 'approve'
+  if (words.some((w) => VOICE_REJECT_WORDS.has(w))) return 'reject'
+  return null
 }
 
 /**
@@ -66,6 +83,8 @@ export function ConsultChatCore({
   const [modalActions, setModalActions] = useState<PendingActionOut[]>([])
   const [voiceReply, setVoiceReply] = useState(loadVoiceReplyPref)
   const [speaking, setSpeaking] = useState(false)
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
+  const voiceNoticeTimeout = useRef<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastSpokenId = useRef<number | null>(null)
   const readyToSpeak = useRef(false)
@@ -112,6 +131,10 @@ export function ConsultChatCore({
 
   useEffect(() => () => stopSpeaking(), [])
 
+  useEffect(() => () => {
+    if (voiceNoticeTimeout.current) window.clearTimeout(voiceNoticeTimeout.current)
+  }, [])
+
   useEffect(() => {
     const last = [...messages].reverse().find((message) => message.role === 'assistant')
     if (!last || last.id === lastNavigatedId.current) return
@@ -144,12 +167,36 @@ export function ConsultChatCore({
     setSpeaking(false)
     await send(message, contextNote)
     const next = useConsultStore.getState().pendingActions
-    if (next.length > 0) setModalActions(next)
+    // Компактный оверлей (0051-e) показывает ожидающие действия сразу в
+    // ленте — без модалки, чтобы не требовать закрытия для продолжения
+    // разговора; на /agents модалка остаётся, как раньше.
+    if (!compact && next.length > 0) setModalActions(next)
   }
 
   async function handleResolve(id: number, decision: 'approve' | 'reject') {
     await resolveAction(id, decision)
     setModalActions((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  function showVoiceNotice(text: string) {
+    setVoiceNotice(text)
+    if (voiceNoticeTimeout.current) window.clearTimeout(voiceNoticeTimeout.current)
+    voiceNoticeTimeout.current = window.setTimeout(() => setVoiceNotice(null), 5000)
+  }
+
+  async function handleVoiceFinal(text: string) {
+    const decision = inlinePending.length > 0 ? detectVoiceDecision(text) : null
+    if (decision) {
+      if (inlinePending.length === 1) {
+        await handleResolve(inlinePending[0].id, decision)
+        return
+      }
+      // Несколько ожидающих действий одновременно — не угадываем, к какому
+      // относится голосовое «да»/«отмени» (0051-e, спецификация п. 4).
+      showVoiceNotice('Несколько действий ждут подтверждения — выберите нужное кликом.')
+      return
+    }
+    await handleSend(text)
   }
 
   async function handleClear() {
@@ -159,7 +206,7 @@ export function ConsultChatCore({
     await clear()
   }
 
-  const handsFreeVoice = useHandsFreeVoice((text) => void handleSend(text), handsFree, sending)
+  const handsFreeVoice = useHandsFreeVoice((text) => void handleVoiceFinal(text), handsFree, sending)
 
   // Пока фоновое прослушивание активно и браузер его поддерживает — прячем
   // ручную кнопку микрофона в композере (не пускаем два распознавания сразу
@@ -216,6 +263,7 @@ export function ConsultChatCore({
               pendingActions={inlinePending}
               onResolve={handleResolve}
               preferVoiceLead={message.role === 'assistant'}
+              describeToolUse={describeToolCall}
             />
           ))}
           {streamBubbles.map((bubble) => (
@@ -235,24 +283,41 @@ export function ConsultChatCore({
         </div>
       </div>
 
-      {error && <p className="px-5 pb-2 text-[12px] text-danger">{error}</p>}
+      {!compact && error && <p className="px-5 pb-2 text-[12px] text-danger">{error}</p>}
 
-      {handsFree && (
-        <div className="px-3 pb-1 text-[12px]">
-          {handsFreeVoice.phase === 'error' && handsFreeVoice.error ? (
+      {compact && (
+        // Статус-индикатор диалога Jarvis (0051-e): слушаю/думаю/выполняю/
+        // жду подтверждения/готов — собранные в одном месте, вместо
+        // разбросанных по ленте сигналов из 0051-b.
+        <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[12px]" role="status" aria-live="polite">
+          {voiceNotice ? (
+            <span className="text-warning">{voiceNotice}</span>
+          ) : error ? (
+            <span className="text-danger">Ошибка: {error}</span>
+          ) : handsFree && handsFreeVoice.phase === 'error' && handsFreeVoice.error ? (
             <span className="text-danger">{handsFreeVoice.error}</span>
-          ) : !handsFreeVoice.handsFreeSupported ? (
-            <span className="text-muted">
-              Без клика недоступно в этом браузере — нажмите на микрофон в поле ввода.
+          ) : inlinePending.length > 0 ? (
+            <span className="text-warning">
+              Жду подтверждения{inlinePending.length > 1 ? ` (${inlinePending.length})` : ''} — кликните ниже или
+              скажите «да»/«отмени».
+            </span>
+          ) : sending && streamStatus ? (
+            <span className="inline-flex items-center gap-1.5 text-ai-accent">
+              <Wrench size={12} />
+              {streamStatus}
             </span>
           ) : sending ? (
-            <span className="text-muted">Слушаю, но жду ответа — повторите фразу после него.</span>
-          ) : handsFreeVoice.phase === 'listening' ? (
+            <span className="text-ai-accent">Думаю…</span>
+          ) : handsFree && !handsFreeVoice.handsFreeSupported ? (
+            <span className="text-muted">Без клика недоступно в этом браузере — нажмите на микрофон в поле ввода.</span>
+          ) : handsFree && handsFreeVoice.phase === 'listening' ? (
             <span className="inline-flex items-center gap-1.5 text-ai-accent">
               <Mic size={12} className="animate-pulse" />
               Слушаю{handsFreeVoice.interim ? `: «${handsFreeVoice.interim}»` : '…'}
             </span>
-          ) : null}
+          ) : (
+            <span className="text-muted">Готов</span>
+          )}
         </div>
       )}
 
