@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Volume2, VolumeX } from 'lucide-react'
+import { Mic, Volume2, VolumeX } from 'lucide-react'
 import { ChatComposer } from '@/ai/components/ChatComposer'
 import { MessageBubble } from '@/ai/components/MessageBubble'
 import { PendingActionModal } from '@/ai/components/PendingActionModal'
 import { PendingActionOut } from '@/ai/types'
+import { useHandsFreeVoice } from '@/shared/hooks/useHandsFreeVoice'
 import { speakPrincess, splitVoiceReply, stopSpeaking } from '@/shared/lib/speechReply'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -33,10 +34,15 @@ function loadVoiceReplyPref(): boolean {
 export function ConsultChatCore({
   initialMessage = '',
   compact = false,
+  handsFree = false,
 }: {
   initialMessage?: string
   /** Компактный режим (оверлей): без заголовка «Консультация», короче подсказка. */
   compact?: boolean
+  /** Фоновое распознавание речи «на весь диалог», без клика на каждую фразу
+   * (0051-b) — включено только в оверлее Jarvis, страница `/agents` не
+   * трогается и продолжает работать по клику на микрофон, как раньше. */
+  handsFree?: boolean
 }) {
   const hydrate = useConsultStore((state) => state.hydrate)
   const setDraft = useConsultStore((state) => state.setDraft)
@@ -132,6 +138,14 @@ export function ConsultChatCore({
     await clear()
   }
 
+  const handsFreeVoice = useHandsFreeVoice((text) => void handleSend(text), handsFree, sending)
+
+  // Пока фоновое прослушивание активно и браузер его поддерживает — прячем
+  // ручную кнопку микрофона в композере (не пускаем два распознавания сразу
+  // на один и тот же микрофон). Если поддержки нет — оставляем клик как
+  // единственный доступный способ, с понятной подсказкой ниже.
+  const showComposerMic = !handsFree || !handsFreeVoice.handsFreeSupported
+
   return (
     <>
       <div className={`flex flex-wrap items-center justify-between gap-2 border-b border-border ${compact ? 'px-3 py-2' : 'px-5 py-3'}`}>
@@ -202,13 +216,32 @@ export function ConsultChatCore({
 
       {error && <p className="px-5 pb-2 text-[12px] text-danger">{error}</p>}
 
+      {handsFree && (
+        <div className="px-3 pb-1 text-[12px]">
+          {handsFreeVoice.phase === 'error' && handsFreeVoice.error ? (
+            <span className="text-danger">{handsFreeVoice.error}</span>
+          ) : !handsFreeVoice.handsFreeSupported ? (
+            <span className="text-muted">
+              Без клика недоступно в этом браузере — нажмите на микрофон в поле ввода.
+            </span>
+          ) : sending ? (
+            <span className="text-muted">Слушаю, но жду ответа — повторите фразу после него.</span>
+          ) : handsFreeVoice.phase === 'listening' ? (
+            <span className="inline-flex items-center gap-1.5 text-ai-accent">
+              <Mic size={12} className="animate-pulse" />
+              Слушаю{handsFreeVoice.interim ? `: «${handsFreeVoice.interim}»` : '…'}
+            </span>
+          ) : null}
+        </div>
+      )}
+
       <ChatComposer
         initialMessage={draft}
         sending={sending}
         attachments={[]}
         uploadingAttachment={false}
         allowAttach={false}
-        voiceInput
+        voiceInput={showComposerMic}
         onSend={handleSend}
         onAttach={() => {}}
         onRemoveAttachment={() => {}}

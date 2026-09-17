@@ -51,7 +51,7 @@ export function JarvisOverlay() {
       </div>
 
       <div className={collapsed ? 'hidden' : 'flex max-h-[70vh] min-h-[24rem] flex-1 flex-col'}>
-        <ConsultChatCore compact />
+        <ConsultChatCore compact handsFree />
       </div>
     </div>
   )
