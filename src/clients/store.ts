@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
-import { Client, ClientChatState, ClientCreateInput } from './types'
+import { Client, ClientCreateInput } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -21,8 +21,9 @@ interface ClientsState {
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
   setPaymentEditUnlocked: (id: number, unlocked: boolean) => Promise<ActionResult>
-  setMaxChat: (id: number, maxChatId: number | null) => Promise<ActionResult>
-  setChatState: (id: number, state: ClientChatState) => Promise<ActionResult>
+  createChatLink: (id: number, maxChatId: number, label: string) => Promise<ActionResult>
+  updateChatLink: (id: number, linkId: number, patch: clientsApi.ChatLinkUpdateInput) => Promise<ActionResult>
+  deleteChatLink: (id: number, linkId: number) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
   uploadContractFiles: (id: number, contract: File, appendix: File) => Promise<ActionResult>
   uploadHouseProjectFile: (id: number, file: File) => Promise<ActionResult>
@@ -86,8 +87,10 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
     setPaymentEditUnlocked: (id, unlocked) =>
       applyClientMutation(() => clientsApi.setPaymentEditUnlocked(id, unlocked)),
-    setMaxChat: (id, maxChatId) => applyClientMutation(() => clientsApi.setMaxChat(id, maxChatId)),
-    setChatState: (id, state) => applyClientMutation(() => clientsApi.setChatState(id, state)),
+    createChatLink: (id, maxChatId, label) =>
+      applyNoteMutation(id, () => clientsApi.createChatLink(id, maxChatId, label)),
+    updateChatLink: (id, linkId, patch) => applyNoteMutation(id, () => clientsApi.updateChatLink(id, linkId, patch)),
+    deleteChatLink: (id, linkId) => applyNoteMutation(id, () => clientsApi.deleteChatLink(id, linkId)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),
     uploadContractFiles: (id, contract, appendix) =>
       applyClientMutation(() => clientsApi.uploadContractFiles(id, contract, appendix)),
