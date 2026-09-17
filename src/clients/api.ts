@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Client, ClientChatState, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
+import { Client, ClientChatLink, ClientChatState, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
 
 const SECTION = 'clients'
 
@@ -43,19 +43,34 @@ export function updateHousesCount(id: number, patch: HousesCountUpdateInput): Pr
   return apiRequest<Client>({ section: SECTION, path: `/${id}/houses-count`, method: 'PATCH', body: patch })
 }
 
-/** PATCH /api/clients/:id/max-chat — привязать/отвязать чат MAX (`null` отвязывает). */
-export function setMaxChat(id: number, maxChatId: number | null): Promise<Client> {
-  return apiRequest<Client>({
+/** POST /api/clients/:id/chat-links — привязать ещё один чат MAX к клиенту (0053). */
+export function createChatLink(id: number, maxChatId: number, label: string): Promise<ClientChatLink> {
+  return apiRequest<ClientChatLink>({
     section: SECTION,
-    path: `/${id}/max-chat`,
-    method: 'PATCH',
-    body: { max_chat_id: maxChatId },
+    path: `/${id}/chat-links`,
+    method: 'POST',
+    body: { max_chat_id: maxChatId, label },
   })
 }
 
-/** PATCH /api/clients/:id/chat-state — только для клиента с уже привязанным чатом. */
-export function setChatState(id: number, state: ClientChatState): Promise<Client> {
-  return apiRequest<Client>({ section: SECTION, path: `/${id}/chat-state`, method: 'PATCH', body: { state } })
+export interface ChatLinkUpdateInput {
+  label?: string
+  state?: ClientChatState
+}
+
+/** PATCH /api/clients/:id/chat-links/:linkId */
+export function updateChatLink(id: number, linkId: number, patch: ChatLinkUpdateInput): Promise<ClientChatLink> {
+  return apiRequest<ClientChatLink>({
+    section: SECTION,
+    path: `/${id}/chat-links/${linkId}`,
+    method: 'PATCH',
+    body: patch,
+  })
+}
+
+/** DELETE /api/clients/:id/chat-links/:linkId — отвязать один чат, остальные привязки клиента не затрагивает. */
+export function deleteChatLink(id: number, linkId: number): Promise<void> {
+  return apiRequest<void>({ section: SECTION, path: `/${id}/chat-links/${linkId}`, method: 'DELETE' })
 }
 
 /** PATCH /api/clients/:id/payment */

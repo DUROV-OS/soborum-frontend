@@ -76,6 +76,18 @@ export interface ClientNote {
   created_at: string
 }
 
+/** Привязка клиента к чату MAX (0053) — у клиента может быть несколько
+ * (например, отдельно с ним и с его помощником), но каждый чат по-прежнему
+ * принадлежит не более чем одному клиенту. */
+export interface ClientChatLink {
+  id: number
+  client_id: number
+  max_chat_id: number
+  label: string
+  state: ClientChatState | null
+  created_at: string
+}
+
 /** Способ связи с клиентом: мессенджер/канал и адрес в нём. */
 export interface ClientContact {
   messenger: string
@@ -94,12 +106,8 @@ export interface Client {
   phone: string
   email: string
   contacts: ClientContact[]
-  /** id чата в мессенджере MAX, к которому привязана переписка с клиентом.
-   * `null` — переписка не привязана; `0` — «Избранное». Ни к одной стадии
-   * не привязан, редактируется в любой момент. */
-  max_chat_id: number | null
-  /** Состояние переписки — хранится на связи, осмысленно только пока чат привязан. */
-  max_chat_state: ClientChatState | null
+  /** Чаты MAX, привязанные к клиенту (0053) — 1:N, редактируется в любой момент. */
+  chat_links: ClientChatLink[]
   order_type: OrderType | null
   /** Ключ карточки каталога типовых проектов (0043), если дом клиента совпадает
    * с одной из моделей — необязателен, индивидуальный дом может не совпасть ни с одной. */

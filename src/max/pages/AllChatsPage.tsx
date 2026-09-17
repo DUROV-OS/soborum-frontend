@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -235,7 +235,7 @@ export function AllChatsPage() {
                 </div>
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
               </div>
-              <ClientLinkAction chat={chats.find((c) => c.id === activeId)} onLinked={loadChats} />
+              <ChatClientSwitcher chat={chats.find((c) => c.id === activeId)} onLinked={loadChats} />
             </div>
 
             <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -292,22 +292,14 @@ export function AllChatsPage() {
   )
 }
 
-/** Обратная привязка чата к клиенту (0012): бейдж, если уже привязан, иначе действие. */
-function ClientLinkAction({ chat, onLinked }: { chat: MaxChatSummary | undefined; onLinked: () => void }) {
+/** Переключатель клиента в шапке открытого чата (0053): показывает, к кому
+ * привязан текущий чат (или «Не привязан»), клик открывает поиск по клиентам
+ * для смены/выбора привязки, не уходя из MAX. */
+function ChatClientSwitcher({ chat, onLinked }: { chat: MaxChatSummary | undefined; onLinked: () => void }) {
   const [open, setOpen] = useState(false)
   if (!chat) return null
 
-  if (chat.linkedClientId != null) {
-    return (
-      <Link
-        to={`/clients/${chat.linkedClientId}`}
-        className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
-      >
-        <UserCheck size={13} />
-        {chat.linkedClientName ?? 'Клиент'}
-      </Link>
-    )
-  }
+  const linked = chat.linkedClientId != null
 
   return (
     <>
@@ -316,8 +308,8 @@ function ClientLinkAction({ chat, onLinked }: { chat: MaxChatSummary | undefined
         onClick={() => setOpen(true)}
         className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
       >
-        <Link2 size={13} />
-        Привязать к клиенту
+        {linked ? <UserCheck size={13} /> : <Link2 size={13} />}
+        {linked ? chat.linkedClientName ?? 'Клиент' : 'Не привязан'}
       </button>
       <LinkClientModal chatId={chat.id} open={open} onClose={() => setOpen(false)} onLinked={onLinked} />
     </>
