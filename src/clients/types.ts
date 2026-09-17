@@ -120,6 +120,8 @@ export interface Client {
   documents_locked_at: string | null
   is_paid: boolean | null
   payment_locked_at: string | null
+  /** Разрешение администратора обходить payment_locked_at (0054). */
+  payment_edit_unlocked: boolean
   /** Приём остатка после получения дома — стадия «Постоплата», планы advance/postpay. */
   balance_paid: boolean | null
   balance_paid_at: string | null
