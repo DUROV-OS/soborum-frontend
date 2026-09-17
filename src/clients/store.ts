@@ -20,6 +20,7 @@ interface ClientsState {
   updateDocuments: (id: number, patch: clientsApi.DocumentsUpdateInput) => Promise<ActionResult>
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
+  setPaymentEditUnlocked: (id: number, unlocked: boolean) => Promise<ActionResult>
   setMaxChat: (id: number, maxChatId: number | null) => Promise<ActionResult>
   setChatState: (id: number, state: ClientChatState) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
@@ -83,6 +84,8 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     updateDocuments: (id, patch) => applyClientMutation(() => clientsApi.updateDocuments(id, patch)),
     updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
+    setPaymentEditUnlocked: (id, unlocked) =>
+      applyClientMutation(() => clientsApi.setPaymentEditUnlocked(id, unlocked)),
     setMaxChat: (id, maxChatId) => applyClientMutation(() => clientsApi.setMaxChat(id, maxChatId)),
     setChatState: (id, state) => applyClientMutation(() => clientsApi.setChatState(id, state)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),
