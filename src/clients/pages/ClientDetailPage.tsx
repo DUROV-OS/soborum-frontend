@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
+import { useRegisterScreenEntity } from '@/shared/hooks/useRegisterScreenEntity'
 import { Button } from '@/shared/ui/Button'
 import { Stepper } from '@/shared/ui/Stepper'
 import { useClientsStore } from '../store'
@@ -36,6 +37,8 @@ export function ClientDetailPage() {
   }, [clients.length, load])
 
   const client = clients.find((c) => c.id === clientId)
+
+  useRegisterScreenEntity(client ? { type: 'client', id: client.id, label: client.full_name } : null)
 
   if (!client) {
     return <p className="text-[13px] text-muted">Загрузка…</p>
