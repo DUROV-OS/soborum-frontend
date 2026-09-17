@@ -92,6 +92,9 @@ export function PaymentPanel({ client }: { client: Client }) {
         </Chip>
         <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
         {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
+        {locked && !isAdmin && client.payment_edit_unlocked && (
+          <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>
+        )}
       </Section>
     )
   }
@@ -120,6 +123,9 @@ export function PaymentPanel({ client }: { client: Client }) {
       </div>
       <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
       {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
+      {locked && !isAdmin && client.payment_edit_unlocked && (
+        <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>
+      )}
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
       {movementId && (
         <button
