@@ -2,7 +2,7 @@ import { Volume2, Wrench } from 'lucide-react'
 import { downloadFileById } from '@/shared/lib/httpClient'
 import { splitVoiceReply } from '@/shared/lib/speechReply'
 import { Markdown } from '@/shared/ui/Markdown'
-import { MessageOut, PendingActionOut } from '../types'
+import { MessageContentBlock, MessageOut, PendingActionOut } from '../types'
 import { AttachmentChip } from './AttachmentChip'
 import { PendingActionCard } from './PendingActionCard'
 
@@ -12,6 +12,7 @@ export function MessageBubble({
   onResolve,
   preferVoiceLead = false,
   canAct = true,
+  describeToolUse,
 }: {
   message: MessageOut
   pendingActions: PendingActionOut[]
@@ -19,6 +20,10 @@ export function MessageBubble({
   /** Show explicit «Голосом» résumé above the full answer. */
   preferVoiceLead?: boolean
   canAct?: boolean
+  /** Человеко-понятная подпись для уже выполненного tool_use вместо сырого
+   * имени инструмента (0051-e) — например `describeToolCall`. Без пропа
+   * поведение не меняется (показывается `block.name`, как раньше). */
+  describeToolUse?: (block: MessageContentBlock, resolution: unknown) => string
 }) {
   if (message.role !== 'user' && message.role !== 'assistant') return null
 
@@ -72,7 +77,9 @@ export function MessageBubble({
                 className="flex items-center gap-1.5 rounded-pill bg-surface-muted px-3 py-1 text-[12px] text-muted"
               >
                 <Wrench size={12} />
-                {block.name}
+                {describeToolUse
+                  ? describeToolUse(block, block.id ? message.tool_resolutions?.[block.id] : undefined)
+                  : block.name}
               </div>
             ),
         )}
