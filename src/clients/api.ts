@@ -63,6 +63,16 @@ export function updatePayment(id: number, is_paid: boolean): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: `/${id}/payment`, method: 'PATCH', body: { is_paid } })
 }
 
+/** PATCH /api/clients/:id/payment-edit-unlock — только для роли admin. */
+export function setPaymentEditUnlocked(id: number, unlocked: boolean): Promise<Client> {
+  return apiRequest<Client>({
+    section: SECTION,
+    path: `/${id}/payment-edit-unlock`,
+    method: 'PATCH',
+    body: { unlocked },
+  })
+}
+
 /** PATCH /api/clients/:id/balance-payment — приём остатка после получения дома. */
 export function markBalancePayment(id: number): Promise<Client> {
   return apiRequest<Client>({

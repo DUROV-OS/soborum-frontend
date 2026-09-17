@@ -33,7 +33,7 @@ export function isGroupVisible(client: Client, group: ClientFieldGroup): boolean
 
 export function isGroupEditable(client: Client, group: ClientFieldGroup): boolean {
   if (group === 'documents') return client.documents_locked_at === null
-  return client.payment_locked_at === null
+  return client.payment_locked_at === null || client.payment_edit_unlocked
 }
 
 /**

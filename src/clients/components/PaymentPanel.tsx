@@ -10,8 +10,46 @@ import { isGroupEditable, isGroupVisible, paymentStageRule } from '../rules'
 import { Client } from '../types'
 import { Section } from './PanelPrimitives'
 
+function PaymentEditUnlockToggle({ client }: { client: Client }) {
+  const setPaymentEditUnlocked = useClientsStore((s) => s.setPaymentEditUnlocked)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function toggle() {
+    setPending(true)
+    const result = await setPaymentEditUnlocked(client.id, !client.payment_edit_unlocked)
+    setError(result.ok ? null : result.reason ?? 'Не удалось сохранить')
+    setPending(false)
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={client.payment_edit_unlocked}
+        disabled={pending}
+        onClick={toggle}
+        className={`relative h-6 w-11 shrink-0 rounded-pill transition-colors disabled:opacity-50 ${
+          client.payment_edit_unlocked ? 'bg-brand' : 'bg-surface-muted'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+            client.payment_edit_unlocked ? 'translate-x-[22px]' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
+      <span className="text-[13px] text-ink">Разрешить редактирование</span>
+      {error && <p className="text-[12px] text-danger">{error}</p>}
+    </div>
+  )
+}
+
 export function PaymentPanel({ client }: { client: Client }) {
   const updatePayment = useClientsStore((s) => s.updatePayment)
+  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const locked = client.payment_locked_at !== null
   const editable = isGroupEditable(client, 'payment') && accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const hasAccounting = useAuthStore((s) => s.hasAccess('accounting'))
   const navigate = useNavigate()
@@ -53,6 +91,10 @@ export function PaymentPanel({ client }: { client: Client }) {
           {client.is_paid ? rule.paidLabel : rule.unpaidLabel}
         </Chip>
         <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
+        {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
+        {locked && !isAdmin && client.payment_edit_unlocked && (
+          <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>
+        )}
       </Section>
     )
   }
@@ -80,6 +122,10 @@ export function PaymentPanel({ client }: { client: Client }) {
         </button>
       </div>
       <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
+      {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
+      {locked && !isAdmin && client.payment_edit_unlocked && (
+        <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>
+      )}
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
       {movementId && (
         <button
