@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
-import { Account } from './types'
+import { Account, AccessLevel } from './types'
 
 interface AuthState {
   current: Account | null
@@ -14,7 +14,8 @@ interface AuthState {
   logout: () => void
   loadAccounts: () => Promise<void>
   hasAccess: (section: SectionId) => boolean
-  updateAccess: (id: number, moduleAccess: SectionId[]) => Promise<void>
+  accessLevel: (section: SectionId) => AccessLevel
+  updateAccess: (id: number, moduleAccess: Partial<Record<SectionId, AccessLevel>>) => Promise<void>
   addAccount: (input: Omit<authApi.CreateAccountInput, 'email'> & { email: string }) => Promise<void>
   resetPassword: (id: number) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -65,18 +66,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ accounts })
   },
 
-  hasAccess: (section) => {
+  accessLevel: (section) => {
     const account = get().current
-    if (!account) return false
-    if (account.role === 'admin') return true
+    if (!account) return 'none'
+    if (account.role === 'admin') return 'full'
     // «Сегодня» доступен каждому вошедшему сотруднику; сервер отдаёт только
     // показатели разрешённых ему разделов и не требует AI-доступа. «Агенты» и
     // «Все чаты» (данные MAX общие для организации) — так же для всех.
-    if (section === 'today' || section === 'agents' || section === 'chats') return true
+    if (section === 'today' || section === 'agents' || section === 'chats') return 'full'
     // «Совещания» — часть доступа к «Марине», отдельного гранта нет.
-    if (section === 'meetings') return account.module_access.includes('ai')
-    return account.module_access.includes(section)
+    if (section === 'meetings') return account.module_access.ai ?? 'none'
+    return account.module_access[section] ?? 'none'
   },
+
+  hasAccess: (section) => get().accessLevel(section) !== 'none',
 
   updateAccess: async (id, moduleAccess) => {
     const updated = await authApi.updateAccountAccess(id, moduleAccess)

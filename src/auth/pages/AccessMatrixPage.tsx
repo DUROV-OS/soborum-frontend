@@ -3,20 +3,30 @@ import { ArrowRight, KeyRound, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ASSIGNABLE_SECTIONS, SectionId } from '@/shared/sections'
 import { Button } from '@/shared/ui/Button'
-import { Field, Input } from '@/shared/ui/Field'
+import { Field, Input, Select } from '@/shared/ui/Field'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { Modal } from '@/shared/ui/Modal'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { useAuthStore } from '../store'
+import { AccessLevel } from '../types'
+
+const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
+  ['none', 'Нет доступа'],
+  ['view', 'Только просмотр'],
+  ['edit', 'Редактирование'],
+  ['full', 'Полный доступ'],
+]
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     title: 'Матрица доступа',
     body: (
       <p>
-        Строки таблицы — сотрудники, столбцы — разделы системы. Галочка означает, что сотрудник видит раздел и
-        может в нём работать. Администраторы видят все разделы всегда, независимо от галочек в этой таблице.
+        Строки таблицы — сотрудники, столбцы — разделы системы. На пересечении — уровень доступа: «Нет доступа»
+        (раздел скрыт), «Только просмотр» (видит данные, не меняет), «Редактирование» (создаёт и меняет записи) или
+        «Полный доступ» (плюс разрушительные и административные действия раздела). Администраторы видят и могут
+        всё всегда, независимо от значений в этой таблице.
       </p>
     ),
   },
@@ -24,8 +34,7 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Управление доступом',
     body: (
       <p>
-        Кликните по галочке в ячейке, чтобы включить или выключить доступ сотрудника к разделу — изменение
-        применяется сразу.
+        Выберите уровень в выпадающем списке на пересечении сотрудника и раздела — изменение применяется сразу.
       </p>
     ),
   },
@@ -33,8 +42,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Новый сотрудник',
     body: (
       <p>
-        Кнопка «Новый сотрудник» в правом верхнем углу открывает форму: ФИО, почта, пароль и сразу — список
-        разделов, к которым нужно дать доступ.
+        Кнопка «Новый сотрудник» в правом верхнем углу открывает форму: ФИО, почта, пароль и сразу — уровень
+        доступа к каждому разделу.
       </p>
     ),
   },
@@ -57,12 +66,10 @@ export function AccessMatrixPage() {
 
   const workers = accounts.filter((a) => a.role === 'worker')
 
-  async function toggle(accountId: number, section: SectionId, hasIt: boolean) {
+  async function setLevel(accountId: number, section: SectionId, level: AccessLevel) {
     const account = accounts.find((a) => a.id === accountId)
     if (!account) return
-    const next = hasIt
-      ? account.module_access.filter((s) => s !== section)
-      : [...account.module_access, section]
+    const next = { ...account.module_access, [section]: level }
     setError(null)
     try {
       await updateAccess(accountId, next)
@@ -89,7 +96,8 @@ export function AccessMatrixPage() {
         <div>
           <h1 className="text-[20px] font-medium text-ink">Матрица доступа</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Доступ к разделу — либо есть, либо нет. Администраторы видят всё всегда.
+            4 уровня доступа на раздел: нет доступа, только просмотр, редактирование, полный доступ.
+            Администраторы видят и могут всё всегда.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start">
@@ -138,16 +146,21 @@ export function AccessMatrixPage() {
                   <div className="text-[12px] text-muted">{account.email}</div>
                 </td>
                 {ASSIGNABLE_SECTIONS.map((section) => {
-                  const hasIt = account.module_access.includes(section.id)
+                  const level = account.module_access[section.id] ?? 'none'
                   return (
                     <td key={section.id} className="px-3 py-3 text-center">
-                      <input
-                        type="checkbox"
+                      <Select
                         aria-label={`${account.full_name}: ${section.label}`}
-                        checked={hasIt}
-                        onChange={() => toggle(account.id, section.id, hasIt)}
-                        className="h-4 w-4 accent-[rgb(var(--brand))]"
-                      />
+                        value={level}
+                        onChange={(e) => setLevel(account.id, section.id, e.target.value as AccessLevel)}
+                        className="w-full min-w-[9rem]"
+                      >
+                        {ACCESS_LEVEL_OPTIONS.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </Select>
                     </td>
                   )
                 })}
@@ -186,12 +199,17 @@ function CreateAccountModal({
 }: {
   open: boolean
   onClose: () => void
-  onCreate: (input: { email: string; password: string; full_name: string; module_access: SectionId[] }) => Promise<void>
+  onCreate: (input: {
+    email: string
+    password: string
+    full_name: string
+    module_access: Partial<Record<SectionId, AccessLevel>>
+  }) => Promise<void>
 }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [sections, setSections] = useState<SectionId[]>([])
+  const [levels, setLevels] = useState<Partial<Record<SectionId, AccessLevel>>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -199,7 +217,7 @@ function CreateAccountModal({
     setFullName('')
     setEmail('')
     setPassword('')
-    setSections([])
+    setLevels({})
     setError(null)
   }
 
@@ -207,7 +225,7 @@ function CreateAccountModal({
     if (!fullName || !email || !password) return
     setSaving(true)
     try {
-      await onCreate({ email, password, full_name: fullName, module_access: sections })
+      await onCreate({ email, password, full_name: fullName, module_access: levels })
       reset()
       onClose()
     } catch (e) {
@@ -255,21 +273,23 @@ function CreateAccountModal({
         <Field label="Доступ к разделам">
           <div className="flex flex-col gap-2">
             {ASSIGNABLE_SECTIONS.map((section) => (
-              <label key={section.id} className="flex items-center gap-2 text-[13px] text-ink">
-                <input
-                  type="checkbox"
-                  checked={sections.includes(section.id)}
+              <div key={section.id} className="flex items-center justify-between gap-3">
+                <span className="text-[13px] text-ink">{section.label}</span>
+                <Select
+                  aria-label={section.label}
+                  value={levels[section.id] ?? 'none'}
                   onChange={(e) =>
-                    setSections((prev) =>
-                      e.target.checked
-                        ? [...prev, section.id]
-                        : prev.filter((s) => s !== section.id),
-                    )
+                    setLevels((prev) => ({ ...prev, [section.id]: e.target.value as AccessLevel }))
                   }
-                  className="h-4 w-4 accent-[rgb(var(--brand))]"
-                />
-                {section.label}
-              </label>
+                  className="w-44"
+                >
+                  {ACCESS_LEVEL_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             ))}
           </div>
         </Field>

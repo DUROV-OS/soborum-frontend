@@ -1,6 +1,6 @@
 import { apiRequest, login as loginRequest, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
-import { Account } from './types'
+import { Account, AccessLevel } from './types'
 
 const SECTION = 'auth'
 
@@ -25,7 +25,7 @@ export interface CreateAccountInput {
   email: string
   password: string
   full_name: string
-  module_access: SectionId[]
+  module_access: Partial<Record<SectionId, AccessLevel>>
 }
 
 /** POST /api/auth/users */
@@ -39,7 +39,7 @@ export function createAccount(input: CreateAccountInput): Promise<Account> {
 }
 
 /** PUT /api/auth/users/:id/access */
-export function updateAccountAccess(id: number, module_access: SectionId[]): Promise<Account> {
+export function updateAccountAccess(id: number, module_access: Partial<Record<SectionId, AccessLevel>>): Promise<Account> {
   return apiRequest<Account>({
     section: SECTION,
     path: `/users/${id}/access`,
