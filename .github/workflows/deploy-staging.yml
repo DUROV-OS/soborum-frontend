@@ -1,0 +1,37 @@
+name: Deploy staging
+
+# Отдельный от deploy.yml триггер и job: пуш в staging не задевает прод-workflow
+# (тот слушает только push:main), и наоборот.
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          # Тот же относительный /api, что и на проде: nginx стейдж-поддомена
+          # проксирует /api на стейдж-бэк и раздаёт эту же статику — один origin.
+          VITE_API_BASE: /api
+
+      - name: Deploy over SSH (staging)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key_staging
+          chmod 600 ~/.ssh/deploy_key_staging
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key_staging" dist/ "$SSH_USER@$SSH_HOST:/var/www/soborbum-frontend-staging/dist/"
