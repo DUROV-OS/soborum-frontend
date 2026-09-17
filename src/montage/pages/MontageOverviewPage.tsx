@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Truck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -50,6 +52,7 @@ export function MontageOverviewPage() {
   const [busyId, setBusyId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const onboarding = useSectionOnboarding('installation')
+  const canEdit = accessLevelAtLeast(useAccessLevel('installation'), 'edit')
 
   useEffect(() => {
     loadCycles()
@@ -96,11 +99,11 @@ export function MontageOverviewPage() {
                 <Button size="sm" variant="secondary" onClick={() => navigate(`/montage/${cycle.installation!.id}`)}>
                   Открыть
                 </Button>
-              ) : (
+              ) : canEdit ? (
                 <Button size="sm" disabled={busyId === cycle.id} onClick={() => handleStart(cycle.id)}>
                   {busyId === cycle.id ? 'Запуск…' : 'Начать монтаж'}
                 </Button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

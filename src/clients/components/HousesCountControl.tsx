@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { useClientsStore } from '../store'
 import { Client, OrderType } from '../types'
-import { Section } from './PanelPrimitives'
+import { ReadRow, Section } from './PanelPrimitives'
 
 /**
  * Количество домов — единственное документное поле, которое редактируется в
@@ -24,6 +26,7 @@ export function HousesCountControl({
   orderTypeOverride?: OrderType | ''
 }) {
   const updateHousesCount = useClientsStore((s) => s.updateHousesCount)
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const [value, setValue] = useState<number | ''>(client.houses_count > 1 ? client.houses_count : 2)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +37,14 @@ export function HousesCountControl({
 
   const effectiveOrderType = orderTypeOverride !== undefined ? orderTypeOverride : client.order_type
   if (effectiveOrderType !== 'multiple') return null
+
+  if (!canEdit) {
+    return (
+      <Section title="Количество домов">
+        <ReadRow label="Количество" value={client.houses_count} />
+      </Section>
+    )
+  }
 
   async function save() {
     if (value === '' || value < 2) {

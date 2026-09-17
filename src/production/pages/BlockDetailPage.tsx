@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AskAiButton } from '@/ai/components/AskAiButton'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { useTasksStore } from '@/tasks/store'
 import { TaskDetailDrawer } from '@/tasks/components/TaskDetailDrawer'
 import { CreateTaskModal } from '@/tasks/components/CreateTaskModal'
@@ -26,7 +27,9 @@ export function BlockDetailPage() {
   const loadBlock = useProductionStore((s) => s.loadBlock)
   const loadProduction = useProductionStore((s) => s.loadProduction)
   const deleteBlock = useProductionStore((s) => s.deleteBlock)
-  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const canEditProduction = accessLevelAtLeast(useAccessLevel('production'), 'edit')
+  const canFullProduction = accessLevelAtLeast(useAccessLevel('production'), 'full')
+  const canEditTasks = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const navigate = useNavigate()
   const tasks = useTasksStore((s) => s.tasks)
   const loadTasks = useTasksStore((s) => s.load)
@@ -101,7 +104,7 @@ export function BlockDetailPage() {
             contextLabel={`Блок: ${block.name}`}
             contextNote={`[block_id=${block.id}, production_id=${block.production_id}, ${block.name}] `}
           />
-          {isAdmin && (
+          {canFullProduction && (
             <button
               type="button"
               onClick={handleDelete}
@@ -120,10 +123,12 @@ export function BlockDetailPage() {
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[14px] font-medium text-ink">Материалы</h2>
-          <Button size="sm" variant="secondary" onClick={() => setAddingMaterial(true)}>
-            <Plus size={14} />
-            Добавить материал
-          </Button>
+          {canEditProduction && (
+            <Button size="sm" variant="secondary" onClick={() => setAddingMaterial(true)}>
+              <Plus size={14} />
+              Добавить материал
+            </Button>
+          )}
         </div>
         <DataTable
           columns={[
@@ -132,14 +137,18 @@ export function BlockDetailPage() {
             { header: 'Необходимо', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_required} ${m.unit}` },
             { header: 'Запрошено', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_requested} ${m.unit}` },
             { header: 'Выдано', align: 'right', className: 'tabular', accessor: (m: BlockMaterial) => `${m.quantity_provided} ${m.unit}` },
-            {
-              header: '',
-              accessor: (m: BlockMaterial) => (
-                <Button size="sm" variant="ghost" onClick={() => setRequestingLine(m)}>
-                  Запросить
-                </Button>
-              ),
-            },
+            ...(canEditProduction
+              ? [
+                  {
+                    header: '',
+                    accessor: (m: BlockMaterial) => (
+                      <Button size="sm" variant="ghost" onClick={() => setRequestingLine(m)}>
+                        Запросить
+                      </Button>
+                    ),
+                  },
+                ]
+              : []),
           ]}
           rows={block.materials}
           keyOf={(m) => String(m.id)}
@@ -150,10 +159,12 @@ export function BlockDetailPage() {
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[14px] font-medium text-ink">Задачи блока</h2>
-          <Button size="sm" variant="secondary" onClick={() => setCreatingTask(true)}>
-            <Plus size={14} />
-            Задача
-          </Button>
+          {canEditTasks && (
+            <Button size="sm" variant="secondary" onClick={() => setCreatingTask(true)}>
+              <Plus size={14} />
+              Задача
+            </Button>
+          )}
         </div>
         <div className="flex flex-col gap-2">
           {blockTasks.map((task) => (

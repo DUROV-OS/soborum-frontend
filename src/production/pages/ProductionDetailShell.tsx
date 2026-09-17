@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AskAiButton } from '@/ai/components/AskAiButton'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { useProductionStore } from '../store'
 
 /**
@@ -26,7 +27,7 @@ export function ProductionDetailShell() {
   const production = useProductionStore((s) => s.production)
   const loadProduction = useProductionStore((s) => s.loadProduction)
   const deleteProduction = useProductionStore((s) => s.deleteProduction)
-  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const canFull = accessLevelAtLeast(useAccessLevel('production'), 'full')
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -68,7 +69,7 @@ export function ProductionDetailShell() {
         </h1>
         <div className="flex gap-2 self-start">
           <AskAiButton domain="production" contextLabel={`Производство №${production.id}`} contextNote={`[production_id=${production.id}] `} />
-          {isAdmin && (
+          {canFull && (
             <button
               type="button"
               onClick={handleDelete}

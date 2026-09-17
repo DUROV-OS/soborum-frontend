@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { List, Plus, Workflow } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
@@ -20,6 +22,7 @@ export function ProductionBlocksTab() {
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const [view, setView] = useState<ViewMode>('list')
+  const canEdit = accessLevelAtLeast(useAccessLevel('production'), 'edit')
 
   const blocks = [...production.blocks].sort((a, b) => a.sequence - b.sequence)
   const blockById = new Map(blocks.map((b) => [b.id, b]))
@@ -53,10 +56,12 @@ export function ProductionBlocksTab() {
               Граф
             </button>
           </div>
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus size={16} />
-            Блок
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus size={16} />
+              Блок
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as accountingApi from '@/accounting/api'
+import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { useClientsStore } from '../store'
@@ -17,6 +19,7 @@ import { Section } from './PanelPrimitives'
  */
 export function BalancePaymentPanel({ client }: { client: Client }) {
   const markBalancePayment = useClientsStore((s) => s.markBalancePayment)
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const hasAccounting = useAuthStore((s) => s.hasAccess('accounting'))
   const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
@@ -65,11 +68,13 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
           <p className="mt-3 text-[12px] text-muted">
             Пока остаток не принят, завершить цикл нельзя — кнопка завершения монтажа будет недоступна.
           </p>
-          <div className="mt-4">
-            <Button size="sm" onClick={markPaid} disabled={saving}>
-              {saving ? 'Сохранение…' : 'Отметить приём остатка'}
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="mt-4">
+              <Button size="sm" onClick={markPaid} disabled={saving}>
+                {saving ? 'Сохранение…' : 'Отметить приём остатка'}
+              </Button>
+            </div>
+          )}
         </>
       )}
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}

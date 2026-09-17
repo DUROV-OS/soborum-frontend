@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AskAiButton } from '@/ai/components/AskAiButton'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Stepper } from '@/shared/ui/Stepper'
 import { useClientsStore } from '../store'
@@ -23,7 +24,9 @@ export function ClientDetailPage() {
   const load = useClientsStore((s) => s.load)
   const advance = useClientsStore((s) => s.advance)
   const deleteClient = useClientsStore((s) => s.deleteClient)
-  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const level = useAccessLevel('clients')
+  const canEdit = accessLevelAtLeast(level, 'edit')
+  const canFull = accessLevelAtLeast(level, 'full')
   const [error, setError] = useState<string | null>(null)
   const [advancing, setAdvancing] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -81,12 +84,12 @@ export function ClientDetailPage() {
               contextLabel={`Клиент: ${client.full_name}`}
               contextNote={`[client_id=${client.id}, ${client.full_name}] `}
             />
-            {next && (
+            {next && canEdit && (
               <Button size="sm" onClick={handleAdvance} disabled={advancing}>
                 {advancing ? 'Переход…' : `Перевести на «${stageLabel(next)}»`}
               </Button>
             )}
-            {isAdmin && (
+            {canFull && (
               <button
                 type="button"
                 onClick={handleDelete}
