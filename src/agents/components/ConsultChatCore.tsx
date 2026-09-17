@@ -35,6 +35,7 @@ export function ConsultChatCore({
   initialMessage = '',
   compact = false,
   handsFree = false,
+  contextNote,
 }: {
   initialMessage?: string
   /** Компактный режим (оверлей): без заголовка «Консультация», короче подсказка. */
@@ -43,6 +44,11 @@ export function ConsultChatCore({
    * (0051-b) — включено только в оверлее Jarvis, страница `/agents` не
    * трогается и продолжает работать по клику на микрофон, как раньше. */
   handsFree?: boolean
+  /** Контекст текущего экрана (0051-c) — что открыто прямо сейчас, отдельно
+   * от текста сообщения (см. `AskRequest.context_note`, регрессия 0017).
+   * Передаётся только оверлеем Jarvis; страница `/agents` не привязана к
+   * какому-то одному экрану, поэтому её вызов этот проп не передаёт. */
+  contextNote?: string
 }) {
   const hydrate = useConsultStore((state) => state.hydrate)
   const setDraft = useConsultStore((state) => state.setDraft)
@@ -121,7 +127,7 @@ export function ConsultChatCore({
   async function handleSend(message: string) {
     stopSpeaking()
     setSpeaking(false)
-    await send(message)
+    await send(message, contextNote)
     const next = useConsultStore.getState().pendingActions
     if (next.length > 0) setModalActions(next)
   }

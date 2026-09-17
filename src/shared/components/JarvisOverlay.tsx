@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Sparkles, X } from 'lucide-react'
 import { ConsultChatCore } from '@/agents/components/ConsultChatCore'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
+import { useCurrentScreenContext } from '@/shared/hooks/useCurrentScreenContext'
 import { useJarvisStore } from '../jarvisStore'
 
 /**
@@ -20,6 +21,7 @@ export function JarvisOverlay() {
   const enabled = useJarvisStore((s) => s.enabled)
   const disable = useJarvisStore((s) => s.disable)
   const [collapsed, setCollapsed] = useState(false)
+  const { contextNote } = useCurrentScreenContext()
 
   if (!enabled || !canUse) return null
 
@@ -51,7 +53,7 @@ export function JarvisOverlay() {
       </div>
 
       <div className={collapsed ? 'hidden' : 'flex max-h-[70vh] min-h-[24rem] flex-1 flex-col'}>
-        <ConsultChatCore compact handsFree />
+        <ConsultChatCore compact handsFree contextNote={contextNote} />
       </div>
     </div>
   )
