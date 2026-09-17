@@ -7,6 +7,7 @@ import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
+import { StageTemplateReviewPage } from '@/production/pages/StageTemplateReviewPage'
 import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
 import { ProductionBlocksTab } from '@/production/components/ProductionBlocksTab'
 import { ProductionHomeTab } from '@/production/pages/ProductionHomeTab'
@@ -93,6 +94,14 @@ export function AppRouter() {
           element={
             <AccessGate section="production">
               <BlockDetailPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/production/stage-templates/:id"
+          element={
+            <AccessGate section="production">
+              <StageTemplateReviewPage />
             </AccessGate>
           }
         />
