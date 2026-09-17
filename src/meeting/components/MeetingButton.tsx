@@ -1,19 +1,21 @@
 import { Mic } from 'lucide-react'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { useMeetingStore } from '../store'
 
 /**
  * Кнопка «Совещание» в Topbar рядом с выбором аккаунта. Видна только при
- * доступе к разделу «Марина». Оранжевый ИИ-акцент — токены --ai / --ai-accent
+ * доступе на запись (edit) к разделу «Марина» — начинает совещание, это
+ * действие, не просмотр (0052-d). Оранжевый ИИ-акцент — токены --ai / --ai-accent
  * (палитра задачи 0008).
  */
 export function MeetingButton() {
-  const hasAccess = useAuthStore((s) => s.hasAccess)
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const phase = useMeetingStore((s) => s.phase)
   const start = useMeetingStore((s) => s.start)
   const openPanel = useMeetingStore((s) => s.openPanel)
 
-  if (!hasAccess('ai')) return null
+  if (!canEdit) return null
 
   const busy = phase === 'starting' || phase === 'recording' || phase === 'finishing'
 

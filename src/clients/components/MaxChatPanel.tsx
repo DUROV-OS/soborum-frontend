@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link2, MessageSquareText, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
@@ -38,6 +40,7 @@ function LinkChatPrompt({
   onLink: (chatId: number) => Promise<{ ok: boolean; reason?: string }>
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
 
   return (
     <Section title="Переписка в MAX">
@@ -45,10 +48,12 @@ function LinkChatPrompt({
         Переписка с {client.full_name} ещё не привязана к чату MAX. Найдите нужный чат — после привязки
         здесь появятся сообщения и поле для ответа.
       </p>
-      <Button size="sm" onClick={() => setPickerOpen(true)}>
-        <Link2 size={14} />
-        Привязать чат
-      </Button>
+      {canEdit && (
+        <Button size="sm" onClick={() => setPickerOpen(true)}>
+          <Link2 size={14} />
+          Привязать чат
+        </Button>
+      )}
       <ChatPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -130,6 +135,7 @@ function ChatThread({
 
   const setChatState = useClientsStore((s) => s.setChatState)
   const [stateSaving, setStateSaving] = useState(false)
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
 
   async function changeState(state: ClientChatState) {
     setStateSaving(true)
@@ -144,21 +150,23 @@ function ChatThread({
           {title ? `Чат «${title}»` : `Чат MAX #${chatId}`}
         </p>
         <div className="flex shrink-0 items-center gap-3">
-          <Select
-            value={client.max_chat_state ?? ''}
-            onChange={(e) => changeState(e.target.value as ClientChatState)}
-            disabled={stateSaving}
-            className="h-7 py-0 text-[12px]"
-          >
-            <option value="" disabled>
-              Состояние переписки
-            </option>
-            {CLIENT_CHAT_STATES.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
+          {canEdit && (
+            <Select
+              value={client.max_chat_state ?? ''}
+              onChange={(e) => changeState(e.target.value as ClientChatState)}
+              disabled={stateSaving}
+              className="h-7 py-0 text-[12px]"
+            >
+              <option value="" disabled>
+                Состояние переписки
               </option>
-            ))}
-          </Select>
+              {CLIENT_CHAT_STATES.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          )}
           <Link
             to={`/chats/${chatId}`}
             className="inline-flex items-center gap-1 text-[12px] text-muted underline-offset-2 hover:text-brand-dark hover:underline"
@@ -166,13 +174,15 @@ function ChatThread({
             <MessageSquareText size={13} />
             Открыть в MAX
           </Link>
-          <button
-            type="button"
-            onClick={onUnlink}
-            className="text-[12px] text-muted underline-offset-2 hover:text-danger hover:underline"
-          >
-            Отвязать
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onUnlink}
+              className="text-[12px] text-muted underline-offset-2 hover:text-danger hover:underline"
+            >
+              Отвязать
+            </button>
+          )}
         </div>
       </div>
 

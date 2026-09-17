@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { useTasksStore } from '@/tasks/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
@@ -12,6 +14,7 @@ export function RequestApprovalQueue() {
   const loadTasks = useTasksStore((s) => s.load)
   const approveRequest = useWarehouseStore((s) => s.approveRequest)
   const rejectRequest = useWarehouseStore((s) => s.rejectRequest)
+  const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
   const [busyId, setBusyId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -43,21 +46,23 @@ export function RequestApprovalQueue() {
       {pending.map((task) => (
         <div key={task.id} className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-3">
           <span className="text-[13px] text-ink">{task.title}</span>
-          <div className="flex gap-2">
-            <Button size="sm" disabled={busyId === task.link_id} onClick={() => decide(task.link_id!, 'approve')}>
-              <Check size={14} />
-              Одобрить
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busyId === task.link_id}
-              onClick={() => decide(task.link_id!, 'reject')}
-            >
-              <X size={14} />
-              Отклонить
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex gap-2">
+              <Button size="sm" disabled={busyId === task.link_id} onClick={() => decide(task.link_id!, 'approve')}>
+                <Check size={14} />
+                Одобрить
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busyId === task.link_id}
+                onClick={() => decide(task.link_id!, 'reject')}
+              >
+                <X size={14} />
+                Отклонить
+              </Button>
+            </div>
+          )}
         </div>
       ))}
     </div>

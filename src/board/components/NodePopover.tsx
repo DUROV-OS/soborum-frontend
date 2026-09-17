@@ -1,3 +1,5 @@
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip, ChipTone } from '@/shared/ui/Chip'
 import { Modal } from '@/shared/ui/Modal'
@@ -22,6 +24,7 @@ export function NodePopover() {
   const tree = useBoardStore((s) => s.tree)
   const closePopover = useBoardStore((s) => s.closePopover)
   const openProposal = useBoardStore((s) => s.openProposal)
+  const canEdit = accessLevelAtLeast(useAccessLevel('board'), 'edit')
 
   const node = nodeId !== null && tree ? findNode(tree, nodeId) : null
   const text = node?.summary || node?.description
@@ -32,7 +35,7 @@ export function NodePopover() {
       open={node !== null}
       onClose={closePopover}
       title={node?.title ?? ''}
-      footer={<Button onClick={() => node && openProposal(node.id)}>Внести изменения</Button>}
+      footer={canEdit ? <Button onClick={() => node && openProposal(node.id)}>Внести изменения</Button> : undefined}
     >
       {node && (
         <>

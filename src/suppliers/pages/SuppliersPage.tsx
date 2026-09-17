@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Handshake, Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { DataTable } from '@/shared/ui/DataTable'
@@ -19,6 +21,7 @@ export function SuppliersPage() {
   const [creating, setCreating] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
+  const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
 
   useEffect(() => {
     load()
@@ -43,10 +46,12 @@ export function SuppliersPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <AskAiButton domain="warehouse" />
-          <Button onClick={() => setCreating(true)}>
-            <Plus size={16} />
-            Добавить
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus size={16} />
+              Добавить
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Textarea } from '@/shared/ui/Field'
 import { Stepper } from '@/shared/ui/Stepper'
@@ -15,6 +17,7 @@ export function MontageDetailPage() {
   const update = useMontageStore((s) => s.update)
   const advance = useMontageStore((s) => s.advance)
   const complete = useMontageStore((s) => s.complete)
+  const canEdit = accessLevelAtLeast(useAccessLevel('installation'), 'edit')
 
   const [address, setAddress] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
@@ -69,9 +72,11 @@ export function MontageDetailPage() {
       <div className="mb-6 rounded-md border border-border bg-surface p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
           <h1 className="text-[18px] font-medium text-ink">Монтаж №{installation.id}</h1>
-          <Button size="sm" onClick={handleAdvance} disabled={advancing}>
-            {advancing ? 'Переход…' : installation.stage === 'followup' ? 'Завершить цикл' : 'Следующая стадия'}
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={handleAdvance} disabled={advancing}>
+              {advancing ? 'Переход…' : installation.stage === 'followup' ? 'Завершить цикл' : 'Следующая стадия'}
+            </Button>
+          )}
         </div>
         <Stepper steps={INSTALLATION_STAGES} currentKey={installation.stage} />
         {error && <p className="mt-3 text-[12px] text-danger">{error}</p>}
@@ -81,20 +86,22 @@ export function MontageDetailPage() {
         <h3 className="mb-4 text-[14px] font-medium text-ink">Детали монтажа</h3>
         <div className="flex flex-col gap-4">
           <Field label="Адрес">
-            <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} />
           </Field>
           <Field label="Дата монтажа">
-            <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
+            <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} disabled={!canEdit} />
           </Field>
           <Field label="Заметки">
-            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!canEdit} />
           </Field>
         </div>
-        <div className="mt-4">
-          <Button size="sm" variant="secondary" onClick={save} disabled={saving}>
-            {saving ? 'Сохранение…' : 'Сохранить'}
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="mt-4">
+            <Button size="sm" variant="secondary" onClick={save} disabled={saving}>
+              {saving ? 'Сохранение…' : 'Сохранить'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { GrowthProposalOut } from '../types'
@@ -18,6 +20,7 @@ export function GrowthProposalCard({
   const [preparing, setPreparing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isPrepared = proposal.status === 'task_created'
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
 
   async function handleClick() {
     if (isPrepared || preparing) return
@@ -55,21 +58,23 @@ export function GrowthProposalCard({
 
       {error && <p className="text-[12px] text-danger">{error}</p>}
 
-      <Button
-        variant={isPrepared ? 'secondary' : 'ai'}
-        size="sm"
-        disabled={isPrepared || preparing}
-        onClick={handleClick}
-        className="mt-1 self-start"
-      >
-        {isPrepared && (
-          <>
-            <Check size={14} />
-            Задача подготовлена
-          </>
-        )}
-        {!isPrepared && (preparing ? 'Готовим задачу…' : 'Подготовить задачу')}
-      </Button>
+      {(isPrepared || canEdit) && (
+        <Button
+          variant={isPrepared ? 'secondary' : 'ai'}
+          size="sm"
+          disabled={isPrepared || preparing}
+          onClick={handleClick}
+          className="mt-1 self-start"
+        >
+          {isPrepared && (
+            <>
+              <Check size={14} />
+              Задача подготовлена
+            </>
+          )}
+          {!isPrepared && (preparing ? 'Готовим задачу…' : 'Подготовить задачу')}
+        </Button>
+      )}
     </div>
   )
 }

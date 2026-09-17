@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip, ChipTone } from '@/shared/ui/Chip'
 import { Markdown } from '@/shared/ui/Markdown'
@@ -60,6 +62,7 @@ export function BoardChat() {
   const error = useBoardStore((s) => s.chatError)
   const loadChat = useBoardStore((s) => s.loadChat)
   const sendChatMessage = useBoardStore((s) => s.sendChatMessage)
+  const canEdit = accessLevelAtLeast(useAccessLevel('board'), 'edit')
 
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -130,24 +133,26 @@ export function BoardChat() {
 
       {error && <p className="px-4 pb-2 text-[12px] text-danger">{error}</p>}
 
-      <div className="flex items-end gap-2 border-t border-border px-4 py-3">
-        <textarea
-          rows={1}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              handleSend()
-            }
-          }}
-          placeholder="Сообщение совету директоров…"
-          className="max-h-32 min-h-[40px] flex-1 resize-none rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-muted"
-        />
-        <Button onClick={handleSend} disabled={!draft.trim() || sending} aria-label="Отправить">
-          <Send size={15} />
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex items-end gap-2 border-t border-border px-4 py-3">
+          <textarea
+            rows={1}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+            placeholder="Сообщение совету директоров…"
+            className="max-h-32 min-h-[40px] flex-1 resize-none rounded-md border border-border bg-surface px-3 py-2 text-[13px] text-ink placeholder:text-muted"
+          />
+          <Button onClick={handleSend} disabled={!draft.trim() || sending} aria-label="Отправить">
+            <Send size={15} />
+          </Button>
+        </div>
+      )}
     </section>
   )
 }

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { KanbanBoard } from '@/shared/ui/KanbanBoard'
@@ -62,6 +64,7 @@ export function ClientsBoardPage() {
   const [creating, setCreating] = useState(false)
   const [dateFilter, setDateFilter] = useState<DateFilter>(DEFAULT_DATE_FILTER)
   const onboarding = useSectionOnboarding('clients')
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
 
   useEffect(() => {
     load()
@@ -87,10 +90,12 @@ export function ClientsBoardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start">
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
-          <Button onClick={() => setCreating(true)}>
-            <Plus size={16} />
-            Новый клиент
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus size={16} />
+              Новый клиент
+            </Button>
+          )}
           <HelpButton onClick={onboarding.show} />
         </div>
       </div>

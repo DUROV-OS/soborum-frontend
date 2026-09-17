@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, CheckCircle2, FileText, Lock } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { PlanningImage } from '@/house_models/components/PlanningImage'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -66,7 +68,8 @@ export function StageTemplateReviewPage() {
     }
   }, [templateId])
 
-  const locked = template?.status === 'confirmed'
+  const canEdit = accessLevelAtLeast(useAccessLevel('production'), 'edit')
+  const locked = template?.status === 'confirmed' || !canEdit
 
   const imageByPage = useMemo(() => {
     const map = new Map<number, number>()

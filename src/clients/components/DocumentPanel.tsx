@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Paperclip } from 'lucide-react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { getCatalog } from '@/house_models/api'
 import { HouseModelCatalog } from '@/house_models/types'
 import { Button } from '@/shared/ui/Button'
@@ -70,7 +72,8 @@ function HouseModelSelect({
 
 export function DocumentPanel({ client }: { client: Client }) {
   const updateDocuments = useClientsStore((s) => s.updateDocuments)
-  const editable = isGroupEditable(client, 'documents')
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
+  const editable = isGroupEditable(client, 'documents') && canEdit
   const [orderType, setOrderType] = useState<OrderType | ''>(client.order_type ?? '')
   const [houseModelKey, setHouseModelKey] = useState(client.house_model_key ?? '')
   const [finalPrice, setFinalPrice] = useState(client.final_price ?? '')

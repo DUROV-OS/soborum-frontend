@@ -6,10 +6,12 @@ export function PendingActionModal({
   actions,
   onClose,
   onResolve,
+  canAct = true,
 }: {
   actions: PendingActionOut[]
   onClose: () => void
   onResolve: (id: number, decision: 'approve' | 'reject') => Promise<unknown>
+  canAct?: boolean
 }) {
   if (actions.length === 0) return null
 
@@ -20,7 +22,7 @@ export function PendingActionModal({
       </p>
       <div className="flex flex-col gap-3">
         {actions.map((action) => (
-          <PendingActionCard key={action.id} action={action} onResolve={onResolve} />
+          <PendingActionCard key={action.id} action={action} onResolve={onResolve} canAct={canAct} />
         ))}
       </div>
     </Modal>

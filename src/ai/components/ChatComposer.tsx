@@ -20,6 +20,7 @@ export function ChatComposer({
   initialMessage = '',
   allowAttach = true,
   voiceInput = false,
+  disabled = false,
 }: {
   sending: boolean
   attachments: FileAssetOut[]
@@ -31,6 +32,9 @@ export function ChatComposer({
   allowAttach?: boolean
   /** Бесплатный голосовой ввод (Web Speech / Whisper в браузере). */
   voiceInput?: boolean
+  /** Уровень доступа к разделу ниже edit (0052-d) — скрывает отправку и вложение,
+   * не трогает голосовой ввод Jarvis (consult), который сюда не завязан. */
+  disabled?: boolean
 }) {
   const [value, setValue] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -109,7 +113,7 @@ export function ChatComposer({
           className="hidden"
           onChange={handleFilesSelected}
         />
-        {allowAttach && (
+        {allowAttach && !disabled && (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -151,14 +155,18 @@ export function ChatComposer({
             setValue(e.target.value)
           }}
           onKeyDown={handleKeyDown}
-          placeholder={voiceInput ? 'Спросите Марину… или нажмите микрофон' : 'Спросите Марину…'}
+          placeholder={
+            disabled ? 'Нет прав на отправку сообщений в этом разделе' : voiceInput ? 'Спросите Марину… или нажмите микрофон' : 'Спросите Марину…'
+          }
           aria-label="Сообщение Марине"
           className="max-h-32 resize-none"
-          disabled={sending || transcribing}
+          disabled={sending || transcribing || disabled}
         />
-        <Button variant="ai" size="sm" onClick={submit} disabled={!canSend || transcribing} aria-label="Отправить сообщение">
-          <Send size={15} />
-        </Button>
+        {!disabled && (
+          <Button variant="ai" size="sm" onClick={submit} disabled={!canSend || transcribing} aria-label="Отправить сообщение">
+            <Send size={15} />
+          </Button>
+        )}
       </div>
     </div>
   )

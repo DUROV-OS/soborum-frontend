@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Textarea } from '@/shared/ui/Field'
 import { useClientsStore } from '../store'
@@ -11,6 +13,9 @@ export function NotesPanel({ client }: { client: Client }) {
   const current = useAuthStore((s) => s.current)
   const addNote = useClientsStore((s) => s.addNote)
   const deleteNote = useClientsStore((s) => s.deleteNote)
+  const level = useAccessLevel('clients')
+  const canEdit = accessLevelAtLeast(level, 'edit')
+  const canFull = accessLevelAtLeast(level, 'full')
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,25 +45,31 @@ export function NotesPanel({ client }: { client: Client }) {
                   {authorLabel(note.author_id)} · {new Date(note.created_at).toLocaleString('ru-RU')}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => deleteNote(client.id, note.id)}
-                aria-label="Удалить заметку"
-                className="rounded-pill p-1 text-muted hover:bg-surface hover:text-danger"
-              >
-                <Trash2 size={14} />
-              </button>
+              {canFull && (
+                <button
+                  type="button"
+                  onClick={() => deleteNote(client.id, note.id)}
+                  aria-label="Удалить заметку"
+                  className="rounded-pill p-1 text-muted hover:bg-surface hover:text-danger"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
-      <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Добавить заметку…" />
-      {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
-      <div className="mt-2">
-        <Button size="sm" variant="secondary" onClick={submit} disabled={!draft.trim() || saving}>
-          {saving ? 'Сохранение…' : 'Добавить'}
-        </Button>
-      </div>
+      {canEdit && (
+        <>
+          <Textarea rows={2} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Добавить заметку…" />
+          {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
+          <div className="mt-2">
+            <Button size="sm" variant="secondary" onClick={submit} disabled={!draft.trim() || saving}>
+              {saving ? 'Сохранение…' : 'Добавить'}
+            </Button>
+          </div>
+        </>
+      )}
     </Section>
   )
 }

@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
@@ -61,7 +62,7 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 ]
 
 export function BoardPage() {
-  const current = useAuthStore((s) => s.current)
+  const canFull = accessLevelAtLeast(useAccessLevel('board'), 'full')
   const actualizing = useBoardStore((s) => s.actualizing)
   const animating = useBoardStore((s) => s.animating)
   const runActualize = useBoardStore((s) => s.runActualize)
@@ -77,7 +78,7 @@ export function BoardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 self-start">
-          {current?.role === 'admin' && (
+          {canFull && (
             <Button
               variant="secondary"
               disabled={actualizing || animating}

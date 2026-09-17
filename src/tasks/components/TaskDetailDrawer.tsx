@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
@@ -9,6 +11,7 @@ import { stateTone } from './stateTone'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const setStatus = useTasksStore((s) => s.setStatus)
+  const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -52,17 +55,20 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         {error && <p className="text-[12px] text-danger">{error}</p>}
 
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-          {task.status === 'ready' && (
+          {!canEdit && task.status !== 'not_ready' && task.status !== 'done' && (
+            <p className="text-[12px] text-muted">У вас нет прав менять статус этой задачи.</p>
+          )}
+          {canEdit && task.status === 'ready' && (
             <Button size="sm" disabled={busy} onClick={() => act('in_progress')}>
               Взять в работу
             </Button>
           )}
-          {task.status === 'in_progress' && (
+          {canEdit && task.status === 'in_progress' && (
             <Button size="sm" disabled={busy} onClick={() => act('in_review')}>
               {task.reviewers.length > 0 ? 'Отправить на проверку' : 'Сдать задачу'}
             </Button>
           )}
-          {task.status === 'in_review' && (
+          {canEdit && task.status === 'in_review' && (
             <>
               <Button size="sm" disabled={busy} onClick={() => act('done')}>
                 Принять — выполнена

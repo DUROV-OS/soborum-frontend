@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as accountingApi from '@/accounting/api'
+import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { useClientsStore } from '../store'
 import { isGroupEditable, isGroupVisible, paymentStageRule } from '../rules'
@@ -10,7 +12,7 @@ import { Section } from './PanelPrimitives'
 
 export function PaymentPanel({ client }: { client: Client }) {
   const updatePayment = useClientsStore((s) => s.updatePayment)
-  const editable = isGroupEditable(client, 'payment')
+  const editable = isGroupEditable(client, 'payment') && accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const hasAccounting = useAuthStore((s) => s.hasAccess('accounting'))
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
