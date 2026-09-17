@@ -3,6 +3,8 @@ import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { ArrowLeft, Check, Mic, Pencil, Sparkles, Trash2, X } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -69,6 +71,9 @@ function StartMeetingCircle() {
   const start = useMeetingStore((s) => s.start)
   const openPanel = useMeetingStore((s) => s.openPanel)
   const busy = phase === 'starting' || phase === 'recording' || phase === 'finishing'
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
+
+  if (!canEdit && !busy) return null
 
   return (
     <div className="flex flex-col items-center gap-2 py-2">
@@ -108,6 +113,7 @@ function MeetingList() {
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<number | null>(null)
   const phase = useMeetingStore((s) => s.phase)
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
 
   useEffect(() => {
     // перезагружаем список, когда совещание сохранилось
@@ -170,15 +176,17 @@ function MeetingList() {
                 </div>
                 <StatusChip status={meeting.status} />
               </Link>
-              <button
-                type="button"
-                onClick={() => void handleDelete(meeting.id, meetingTitle(meeting))}
-                disabled={removing === meeting.id}
-                aria-label="Удалить совещание"
-                className="shrink-0 rounded-sm p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-              >
-                <Trash2 size={15} />
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(meeting.id, meetingTitle(meeting))}
+                  disabled={removing === meeting.id}
+                  aria-label="Удалить совещание"
+                  className="shrink-0 rounded-sm p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-50"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -220,6 +228,7 @@ function MeetingAudio({ meetingId, hasAudio }: { meetingId: number; hasAudio: bo
 }
 
 function AskMarina({ meetingId, aiEnabled }: { meetingId: number; aiEnabled: boolean }) {
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -252,7 +261,9 @@ function AskMarina({ meetingId, aiEnabled }: { meetingId: number; aiEnabled: boo
         Ответит по транскрипту этого совещания и, если нужно, сверится с базой знаний.
       </p>
 
-      {!aiEnabled ? (
+      {!canEdit ? (
+        <p className="text-[13px] text-muted">Нет прав задавать вопросы по совещанию.</p>
+      ) : !aiEnabled ? (
         <p className="text-[13px] text-muted">
           ИИ отключён: не задан ключ. Вопросы по совещанию недоступны.
         </p>
@@ -282,6 +293,7 @@ function AskMarina({ meetingId, aiEnabled }: { meetingId: number; aiEnabled: boo
 }
 
 function MeetingNotesSection({ meeting }: { meeting: MeetingDetailOut }) {
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [notes, setNotes] = useState(meeting.notes)
   const [busy, setBusy] = useState<'notes' | 'doc' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -320,7 +332,7 @@ function MeetingNotesSection({ meeting }: { meeting: MeetingDetailOut }) {
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-[14px] font-medium text-ink">Заметки Марины</h2>
         <div className="flex items-center gap-3">
-          {meeting.ai_enabled && (
+          {meeting.ai_enabled && canEdit && (
             <button
               type="button"
               onClick={handleRefresh}
@@ -361,6 +373,7 @@ function MeetingDetailHeader({
   onPatched: (patch: Partial<MeetingDetailOut>) => void
 }) {
   const navigate = useNavigate()
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(meeting.title ?? '')
   const [busy, setBusy] = useState(false)
@@ -433,17 +446,19 @@ function MeetingDetailHeader({
         ) : (
           <div className="flex items-center gap-2">
             <h1 className="truncate text-[20px] font-medium text-ink">{meetingTitle(meeting)}</h1>
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(meeting.title ?? '')
-                setEditing(true)
-              }}
-              aria-label="Переименовать"
-              className="shrink-0 rounded-sm p-1 text-muted hover:bg-surface-muted hover:text-ink"
-            >
-              <Pencil size={14} />
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(meeting.title ?? '')
+                  setEditing(true)
+                }}
+                aria-label="Переименовать"
+                className="shrink-0 rounded-sm p-1 text-muted hover:bg-surface-muted hover:text-ink"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
           </div>
         )}
         <p className="mt-1 text-[13px] text-muted">
@@ -454,15 +469,17 @@ function MeetingDetailHeader({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <StatusChip status={meeting.status} />
-        <button
-          type="button"
-          onClick={() => void remove()}
-          disabled={busy}
-          aria-label="Удалить совещание"
-          className="rounded-sm p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-        >
-          <Trash2 size={15} />
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => void remove()}
+            disabled={busy}
+            aria-label="Удалить совещание"
+            className="rounded-sm p-1.5 text-muted hover:bg-danger-bg hover:text-danger disabled:opacity-50"
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -475,6 +492,7 @@ function MeetingCircumstances({
   meeting: MeetingDetailOut
   onPatched: (patch: Partial<MeetingDetailOut>) => void
 }) {
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [editing, setEditing] = useState(false)
   const [topic, setTopic] = useState(meeting.topic ?? '')
   const [goals, setGoals] = useState(meeting.goals ?? '')
@@ -529,7 +547,7 @@ function MeetingCircumstances({
     <section className="rounded-md border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-[14px] font-medium text-ink">Тема, цели и обстоятельства встречи</h2>
-        {!editing && (
+        {!editing && canEdit && (
           <button
             type="button"
             onClick={() => {

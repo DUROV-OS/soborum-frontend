@@ -14,9 +14,13 @@ function formatInput(input: Record<string, unknown>): { key: string; value: stri
 export function PendingActionCard({
   action,
   onResolve,
+  canAct = true,
 }: {
   action: PendingActionOut
   onResolve: (id: number, decision: 'approve' | 'reject') => Promise<unknown>
+  /** false для раздела уровня ниже edit (0052-d) — прячет одобрить/отклонить,
+   * не влияет на Jarvis/consult, который сюда всегда передаёт по умолчанию true. */
+  canAct?: boolean
 }) {
   const [deciding, setDeciding] = useState<'approve' | 'reject' | null>(null)
   const fields = formatInput(action.tool_input)
@@ -60,7 +64,7 @@ export function PendingActionCard({
           ))}
         </dl>
       )}
-      {action.status === 'pending' && (
+      {action.status === 'pending' && canAct && (
         <div className="flex gap-2">
           <Button size="sm" onClick={() => decide('approve')} disabled={deciding !== null}>
             <Check size={14} />

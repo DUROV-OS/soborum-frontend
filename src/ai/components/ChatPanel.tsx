@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Sparkles, Trash2 } from 'lucide-react'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Markdown } from '@/shared/ui/Markdown'
@@ -49,6 +51,7 @@ export function ChatPanel({
   const renameChat = useAiStore((s) => s.renameChat)
   const resolveAction = useAiStore((s) => s.resolveAction)
   const removeChat = useAiStore((s) => s.removeChat)
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
 
   const [modalActions, setModalActions] = useState<PendingActionOut[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -106,11 +109,13 @@ export function ChatPanel({
           )}
           <Chip tone="ai">Марина · {DOMAIN_LABEL[domain]}</Chip>
           {contextLabel && <Chip tone="neutral">{contextLabel}</Chip>}
-          {chat && <ChatTitleEditor title={chat.title} onRename={(title) => renameChat(chat.id, title)} />}
+          {chat && (
+            <ChatTitleEditor title={chat.title} onRename={(title) => renameChat(chat.id, title)} editable={canEdit} />
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <ChatModeSelector mode={mode} onChange={setMode} />
-          {chat && (
+          {canEdit && <ChatModeSelector mode={mode} onChange={setMode} />}
+          {chat && canEdit && (
             <button
               type="button"
               onClick={handleDelete}
@@ -134,6 +139,7 @@ export function ChatPanel({
                 message={message}
                 pendingActions={inlinePendingActions}
                 onResolve={handleResolve}
+                canAct={canEdit}
               />
             ))}
             {(!chat || chat.messages.length === 0) && !sending && (
@@ -179,9 +185,15 @@ export function ChatPanel({
         onSend={handleSend}
         onAttach={addAttachment}
         onRemoveAttachment={removeAttachment}
+        disabled={!canEdit}
       />
 
-      <PendingActionModal actions={modalActions} onClose={() => setModalActions([])} onResolve={handleResolve} />
+      <PendingActionModal
+        actions={modalActions}
+        onClose={() => setModalActions([])}
+        onResolve={handleResolve}
+        canAct={canEdit}
+      />
     </div>
   )
 }

@@ -4,9 +4,11 @@ import { Pencil } from 'lucide-react'
 export function ChatTitleEditor({
   title,
   onRename,
+  editable = true,
 }: {
   title: string | null
   onRename: (title: string | null) => void
+  editable?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(title ?? '')
@@ -43,6 +45,10 @@ export function ChatTitleEditor({
         className="w-48 rounded-sm border border-border bg-surface px-2 py-0.5 text-[13px] text-ink"
       />
     )
+  }
+
+  if (!editable) {
+    return <span className="text-[13px] font-medium text-ink">{title ?? 'Без названия'}</span>
   }
 
   return (

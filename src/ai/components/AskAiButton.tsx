@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
-import { useAuthStore } from '@/auth/store'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { ChatDomain } from '../types'
 import { AskAiDrawer } from './AskAiDrawer'
@@ -14,10 +15,12 @@ export function AskAiButton({
   contextLabel?: string
   contextNote?: string
 }) {
-  const hasAccess = useAuthStore((s) => s.hasAccess)
+  // Кнопка запускает диалог с Мариной — действие, а не просмотр, поэтому
+  // нужен edit на AI, а не просто любой доступ (0052-d).
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [open, setOpen] = useState(false)
 
-  if (!hasAccess('ai')) return null
+  if (!canEdit) return null
 
   return (
     <>

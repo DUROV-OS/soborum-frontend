@@ -3,7 +3,9 @@ import { ChevronDown, ChevronUp, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
+import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
@@ -64,6 +66,7 @@ export function AiChatPage() {
   const openChat = useAiStore((s) => s.openChat)
   const startDraft = useAiStore((s) => s.startDraft)
   const removeChat = useAiStore((s) => s.removeChat)
+  const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
 
   // На мобильной ширине список чатов и переписка не помещаются рядом — показываем одно за раз.
   const showChatPanel = Boolean(chatId) || draftDomain !== null
@@ -172,10 +175,12 @@ export function AiChatPage() {
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ai" size="sm" className="flex-1" onClick={handleNewChat}>
-                      <Plus size={14} />
-                      Новый чат
-                    </Button>
+                    {canEdit && (
+                      <Button variant="ai" size="sm" className="flex-1" onClick={handleNewChat}>
+                        <Plus size={14} />
+                        Новый чат
+                      </Button>
+                    )}
                     <HelpButton onClick={onboarding.show} />
                   </div>
                 </div>
@@ -201,14 +206,16 @@ export function AiChatPage() {
                             {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ru })}
                           </div>
                         </div>
-                        <span
-                          role="button"
-                          onClick={(e) => handleDelete(c.id, e)}
-                          aria-label="Удалить чат"
-                          className="shrink-0 rounded-pill p-1 text-muted opacity-0 hover:bg-danger-bg hover:text-danger group-hover:opacity-100"
-                        >
-                          <Trash2 size={13} />
-                        </span>
+                        {canEdit && (
+                          <span
+                            role="button"
+                            onClick={(e) => handleDelete(c.id, e)}
+                            aria-label="Удалить чат"
+                            className="shrink-0 rounded-pill p-1 text-muted opacity-0 hover:bg-danger-bg hover:text-danger group-hover:opacity-100"
+                          >
+                            <Trash2 size={13} />
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>

@@ -11,12 +11,14 @@ export function MessageBubble({
   pendingActions,
   onResolve,
   preferVoiceLead = false,
+  canAct = true,
 }: {
   message: MessageOut
   pendingActions: PendingActionOut[]
   onResolve: (id: number, decision: 'approve' | 'reject') => Promise<unknown>
   /** Show explicit «Голосом» résumé above the full answer. */
   preferVoiceLead?: boolean
+  canAct?: boolean
 }) {
   if (message.role !== 'user' && message.role !== 'assistant') return null
 
@@ -75,7 +77,7 @@ export function MessageBubble({
             ),
         )}
       {relatedActions.map((action) => (
-        <PendingActionCard key={action.id} action={action} onResolve={onResolve} />
+        <PendingActionCard key={action.id} action={action} onResolve={onResolve} canAct={canAct} />
       ))}
     </div>
   )
