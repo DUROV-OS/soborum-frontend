@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { MeetingPanel } from '@/meeting/components/MeetingPanel'
+import { JarvisOverlay } from '@/shared/components/JarvisOverlay'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -29,6 +30,7 @@ export function AppShell() {
         </main>
       </div>
       <MeetingPanel />
+      <JarvisOverlay />
     </div>
   )
 }
