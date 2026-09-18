@@ -4,6 +4,8 @@ import { WidgetTone } from '@/today/types'
 
 export type MaterialRequestStatus = 'pending' | 'approved' | 'rejected'
 
+export type ProductionCriticality = 'normal' | 'warning' | 'critical'
+
 export interface MaterialRequest {
   id: number
   block_material_id: number
@@ -64,6 +66,10 @@ export interface ProductionListItem {
   cycle_status: 'client' | 'production' | 'installation' | 'completed'
   created_at: string
   block_count: number
+  /** Истина, если есть хотя бы один блок и ни у одного блока нет открытых задач. */
+  is_completed: boolean
+  /** Только для незавершённых — у завершённых всегда 'normal'. */
+  criticality: ProductionCriticality
 }
 
 // ----------------------------------------------------------------- «Главная» --
