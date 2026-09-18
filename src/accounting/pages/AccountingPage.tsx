@@ -7,9 +7,9 @@ import { Chip } from '@/shared/ui/Chip'
 import { DataTable } from '@/shared/ui/DataTable'
 import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { Select } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
-import { useAccountingStore } from '../store'
+import { AmountFilterMode, useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
@@ -31,9 +31,64 @@ function money(amount: number, direction: MoneyDirection): string {
   return `${sign}${amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
 }
 
+const AMOUNT_MODE_LABEL: Record<AmountFilterMode, string> = {
+  all: 'Не важно',
+  range: 'Диапазон',
+  gt: 'Больше',
+  lt: 'Меньше',
+  eq: 'Равно',
+}
+
+/** Общий вид фильтра «Сумма»/«Налог» — режим сравнения + одно или два числовых поля (0072-c). */
+function AmountRangeFilter({
+  label,
+  mode,
+  from,
+  to,
+  onModeChange,
+  onFromChange,
+  onToChange,
+}: {
+  label: string
+  mode: AmountFilterMode
+  from: string
+  to: string
+  onModeChange: (mode: AmountFilterMode) => void
+  onFromChange: (value: string) => void
+  onToChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select className="w-full sm:w-40" value={mode} onChange={(e) => onModeChange(e.target.value as AmountFilterMode)}>
+        {(Object.keys(AMOUNT_MODE_LABEL) as AmountFilterMode[]).map((m) => (
+          <option key={m} value={m}>
+            {label}: {AMOUNT_MODE_LABEL[m]}
+          </option>
+        ))}
+      </Select>
+      {mode !== 'all' && (
+        <Input
+          type="number"
+          className="w-24"
+          placeholder={mode === 'range' ? 'от' : 'значение'}
+          value={from}
+          onChange={(e) => onFromChange(e.target.value)}
+        />
+      )}
+      {mode === 'range' && (
+        <>
+          <span className="text-muted">—</span>
+          <Input type="number" className="w-24" placeholder="до" value={to} onChange={(e) => onToChange(e.target.value)} />
+        </>
+      )}
+    </div>
+  )
+}
+
 export function AccountingPage() {
   const movements = useAccountingStore((s) => s.movements)
   const loading = useAccountingStore((s) => s.loading)
+  const loadError = useAccountingStore((s) => s.loadError)
   const filters = useAccountingStore((s) => s.filters)
   const load = useAccountingStore((s) => s.load)
   const setFilters = useAccountingStore((s) => s.setFilters)
@@ -77,7 +132,9 @@ export function AccountingPage() {
     filters.subkind !== 'all' ||
     filters.status !== 'all' ||
     filters.source_kind !== 'all' ||
-    filters.period !== 'all'
+    filters.period !== 'all' ||
+    filters.amount_mode !== 'all' ||
+    filters.tax_mode !== 'all'
 
   return (
     <div>
@@ -167,12 +224,31 @@ export function AccountingPage() {
               ))}
             </Select>
             <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
+            <AmountRangeFilter
+              label="Сумма"
+              mode={filters.amount_mode}
+              from={filters.amount_from}
+              to={filters.amount_to}
+              onModeChange={(amount_mode) => setFilters({ amount_mode, amount_from: '', amount_to: '' })}
+              onFromChange={(amount_from) => setFilters({ amount_from })}
+              onToChange={(amount_to) => setFilters({ amount_to })}
+            />
+            <AmountRangeFilter
+              label="Налог"
+              mode={filters.tax_mode}
+              from={filters.tax_from}
+              to={filters.tax_to}
+              onModeChange={(tax_mode) => setFilters({ tax_mode, tax_from: '', tax_to: '' })}
+              onFromChange={(tax_from) => setFilters({ tax_from })}
+              onToChange={(tax_to) => setFilters({ tax_to })}
+            />
             {filtersDirty && (
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 Сбросить
               </Button>
             )}
           </div>
+          {loadError && <p className="mb-3 text-[12px] text-danger">{loadError}</p>}
 
           {!loading && movements.length === 0 ? (
             <EmptyState
