@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Task, TaskLinkType, TaskStatus } from './types'
+import { Task, TaskLinkType, TaskPriority, TaskStatus } from './types'
 
 const SECTION = 'tasks'
 
@@ -30,6 +30,7 @@ export interface CreateTaskInput {
   title: string
   description?: string
   deadline?: string
+  priority?: TaskPriority
   assignee_ids: number[]
   reviewer_ids: number[]
   responsible_id?: number
@@ -38,9 +39,26 @@ export interface CreateTaskInput {
   block_id?: number
 }
 
+export interface UpdateTaskInput {
+  title?: string
+  description?: string
+  deadline?: string
+  priority?: TaskPriority
+  assignee_ids?: number[]
+  reviewer_ids?: number[]
+  responsible_id?: number
+  depends_on_ids?: number[]
+  image_ids?: number[]
+}
+
 /** POST /api/tasks/ */
 export function createTask(input: CreateTaskInput): Promise<Task> {
   return apiRequest<Task>({ section: SECTION, path: '/', method: 'POST', body: input })
+}
+
+/** PATCH /api/tasks/:id */
+export function updateTask(id: number, patch: UpdateTaskInput): Promise<Task> {
+  return apiRequest<Task>({ section: SECTION, path: `/${id}`, method: 'PATCH', body: patch })
 }
 
 /** PATCH /api/tasks/:id/status */
