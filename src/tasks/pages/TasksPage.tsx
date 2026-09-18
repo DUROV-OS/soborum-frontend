@@ -19,12 +19,13 @@ import { useTasksStore } from '../store'
 import { TASK_PRIORITIES, TASK_STATES, Task } from '../types'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { DailyPlanPanel } from '../components/DailyPlanPanel'
+import { EmployeeWorkloadGrid } from '../components/EmployeeWorkloadGrid'
 import { MyTasksPanel } from '../components/MyTasksPanel'
 import { priorityTone } from '../components/priorityTone'
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer'
 import { TaskPeopleBadges } from '../components/TaskPeopleBadges'
 
-type SubTab = 'mine' | 'all'
+type SubTab = 'mine' | 'all' | 'employees'
 
 function isClaimable(task: Task): boolean {
   return task.status === 'ready' && task.assignees.length === 0
@@ -153,6 +154,7 @@ export function TasksPage() {
   const load = useTasksStore((s) => s.load)
   const claim = useTasksStore((s) => s.claim)
   const canSeeAll = useAuthStore((s) => s.hasAccess('tasks_all'))
+  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [creating, setCreating] = useState(false)
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [selected, setSelected] = useState<Task | null>(null)
@@ -176,6 +178,10 @@ export function TasksPage() {
   }, [canSeeAll, subTab])
 
   useEffect(() => {
+    if (!isAdmin && subTab === 'employees') setSubTab('mine')
+  }, [isAdmin, subTab])
+
+  useEffect(() => {
     if (subTab !== 'all') setEmployeeFilter(EMPLOYEE_ALL)
   }, [subTab])
 
@@ -184,6 +190,7 @@ export function TasksPage() {
   }, [specificEmployeeSelected])
 
   useEffect(() => {
+    if (subTab === 'employees') return
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
   }, [load, subTab, canSeeAll])
 
@@ -214,12 +221,14 @@ export function TasksPage() {
         <div>
           <h1 className="text-[20px] font-medium text-ink">Задачи</h1>
           <p className="mt-1 text-[13px] text-muted">
-            {subTab === 'mine' ? 'Назначено на вас и свободные задачи, которые можно взять' : 'Общий борд, включая задачи из других разделов'}
+            {subTab === 'mine' && 'Назначено на вас и свободные задачи, которые можно взять'}
+            {subTab === 'all' && 'Общий борд, включая задачи из других разделов'}
+            {subTab === 'employees' && 'Объём и загруженность по задачам — управленческий обзор'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start">
-          <AskAiButton domain="tasks" />
-          {canEdit && (
+          {subTab !== 'employees' && <AskAiButton domain="tasks" />}
+          {subTab !== 'employees' && canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
               Новая задача
@@ -229,12 +238,13 @@ export function TasksPage() {
         </div>
       </div>
 
-      {canSeeAll && (
+      {(canSeeAll || isAdmin) && (
         <div className="mb-4">
           <Tabs
             tabs={[
               { key: 'mine' as SubTab, label: 'Мои задачи' },
-              { key: 'all' as SubTab, label: 'Все задачи' },
+              ...(canSeeAll ? [{ key: 'all' as SubTab, label: 'Все задачи' }] : []),
+              ...(isAdmin ? [{ key: 'employees' as SubTab, label: 'Сотрудники' }] : []),
             ]}
             activeKey={subTab}
             onChange={setSubTab}
@@ -297,46 +307,50 @@ export function TasksPage() {
         </p>
       )}
 
-      <KanbanBoard
-        columns={TASK_STATES}
-        items={subTab === 'mine' ? tasks : filtered}
-        keyOf={(t) => String(t.id)}
-        columnOf={(t) => t.status}
-        onCardClick={setSelected}
-        loading={loading}
-        sortItem={byDeadline}
-        scrollColumns
-        renderCard={(task) => (
-          <div>
-            <div className="text-[13px] font-medium text-ink">{task.title}</div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
-              <Chip tone={priorityTone(task.priority)}>
-                {TASK_PRIORITIES.find((p) => p.key === task.priority)?.label ?? task.priority}
-              </Chip>
-              {task.deadline && (
-                <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
+      {subTab === 'employees' && <EmployeeWorkloadGrid />}
+
+      {subTab !== 'employees' && (
+        <KanbanBoard
+          columns={TASK_STATES}
+          items={subTab === 'mine' ? tasks : filtered}
+          keyOf={(t) => String(t.id)}
+          columnOf={(t) => t.status}
+          onCardClick={setSelected}
+          loading={loading}
+          sortItem={byDeadline}
+          scrollColumns
+          renderCard={(task) => (
+            <div>
+              <div className="text-[13px] font-medium text-ink">{task.title}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
+                <Chip tone={priorityTone(task.priority)}>
+                  {TASK_PRIORITIES.find((p) => p.key === task.priority)?.label ?? task.priority}
+                </Chip>
+                {task.deadline && (
+                  <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
+                )}
+              </div>
+              <div className="mt-1.5">
+                <TaskPeopleBadges task={task} />
+              </div>
+              {subTab === 'mine' && isClaimable(task) && canEdit && (
+                <Button
+                  size="sm"
+                  className="mt-2 h-7 px-2.5 text-[12px]"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleClaim(task.id)
+                  }}
+                  disabled={claimingId === task.id}
+                >
+                  {claimingId === task.id ? 'Беру…' : 'Взять задачу'}
+                </Button>
               )}
             </div>
-            <div className="mt-1.5">
-              <TaskPeopleBadges task={task} />
-            </div>
-            {subTab === 'mine' && isClaimable(task) && canEdit && (
-              <Button
-                size="sm"
-                className="mt-2 h-7 px-2.5 text-[12px]"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleClaim(task.id)
-                }}
-                disabled={claimingId === task.id}
-              >
-                {claimingId === task.id ? 'Беру…' : 'Взять задачу'}
-              </Button>
-            )}
-          </div>
-        )}
-      />
+          )}
+        />
+      )}
 
       <CreateTaskModal open={creating} onClose={() => setCreating(false)} />
       <TaskDetailDrawer task={selected} onClose={() => setSelected(null)} />
