@@ -10,6 +10,9 @@ import { Factory } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { CYCLE_STAGES } from '@/cycles/types'
 import { useProductionStore } from '../store'
+import { ProductionCriticality, ProductionListItem } from '../types'
+
+const CRITICALITY_ORDER: Record<ProductionCriticality, number> = { critical: 0, warning: 1, normal: 2 }
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -44,6 +47,11 @@ export function ProductionOverviewPage() {
     loadProductions()
   }, [loadProductions])
 
+  const current = productions
+    .filter((p) => !p.is_completed)
+    .sort((a, b) => CRITICALITY_ORDER[a.criticality] - CRITICALITY_ORDER[b.criticality])
+  const completed = productions.filter((p) => p.is_completed)
+
   return (
     <div>
       <SectionAnalyticsCard section="production" />
@@ -68,25 +76,35 @@ export function ProductionOverviewPage() {
           description="Они появляются автоматически, когда клиент доходит до стадии «постоплата»."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {productions.map((production) => (
-            <button
-              key={production.id}
-              type="button"
-              onClick={() => navigate(`/production/${production.id}`)}
-              className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
-            >
-              <div className="text-[14px] font-medium text-ink">Заказ №{production.cycle_id}</div>
-              {production.name !== 'Дом' && (
-                <div className="mt-0.5 text-[12px] text-brand-dark">{production.name}</div>
-              )}
-              <div className="mt-1 text-[12px] text-muted">
-                Блоков: {production.block_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
+        <>
+          <section className="mb-6">
+            <h2 className="mb-3 text-[15px] font-medium text-ink">Текущие производства</h2>
+            {current.length === 0 ? (
+              <EmptyState title="Активных производств пока нет" />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {current.map((production) => (
+                  <ProductionCard key={production.id} production={production}
+                    onClick={() => navigate(`/production/${production.id}`)} />
+                ))}
               </div>
-            </button>
-          ))}
+            )}
+          </section>
 
-        </div>
+          <section>
+            <h2 className="mb-3 text-[15px] font-medium text-ink">Завершённые производства</h2>
+            {completed.length === 0 ? (
+              <EmptyState title="Завершённых производств пока нет" />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {completed.map((production) => (
+                  <ProductionCard key={production.id} production={production}
+                    onClick={() => navigate(`/production/${production.id}`)} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
       )}
 
       <OnboardingDialog
@@ -96,5 +114,21 @@ export function ProductionOverviewPage() {
         pages={ONBOARDING_PAGES}
       />
     </div>
+  )
+}
+
+function ProductionCard({ production, onClick }: { production: ProductionListItem; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
+    >
+      <div className="text-[14px] font-medium text-ink">Заказ №{production.cycle_id}</div>
+      {production.name !== 'Дом' && <div className="mt-0.5 text-[12px] text-brand-dark">{production.name}</div>}
+      <div className="mt-1 text-[12px] text-muted">
+        Блоков: {production.block_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
+      </div>
+    </button>
   )
 }
