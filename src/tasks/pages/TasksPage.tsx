@@ -16,9 +16,10 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { DateFilter, dateFilterRange, matchesDateFilter } from '@/shared/lib/dateFilter'
 import { useTasksStore } from '../store'
-import { TASK_STATES, Task } from '../types'
+import { TASK_PRIORITIES, TASK_STATES, Task } from '../types'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { MyTasksPanel } from '../components/MyTasksPanel'
+import { priorityTone } from '../components/priorityTone'
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer'
 import { TaskPeopleBadges } from '../components/TaskPeopleBadges'
 
@@ -244,6 +245,9 @@ export function TasksPage() {
             <div className="text-[13px] font-medium text-ink">{task.title}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
+              <Chip tone={priorityTone(task.priority)}>
+                {TASK_PRIORITIES.find((p) => p.key === task.priority)?.label ?? task.priority}
+              </Chip>
               {task.deadline && (
                 <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
               )}

@@ -11,6 +11,14 @@ export const TASK_STATES: { key: TaskStatus; label: string }[] = [
   { key: 'done', label: 'Выполнена' },
 ]
 
+export type TaskPriority = 'low' | 'medium' | 'high'
+
+export const TASK_PRIORITIES: { key: TaskPriority; label: string }[] = [
+  { key: 'low', label: 'Низкий' },
+  { key: 'medium', label: 'Средний' },
+  { key: 'high', label: 'Высокий' },
+]
+
 export type TaskLinkType =
   | 'none'
   | 'client_stage'
@@ -25,6 +33,7 @@ export interface Task {
   description: string | null
   deadline: string | null
   status: TaskStatus
+  priority: TaskPriority
   created_at: string
   block_id: number | null
   link_type: TaskLinkType
