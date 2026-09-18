@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
+import { FileAsset } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Drawer } from '@/shared/ui/Drawer'
-import { Field, Textarea } from '@/shared/ui/Field'
+import { Field, Input, Textarea } from '@/shared/ui/Field'
+import { FileLink } from '@/shared/ui/FileLink'
 import { useAccountingStore } from '../store'
+import { MovementDocumentsField } from './MovementDocumentsField'
 import {
   ASSESSMENT_LABEL,
   DIRECTION_LABEL,
@@ -28,24 +31,41 @@ export function MovementDetailDrawer({
   onClose: () => void
 }) {
   const changeStatus = useAccountingStore((s) => s.changeStatus)
+  const update = useAccountingStore((s) => s.update)
   const remove = useAccountingStore((s) => s.remove)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
+  const [documents, setDocuments] = useState<FileAsset[]>([])
+  const [link, setLink] = useState('')
+  const [savingAttachments, setSavingAttachments] = useState(false)
+  const [attachmentsError, setAttachmentsError] = useState<string | null>(null)
 
   useEffect(() => {
     setError(null)
     setCancelling(false)
     setReason('')
+    setDocuments(movement?.documents ?? [])
+    setLink(movement?.link ?? '')
+    setAttachmentsError(null)
   }, [movement?.id])
 
   if (!movement) return null
 
   const id = movement.id
   const isPosted = movement.status === 'posted'
+  const attachmentsEditable = movement.status === 'draft' || movement.status === 'approved'
   const sign = movement.direction === 'expense' ? '−' : ''
+
+  async function saveAttachments() {
+    setSavingAttachments(true)
+    setAttachmentsError(null)
+    const result = await update(id, { document_ids: documents.map((d) => d.id), link: link.trim() || null })
+    setSavingAttachments(false)
+    if (!result.ok) setAttachmentsError(result.reason ?? 'Не удалось сохранить вложения')
+  }
 
   async function run(fn: () => Promise<{ ok: boolean; reason?: string }>, closeOnOk = false) {
     setBusy(true)
@@ -105,6 +125,46 @@ export function MovementDetailDrawer({
             <div className="text-ink">{movement.cancel_reason}</div>
           </div>
         )}
+
+        <div className="border-t border-border pt-4">
+          <div className="mb-2 text-[13px] font-medium text-ink">Документы и ссылка</div>
+          {attachmentsEditable ? (
+            <div className="flex flex-col gap-3">
+              <Field label="Ссылка">
+                <Input type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://…" />
+              </Field>
+              <Field label="Документы">
+                <MovementDocumentsField documents={documents} onChange={setDocuments} />
+              </Field>
+              <div>
+                <Button size="sm" disabled={savingAttachments} onClick={saveAttachments}>
+                  {savingAttachments ? 'Сохранение…' : 'Сохранить вложения'}
+                </Button>
+              </div>
+              {attachmentsError && <p className="text-[12px] text-danger">{attachmentsError}</p>}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 text-[13px]">
+              {movement.link && (
+                <a
+                  href={movement.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-brand-dark hover:underline"
+                >
+                  <ExternalLink size={13} />
+                  {movement.link}
+                </a>
+              )}
+              {movement.documents.map((doc) => (
+                <FileLink key={doc.id} id={doc.id} filename={doc.filename} />
+              ))}
+              {!movement.link && movement.documents.length === 0 && (
+                <span className="text-muted">Не прикреплено</span>
+              )}
+            </div>
+          )}
+        </div>
 
         {movement.status !== 'cancelled' && (
           <div className="border-t border-border pt-4">

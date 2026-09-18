@@ -2,6 +2,8 @@
 // Терминология и модель повторяют МойСклад — см.
 // backend/docs/moysklad-accounting-research.md (разведка 0011-b).
 
+import { FileAsset } from '@/clients/types'
+
 export type MoneyDirection = 'income' | 'expense'
 
 export type MoneySubkind =
@@ -41,6 +43,8 @@ export interface MoneyMovement {
   employee_id: number | null
   supply_id: number | null
   source_label: string | null
+  documents: FileAsset[]
+  link: string | null
   created_at: string
   updated_at: string
 }
