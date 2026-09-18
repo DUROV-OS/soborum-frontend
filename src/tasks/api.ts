@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Task, TaskLinkType, TaskPriority, TaskStatus } from './types'
+import { Task, TaskLinkType, TaskPriority, TaskStatus, Workload } from './types'
 
 const SECTION = 'tasks'
 
@@ -74,4 +74,9 @@ export function deleteTask(id: number): Promise<void> {
 /** POST /api/tasks/:id/claim */
 export function claimTask(id: number): Promise<Task> {
   return apiRequest<Task>({ section: SECTION, path: `/${id}/claim`, method: 'POST' })
+}
+
+/** GET /api/tasks/workload */
+export function getWorkload(): Promise<Workload[]> {
+  return apiRequest<Workload[]>({ section: SECTION, path: '/workload' })
 }
