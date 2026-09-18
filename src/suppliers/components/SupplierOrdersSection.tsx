@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Truck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, Truck } from 'lucide-react'
+import { useAuthStore } from '@/auth/store'
 import * as accountingApi from '@/accounting/api'
-import { SUPPLIER_ORDER_STATUS_LABEL, SUPPLIER_ORDER_STATUS_TONE, SupplierOrder, SupplierOrderItem } from '@/accounting/types'
+import {
+  SUPPLIER_ORDER_STATUS_LABEL,
+  SUPPLIER_ORDER_STATUS_TONE,
+  SupplierOrder,
+  SupplierOrderItem,
+  SupplierOrderStatus,
+} from '@/accounting/types'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
-import { Field, Input } from '@/shared/ui/Field'
+import { Field, Input, Textarea } from '@/shared/ui/Field'
+
+// Статус только вперёд, как у проводок (0011-d, статус-степпер — 0039).
+const NEXT_STATUS: Record<SupplierOrderStatus, SupplierOrderStatus | null> = {
+  ordered: 'in_transit',
+  in_transit: 'received',
+  received: null,
+}
 
 function money(amount: number): string {
   return `${amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
@@ -19,10 +33,9 @@ function reasonOf(error: unknown): string {
 const EMPTY_ITEM: SupplierOrderItem = { material: '', category: null, quantity: 1, unit_price: 0 }
 
 /**
- * Минимальная карточка заказов у поставщика (0011-d завёл сущность и статусную
- * машину исполнения без своего UI — список и оплата заводятся здесь, 0011-f).
- * Статус физической приёмки (ordered/in_transit/received) не редактируется
- * отсюда — это независимая от оплаты ось, вне минимального объёма задачи.
+ * Карточка заказов у поставщика (0011-d завёл сущность и статусную машину
+ * исполнения; список/оплата — 0011-f; раскладка по позициям, статус-степпер,
+ * комментарий и ADMIN-гейт на удаление — 0039).
  */
 export function SupplierOrdersSection({
   supplierId,
@@ -36,11 +49,14 @@ export function SupplierOrdersSection({
   balance: number
 }) {
   const navigate = useNavigate()
+  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [orders, setOrders] = useState<SupplierOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
   const [payingId, setPayingId] = useState<number | null>(null)
+  const [statusBusyId, setStatusBusyId] = useState<number | null>(null)
   const [payResult, setPayResult] = useState<Record<number, { movementId: number } | { error: string }>>({})
 
   async function load() {
@@ -84,6 +100,20 @@ export function SupplierOrdersSection({
       setPayResult((prev) => ({ ...prev, [order.id]: { error: reasonOf(e) } }))
     } finally {
       setPayingId(null)
+    }
+  }
+
+  async function advanceStatus(order: SupplierOrder) {
+    const to = NEXT_STATUS[order.status]
+    if (!to) return
+    setStatusBusyId(order.id)
+    try {
+      await accountingApi.changeSupplierOrderStatus(order.id, to)
+      await load()
+    } catch (e) {
+      setError(reasonOf(e))
+    } finally {
+      setStatusBusyId(null)
     }
   }
 
@@ -144,58 +174,116 @@ export function SupplierOrdersSection({
         )}
         {orders.map((order) => {
           const result = payResult[order.id]
+          const expanded = expandedId === order.id
+          const nextStatus = NEXT_STATUS[order.status]
           return (
-            <div key={order.id} className="flex gap-3 rounded-md border border-border px-3 py-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted">
-                <Truck size={16} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Chip tone={SUPPLIER_ORDER_STATUS_TONE[order.status]}>
-                        {SUPPLIER_ORDER_STATUS_LABEL[order.status]}
-                      </Chip>
-                      {order.expected_at && (
-                        <span className="text-[12px] text-muted">
-                          срок: {new Date(order.expected_at).toLocaleDateString('ru-RU')}
-                        </span>
+            <div key={order.id} className="rounded-md border border-border px-3 py-2.5">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expanded ? null : order.id)}
+                  aria-label={expanded ? 'Свернуть заказ' : 'Показать позиции заказа'}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-muted text-muted hover:text-ink"
+                >
+                  {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <button type="button" className="min-w-0 text-left" onClick={() => setExpandedId(expanded ? null : order.id)}>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Chip tone={SUPPLIER_ORDER_STATUS_TONE[order.status]}>
+                          {SUPPLIER_ORDER_STATUS_LABEL[order.status]}
+                        </Chip>
+                        {order.expected_at && (
+                          <span className="text-[12px] text-muted">
+                            срок: {new Date(order.expected_at).toLocaleDateString('ru-RU')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1 text-[12px] text-muted">
+                        <Truck size={13} />
+                        {order.items.map((it) => `${it.material} × ${it.quantity}`).join(', ')}
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-[13px] font-medium text-ink tabular">{money(order.total_cost)}</span>
+                      {isAdmin && order.status === 'ordered' && (
+                        <button
+                          type="button"
+                          onClick={() => remove(order)}
+                          aria-label="Удалить заказ"
+                          className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </div>
-                    <div className="mt-1 text-[12px] text-muted">
-                      {order.items.map((it) => `${it.material} × ${it.quantity}`).join(', ')}
-                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-[13px] font-medium text-ink tabular">{money(order.total_cost)}</span>
-                    {order.status === 'ordered' && (
+
+                  {expanded && (
+                    <div className="mt-2 overflow-x-auto rounded-md bg-surface-muted/60 p-2.5">
+                      <table className="w-full min-w-[24rem] text-[12px]">
+                        <thead>
+                          <tr className="text-muted">
+                            <th className="pb-1 text-left font-normal">Материал</th>
+                            <th className="pb-1 text-left font-normal">Категория</th>
+                            <th className="pb-1 text-right font-normal">Кол-во</th>
+                            <th className="pb-1 text-right font-normal">Цена</th>
+                            <th className="pb-1 text-right font-normal">Сумма</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.items.map((it, i) => (
+                            <tr key={i} className="text-ink">
+                              <td className="py-0.5">{it.material}</td>
+                              <td className="py-0.5 text-muted">{it.category || '—'}</td>
+                              <td className="py-0.5 text-right tabular">{it.quantity}</td>
+                              <td className="py-0.5 text-right tabular">{money(it.unit_price)}</td>
+                              <td className="py-0.5 text-right tabular">{money(it.quantity * it.unit_price)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {order.received_at && (
+                        <div className="mt-2 text-[12px] text-muted">
+                          принята: {new Date(order.received_at).toLocaleDateString('ru-RU')}
+                        </div>
+                      )}
+                      <div className="mt-2 text-[12px] text-muted">
+                        Комментарий: {order.comment || '—'}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {nextStatus && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={statusBusyId === order.id}
+                        onClick={() => advanceStatus(order)}
+                      >
+                        {statusBusyId === order.id
+                          ? 'Обновление…'
+                          : `Отметить «${SUPPLIER_ORDER_STATUS_LABEL[nextStatus]}»`}
+                      </Button>
+                    )}
+                    {!result && (
+                      <Button size="sm" disabled={payingId === order.id} onClick={() => pay(order)}>
+                        {payingId === order.id ? 'Оплата…' : 'Оплатить поставку'}
+                      </Button>
+                    )}
+                    {result && 'movementId' in result && (
                       <button
                         type="button"
-                        onClick={() => remove(order)}
-                        aria-label="Удалить заказ"
-                        className="rounded-md p-2 text-muted hover:bg-surface-muted hover:text-danger"
+                        onClick={() => navigate(`/accounting?movement=${result.movementId}`)}
+                        className="text-[12px] text-brand hover:text-brand-dark"
                       >
-                        <Trash2 size={15} />
+                        Проводка создана в «Бухгалтерии» →
                       </button>
                     )}
+                    {result && 'error' in result && <span className="text-[12px] text-danger">{result.error}</span>}
                   </div>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {!result && (
-                    <Button size="sm" disabled={payingId === order.id} onClick={() => pay(order)}>
-                      {payingId === order.id ? 'Оплата…' : 'Оплатить поставку'}
-                    </Button>
-                  )}
-                  {result && 'movementId' in result && (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/accounting?movement=${result.movementId}`)}
-                      className="text-[12px] text-brand hover:text-brand-dark"
-                    >
-                      Проводка создана в «Бухгалтерии» →
-                    </button>
-                  )}
-                  {result && 'error' in result && <span className="text-[12px] text-danger">{result.error}</span>}
                 </div>
               </div>
             </div>
@@ -217,6 +305,7 @@ function SupplierOrderForm({
 }) {
   const [items, setItems] = useState<SupplierOrderItem[]>([{ ...EMPTY_ITEM }])
   const [expectedAt, setExpectedAt] = useState('')
+  const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -242,6 +331,7 @@ function SupplierOrderForm({
           unit_price: Number(it.unit_price),
         })),
         expected_at: expectedAt || null,
+        comment: comment.trim() || null,
       })
       onDone()
     } catch (e) {
@@ -297,10 +387,22 @@ function SupplierOrderForm({
         </button>
       </div>
 
-      <div className="mt-3 max-w-[12rem]">
-        <Field label="Ожидаемый срок поставки">
-          <Input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} />
-        </Field>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <div className="max-w-[12rem]">
+          <Field label="Ожидаемый срок поставки">
+            <Input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} />
+          </Field>
+        </div>
+        <div className="min-w-[14rem] flex-1">
+          <Field label="Комментарий">
+            <Textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Необязательно"
+              rows={1}
+            />
+          </Field>
+        </div>
       </div>
 
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
