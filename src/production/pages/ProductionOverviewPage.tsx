@@ -6,7 +6,7 @@ import { HelpButton } from '@/shared/ui/HelpButton'
 import { LoadingState } from '@/shared/ui/LoadingState'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
-import { Factory } from 'lucide-react'
+import { CheckCircle2, Factory } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { CYCLE_STAGES } from '@/cycles/types'
 import { useProductionStore } from '../store'
@@ -86,7 +86,11 @@ export function ProductionOverviewPage() {
           <section className="mb-6">
             <h2 className="mb-3 text-[15px] font-medium text-ink">Текущие производства</h2>
             {current.length === 0 ? (
-              <EmptyState title="Активных производств пока нет" />
+              <EmptyState
+                icon={<Factory size={24} />}
+                title="Активных производств пока нет"
+                description="Новые появляются автоматически, когда клиент доходит до стадии «постоплата»."
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {current.map((production) => (
@@ -101,7 +105,11 @@ export function ProductionOverviewPage() {
           <section>
             <h2 className="mb-3 text-[15px] font-medium text-ink">Завершённые производства</h2>
             {completed.length === 0 ? (
-              <EmptyState title="Завершённых производств пока нет" />
+              <EmptyState
+                icon={<CheckCircle2 size={24} />}
+                title="Завершённых производств пока нет"
+                description="Производство переходит сюда, когда закрыты все задачи по всем его блокам."
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {completed.map((production) => (
