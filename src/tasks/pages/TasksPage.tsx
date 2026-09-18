@@ -51,14 +51,17 @@ const EMPLOYEE_ALL = 'all'
 const EMPLOYEE_UNASSIGNED = 'unassigned'
 
 /**
- * Список сотрудников для фильтра строится из фактических исполнителей уже
- * загруженных задач (а не из useAuthStore().accounts — тот список грузится
+ * Список сотрудников для фильтра строится из фактических участников уже
+ * загруженных задач по всем трём ролям — исполнитель, ответственный,
+ * проверяющий (а не из useAuthStore().accounts — тот список грузится
  * только для admin, см. src/auth/store.ts).
  */
 function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
   const byId = new Map<number, string>()
   for (const task of tasks) {
     for (const assignee of task.assignees) byId.set(assignee.id, assignee.full_name)
+    for (const reviewer of task.reviewers) byId.set(reviewer.id, reviewer.full_name)
+    if (task.responsible) byId.set(task.responsible.id, task.responsible.full_name)
   }
   return Array.from(byId, ([id, full_name]) => ({ id, full_name })).sort((a, b) =>
     a.full_name.localeCompare(b.full_name, 'ru'),
