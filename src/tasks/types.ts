@@ -93,3 +93,18 @@ export interface Task {
   /** 'no_reviewer' — задача на проверке, но принять её некому. */
   review_blocked_reason: 'no_reviewer' | null
 }
+
+export type WorkloadLevel = 'low' | 'medium' | 'high'
+
+/** GET /api/tasks/workload (0070-f, только администратор) — в отличие от
+ * остального интерфейса задач, сторипоинты здесь видны явно. */
+export interface Workload {
+  user_id: number
+  full_name: string
+  open_tasks_count: number
+  open_story_points: number
+  completed_points_7d: number
+  completed_points_prev_7d: number
+  overdue_count: number
+  workload_level: WorkloadLevel
+}
