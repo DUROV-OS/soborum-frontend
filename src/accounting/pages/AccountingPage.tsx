@@ -22,6 +22,7 @@ import {
   MoneySubkind,
   SOURCE_KIND_LABEL,
   STATUS_LABEL,
+  STATUS_SORT_ORDER,
   STATUS_TONE,
   SUBKIND_LABEL,
 } from '../types'
@@ -191,6 +192,7 @@ export function AccountingPage() {
                   header: 'Дата',
                   accessor: (m) =>
                     new Date(m.posted_at ?? m.created_at).toLocaleDateString('ru-RU'),
+                  sortValue: (m) => new Date(m.posted_at ?? m.created_at),
                 },
                 {
                   header: 'Вид',
@@ -210,14 +212,20 @@ export function AccountingPage() {
                       {money(m.amount, m.direction)}
                     </span>
                   ),
+                  sortValue: (m) => (m.direction === 'expense' ? -m.amount : m.amount),
                 },
                 {
                   header: 'Налог',
                   align: 'right',
                   className: 'tabular',
                   accessor: (m) => (m.tax ? `${m.tax.toLocaleString('ru-RU')} ₽` : '—'),
+                  sortValue: (m) => m.tax,
                 },
-                { header: 'Инициатор', accessor: (m) => m.initiator_name ?? `№${m.initiator_id}` },
+                {
+                  header: 'Инициатор',
+                  accessor: (m) => m.initiator_name ?? `№${m.initiator_id}`,
+                  sortValue: (m) => m.initiator_name ?? String(m.initiator_id),
+                },
                 {
                   header: 'Источник',
                   accessor: (m) =>
@@ -226,6 +234,7 @@ export function AccountingPage() {
                 {
                   header: 'Статус',
                   accessor: (m) => <Chip tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status]}</Chip>,
+                  sortValue: (m) => STATUS_SORT_ORDER[m.status],
                 },
                 ...(isAdmin
                   ? [
