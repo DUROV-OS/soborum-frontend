@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Calculator, Plus, Trash2, Upload } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -7,7 +7,7 @@ import { Chip } from '@/shared/ui/Chip'
 import { DataTable } from '@/shared/ui/DataTable'
 import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { Select } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
@@ -52,6 +52,9 @@ export function AccountingPage() {
   const [tab, setTab] = useState<'register' | 'salary'>('register')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
+  const [customRangeOpen, setCustomRangeOpen] = useState(
+    () => Boolean(filters.custom_date_from || filters.custom_date_to),
+  )
 
   useEffect(() => {
     // Переход по ссылке «создана проводка» (0011-f) — открываем карточку и
@@ -78,7 +81,20 @@ export function AccountingPage() {
     filters.subkind !== 'all' ||
     filters.status !== 'all' ||
     filters.source_kind !== 'all' ||
-    filters.period !== 'all'
+    filters.period !== 'all' ||
+    filters.custom_date_from !== '' ||
+    filters.custom_date_to !== '' ||
+    filters.initiator_id !== 'all'
+
+  // Список инициаторов для фильтра строится из реально встречающихся
+  // инициаторов уже загруженных проводок, а не из полного списка аккаунтов
+  // (доступного только admin) — по тому же принципу, что employeeOptions в
+  // TasksPage.tsx.
+  const initiatorOptions = useMemo(() => {
+    const byId = new Map<number, string>()
+    for (const m of movements) byId.set(m.initiator_id, m.initiator_name ?? `№${m.initiator_id}`)
+    return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  }, [movements])
 
   return (
     <div>
@@ -167,9 +183,63 @@ export function AccountingPage() {
                 </option>
               ))}
             </Select>
-            <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
+            <Select
+              className="w-full sm:w-44"
+              value={String(filters.initiator_id)}
+              onChange={(e) =>
+                setFilters({ initiator_id: e.target.value === 'all' ? 'all' : Number(e.target.value) })
+              }
+            >
+              <option value="all">Любой инициатор</option>
+              {initiatorOptions.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </Select>
+            {customRangeOpen ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  className="w-full sm:w-auto"
+                  value={filters.custom_date_from}
+                  onChange={(e) => setFilters({ custom_date_from: e.target.value })}
+                />
+                <span className="text-muted">—</span>
+                <Input
+                  type="date"
+                  className="w-full sm:w-auto"
+                  value={filters.custom_date_to}
+                  onChange={(e) => setFilters({ custom_date_to: e.target.value })}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCustomRangeOpen(false)
+                    setFilters({ custom_date_from: '', custom_date_to: '' })
+                  }}
+                >
+                  Пресеты периода
+                </Button>
+              </div>
+            ) : (
+              <>
+                <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
+                <Button variant="ghost" size="sm" onClick={() => setCustomRangeOpen(true)}>
+                  Свой диапазон
+                </Button>
+              </>
+            )}
             {filtersDirty && (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCustomRangeOpen(false)
+                  resetFilters()
+                }}
+              >
                 Сбросить
               </Button>
             )}
