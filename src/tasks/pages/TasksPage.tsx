@@ -29,6 +29,15 @@ function isClaimable(task: Task): boolean {
   return task.status === 'ready' && task.assignees.length === 0
 }
 
+/** Более ранний срок — выше; без срока (частый случай для авто-задач из
+ * разделов) — в конце колонки, между собой по id, как раньше. */
+function byDeadline(a: Task, b: Task): number {
+  if (a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline)
+  if (a.deadline) return -1
+  if (b.deadline) return 1
+  return a.id - b.id
+}
+
 type SourceFilter = 'all' | 'manual' | 'clients' | 'production' | 'marketing' | 'warehouse'
 
 function sourceOf(task: Task): SourceFilter {
@@ -240,6 +249,8 @@ export function TasksPage() {
         columnOf={(t) => t.status}
         onCardClick={setSelected}
         loading={loading}
+        sortItem={byDeadline}
+        scrollColumns
         renderCard={(task) => (
           <div>
             <div className="text-[13px] font-medium text-ink">{task.title}</div>
