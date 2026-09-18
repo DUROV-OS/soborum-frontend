@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, Plus, Trash2, Truck } from 'lucide-react'
+import { useAuthStore } from '@/auth/store'
 import * as accountingApi from '@/accounting/api'
 import {
   SUPPLIER_ORDER_STATUS_LABEL,
@@ -33,7 +34,8 @@ const EMPTY_ITEM: SupplierOrderItem = { material: '', category: null, quantity: 
 
 /**
  * Карточка заказов у поставщика (0011-d завёл сущность и статусную машину
- * исполнения; список/оплата — 0011-f; раскладка по позициям и статус-степпер — 0039).
+ * исполнения; список/оплата — 0011-f; раскладка по позициям, статус-степпер,
+ * комментарий и ADMIN-гейт на удаление — 0039).
  */
 export function SupplierOrdersSection({
   supplierId,
@@ -47,6 +49,7 @@ export function SupplierOrdersSection({
   balance: number
 }) {
   const navigate = useNavigate()
+  const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [orders, setOrders] = useState<SupplierOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -204,7 +207,7 @@ export function SupplierOrdersSection({
                     </button>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="text-[13px] font-medium text-ink tabular">{money(order.total_cost)}</span>
-                      {order.status === 'ordered' && (
+                      {isAdmin && order.status === 'ordered' && (
                         <button
                           type="button"
                           onClick={() => remove(order)}
