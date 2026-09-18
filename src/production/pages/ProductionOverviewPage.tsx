@@ -14,6 +14,12 @@ import { ProductionCriticality, ProductionListItem } from '../types'
 
 const CRITICALITY_ORDER: Record<ProductionCriticality, number> = { critical: 0, warning: 1, normal: 2 }
 
+const CRITICALITY_ACCENT: Record<ProductionCriticality, string> = {
+  critical: 'border-l-4 border-l-danger',
+  warning: 'border-l-4 border-l-warning',
+  normal: '',
+}
+
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     title: 'Активные производства',
@@ -85,6 +91,7 @@ export function ProductionOverviewPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {current.map((production) => (
                   <ProductionCard key={production.id} production={production}
+                    accentClassName={CRITICALITY_ACCENT[production.criticality]}
                     onClick={() => navigate(`/production/${production.id}`)} />
                 ))}
               </div>
@@ -98,7 +105,7 @@ export function ProductionOverviewPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {completed.map((production) => (
-                  <ProductionCard key={production.id} production={production}
+                  <ProductionCard key={production.id} production={production} muted
                     onClick={() => navigate(`/production/${production.id}`)} />
                 ))}
               </div>
@@ -117,14 +124,30 @@ export function ProductionOverviewPage() {
   )
 }
 
-function ProductionCard({ production, onClick }: { production: ProductionListItem; onClick: () => void }) {
+function ProductionCard({
+  production,
+  onClick,
+  accentClassName = '',
+  muted = false,
+}: {
+  production: ProductionListItem
+  onClick: () => void
+  /** Левая цветная полоса по критичности — только для карточек блока «Текущие». */
+  accentClassName?: string
+  /** Приглушённый вид для завершённых — без акцента критичности. */
+  muted?: boolean
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
+      className={`rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40 ${accentClassName} ${
+        muted ? 'opacity-70' : ''
+      }`}
     >
-      <div className="text-[14px] font-medium text-ink">Заказ №{production.cycle_id}</div>
+      <div className={`font-medium text-ink ${muted ? 'text-[13px]' : 'text-[14px]'}`}>
+        Заказ №{production.cycle_id}
+      </div>
       {production.name !== 'Дом' && <div className="mt-0.5 text-[12px] text-brand-dark">{production.name}</div>}
       <div className="mt-1 text-[12px] text-muted">
         Блоков: {production.block_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
