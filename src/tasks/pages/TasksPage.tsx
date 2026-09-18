@@ -18,6 +18,7 @@ import { DateFilter, dateFilterRange, matchesDateFilter } from '@/shared/lib/dat
 import { useTasksStore } from '../store'
 import { TASK_PRIORITIES, TASK_STATES, Task } from '../types'
 import { CreateTaskModal } from '../components/CreateTaskModal'
+import { DailyPlanPanel } from '../components/DailyPlanPanel'
 import { MyTasksPanel } from '../components/MyTasksPanel'
 import { priorityTone } from '../components/priorityTone'
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer'
@@ -242,6 +243,7 @@ export function TasksPage() {
       )}
 
       {subTab === 'mine' && <MyTasksPanel onOpenTask={setSelected} />}
+      {subTab === 'mine' && <DailyPlanPanel onOpenTask={setSelected} />}
 
       {subTab === 'mine' && claimError && <p className="mb-3 text-[13px] text-danger">{claimError}</p>}
 
