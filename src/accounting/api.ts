@@ -23,6 +23,10 @@ export interface MoneyMovementFilters {
   client_id?: number
   employee_id?: number
   supply_id?: number
+  amount_min?: number
+  amount_max?: number
+  tax_min?: number
+  tax_max?: number
   date_from?: string
   date_to?: string
   limit?: number
