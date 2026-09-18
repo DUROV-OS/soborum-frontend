@@ -12,7 +12,7 @@ import {
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
-import { Field, Input } from '@/shared/ui/Field'
+import { Field, Input, Textarea } from '@/shared/ui/Field'
 
 // Статус только вперёд, как у проводок (0011-d, статус-степпер — 0039).
 const NEXT_STATUS: Record<SupplierOrderStatus, SupplierOrderStatus | null> = {
@@ -302,6 +302,7 @@ function SupplierOrderForm({
 }) {
   const [items, setItems] = useState<SupplierOrderItem[]>([{ ...EMPTY_ITEM }])
   const [expectedAt, setExpectedAt] = useState('')
+  const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -327,6 +328,7 @@ function SupplierOrderForm({
           unit_price: Number(it.unit_price),
         })),
         expected_at: expectedAt || null,
+        comment: comment.trim() || null,
       })
       onDone()
     } catch (e) {
@@ -382,10 +384,22 @@ function SupplierOrderForm({
         </button>
       </div>
 
-      <div className="mt-3 max-w-[12rem]">
-        <Field label="Ожидаемый срок поставки">
-          <Input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} />
-        </Field>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <div className="max-w-[12rem]">
+          <Field label="Ожидаемый срок поставки">
+            <Input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} />
+          </Field>
+        </div>
+        <div className="min-w-[14rem] flex-1">
+          <Field label="Комментарий">
+            <Textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Необязательно"
+              rows={1}
+            />
+          </Field>
+        </div>
       </div>
 
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
