@@ -159,6 +159,19 @@ export interface TaskPrioritiesOut {
   priorities: PriorityTaskOut[]
 }
 
+/** GET /api/ai/tasks/daily-plan — связный план задач на сегодня (сторипоинты
+ * и загруженность других сотрудников участвуют только во внутреннем расчёте
+ * на бэке, наружу не отдаются — см. 0070-d/0070-e). */
+export interface DailyPlanItemOut {
+  task: Task
+  reason: string
+}
+
+export interface DailyPlanOut {
+  generated_at: string
+  plan: DailyPlanItemOut[]
+}
+
 export type GrowthProposalStatus = 'open' | 'task_created'
 
 /** GET /api/ai/growth-proposals — подраздел «Развитие» в «Марине» (0036-a).
