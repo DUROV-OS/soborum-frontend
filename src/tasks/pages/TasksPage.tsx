@@ -50,6 +50,16 @@ const SOURCE_LABEL: Record<SourceFilter, string> = {
 const EMPLOYEE_ALL = 'all'
 const EMPLOYEE_UNASSIGNED = 'unassigned'
 
+type EmployeeRole = 'assignee' | 'responsible' | 'reviewer'
+
+const ROLE_LABEL: Record<EmployeeRole, string> = {
+  assignee: 'Исполнитель',
+  responsible: 'Ответственный',
+  reviewer: 'Проверяющий',
+}
+
+const ALL_ROLES: Record<EmployeeRole, boolean> = { assignee: true, responsible: true, reviewer: true }
+
 /**
  * Список сотрудников для фильтра строится из фактических участников уже
  * загруженных задач по всем трём ролям — исполнитель, ответственный,
@@ -129,6 +139,8 @@ export function TasksPage() {
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
+  const [roleFilter, setRoleFilter] = useState<Record<EmployeeRole, boolean>>(ALL_ROLES)
+  const specificEmployeeSelected = employeeFilter !== EMPLOYEE_ALL && employeeFilter !== EMPLOYEE_UNASSIGNED
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
@@ -143,6 +155,10 @@ export function TasksPage() {
   useEffect(() => {
     if (subTab !== 'all') setEmployeeFilter(EMPLOYEE_ALL)
   }, [subTab])
+
+  useEffect(() => {
+    if (!specificEmployeeSelected) setRoleFilter(ALL_ROLES)
+  }, [specificEmployeeSelected])
 
   useEffect(() => {
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
@@ -231,6 +247,21 @@ export function TasksPage() {
               </option>
             ))}
           </Select>
+          {specificEmployeeSelected && (
+            <div className="flex flex-wrap items-center gap-3">
+              {(Object.keys(ROLE_LABEL) as EmployeeRole[]).map((role) => (
+                <label key={role} className="flex items-center gap-1.5 text-[13px] text-ink">
+                  <input
+                    type="checkbox"
+                    checked={roleFilter[role]}
+                    onChange={() => setRoleFilter((prev) => ({ ...prev, [role]: !prev[role] }))}
+                    className="h-4 w-4 accent-[#395b4b]"
+                  />
+                  {ROLE_LABEL[role]}
+                </label>
+              ))}
+            </div>
+          )}
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
         </div>
       )}
