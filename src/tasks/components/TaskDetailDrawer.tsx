@@ -5,12 +5,14 @@ import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { FileLink } from '@/shared/ui/FileLink'
+import { Select } from '@/shared/ui/Field'
 import { useTasksStore } from '../store'
-import { Task, TASK_STATES, TaskStatus } from '../types'
+import { Task, TASK_PRIORITIES, TASK_STATES, TaskPriority, TaskStatus } from '../types'
 import { stateTone } from './stateTone'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const setStatus = useTasksStore((s) => s.setStatus)
+  const update = useTasksStore((s) => s.update)
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -26,7 +28,15 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
     setError(result.ok ? null : result.reason ?? 'Действие недоступно')
   }
 
+  async function changePriority(target: TaskPriority) {
+    setBusy(true)
+    const result = await update(taskId, { priority: target })
+    setBusy(false)
+    setError(result.ok ? null : result.reason ?? 'Действие недоступно')
+  }
+
   const stateLabel = TASK_STATES.find((s) => s.key === task.status)?.label ?? task.status
+  const priorityLabel = TASK_PRIORITIES.find((p) => p.key === task.priority)?.label ?? task.priority
 
   return (
     <Drawer open={!!task} onClose={onClose} title={task.title} subtitle={<Chip tone={stateTone(task.status)}>{stateLabel}</Chip>}>
@@ -34,6 +44,26 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         {task.description && <p className="text-[13px] text-ink">{task.description}</p>}
 
         {task.deadline && <Row label="Дедлайн" value={new Date(task.deadline).toLocaleDateString('ru-RU')} />}
+
+        {canEdit ? (
+          <div className="flex items-baseline justify-between text-[13px]">
+            <span className="text-muted">Приоритет</span>
+            <Select
+              className="w-auto py-1"
+              value={task.priority}
+              disabled={busy}
+              onChange={(e) => changePriority(e.target.value as TaskPriority)}
+            >
+              {TASK_PRIORITIES.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : (
+          <Row label="Приоритет" value={priorityLabel} />
+        )}
 
         <Row label="Исполнители" value={task.assignees.map((a) => a.full_name).join(', ') || '—'} />
         <Row label="Ответственный" value={task.responsible?.full_name ?? '—'} />

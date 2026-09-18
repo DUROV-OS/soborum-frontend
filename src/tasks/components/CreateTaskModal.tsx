@@ -4,7 +4,7 @@ import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useTasksStore } from '../store'
-import { Task } from '../types'
+import { Task, TASK_PRIORITIES, TaskPriority } from '../types'
 
 export function CreateTaskModal({
   open,
@@ -23,6 +23,7 @@ export function CreateTaskModal({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [deadline, setDeadline] = useState('')
+  const [priority, setPriority] = useState<TaskPriority>('medium')
   const [assigneeIds, setAssigneeIds] = useState<number[]>([])
   const [reviewerIds, setReviewerIds] = useState<number[]>([])
   const [responsibleId, setResponsibleId] = useState<number | ''>('')
@@ -36,6 +37,7 @@ export function CreateTaskModal({
     setTitle('')
     setDescription('')
     setDeadline('')
+    setPriority('medium')
     setAssigneeIds([])
     setReviewerIds([])
     setResponsibleId('')
@@ -54,6 +56,7 @@ export function CreateTaskModal({
       title,
       description: description || undefined,
       deadline: deadline || undefined,
+      priority,
       assignee_ids: assigneeIds,
       reviewer_ids: reviewerIds,
       responsible_id: responsibleId === '' ? undefined : responsibleId,
@@ -99,6 +102,15 @@ export function CreateTaskModal({
         </Field>
         <Field label="Дедлайн">
           <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+        </Field>
+        <Field label="Приоритет">
+          <Select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
+            {TASK_PRIORITIES.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         {accounts.length === 0 ? (
