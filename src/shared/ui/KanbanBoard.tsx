@@ -16,6 +16,7 @@ export function KanbanBoard<T, K extends string>({
   onCardClick,
   loading = false,
   focusKey = null,
+  sortItem,
 }: {
   columns: KanbanColumn<K>[]
   items: T[]
@@ -27,6 +28,9 @@ export function KanbanBoard<T, K extends string>({
   /** Колонка, которую нужно раскрыть на мобильном аккордеоне (например, куда только что
    * переехала карточка) — иначе на мобильных карточка в свёрнутой колонке визуально теряется. */
   focusKey?: K | null
+  /** Если передан — карточки внутри каждой колонки сортируются им перед рендером;
+   * если не передан — порядок как в `items` (текущее поведение). */
+  sortItem?: (a: T, b: T) => number
 }) {
   const [openKey, setOpenKey] = useState<K | null>(columns[0]?.key ?? null)
 
@@ -34,10 +38,11 @@ export function KanbanBoard<T, K extends string>({
     if (focusKey !== null) setOpenKey(focusKey)
   }, [focusKey])
 
-  const columnsWithItems = columns.map((column) => ({
-    column,
-    columnItems: items.filter((item) => columnOf(item) === column.key),
-  }))
+  const columnsWithItems = columns.map((column) => {
+    const columnItems = items.filter((item) => columnOf(item) === column.key)
+    if (sortItem) columnItems.sort(sortItem)
+    return { column, columnItems }
+  })
 
   const renderCards = (columnItems: T[]) => (
     <>
