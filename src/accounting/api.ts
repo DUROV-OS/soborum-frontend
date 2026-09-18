@@ -25,6 +25,10 @@ export interface MoneyMovementFilters {
   employee_id?: number
   supply_id?: number
   initiator_id?: number
+  amount_min?: number
+  amount_max?: number
+  tax_min?: number
+  tax_max?: number
   date_from?: string
   date_to?: string
   limit?: number
