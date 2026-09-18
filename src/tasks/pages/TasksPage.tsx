@@ -60,26 +60,50 @@ const SOURCE_LABEL: Record<SourceFilter, string> = {
 const EMPLOYEE_ALL = 'all'
 const EMPLOYEE_UNASSIGNED = 'unassigned'
 
+type EmployeeRole = 'assignee' | 'responsible' | 'reviewer'
+
+const ROLE_LABEL: Record<EmployeeRole, string> = {
+  assignee: 'Исполнитель',
+  responsible: 'Ответственный',
+  reviewer: 'Проверяющий',
+}
+
+const ALL_ROLES: Record<EmployeeRole, boolean> = { assignee: true, responsible: true, reviewer: true }
+
 /**
- * Список сотрудников для фильтра строится из фактических исполнителей уже
- * загруженных задач (а не из useAuthStore().accounts — тот список грузится
+ * Список сотрудников для фильтра строится из фактических участников уже
+ * загруженных задач по всем трём ролям — исполнитель, ответственный,
+ * проверяющий (а не из useAuthStore().accounts — тот список грузится
  * только для admin, см. src/auth/store.ts).
  */
 function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
   const byId = new Map<number, string>()
   for (const task of tasks) {
     for (const assignee of task.assignees) byId.set(assignee.id, assignee.full_name)
+    for (const reviewer of task.reviewers) byId.set(reviewer.id, reviewer.full_name)
+    if (task.responsible) byId.set(task.responsible.id, task.responsible.full_name)
   }
   return Array.from(byId, ([id, full_name]) => ({ id, full_name })).sort((a, b) =>
     a.full_name.localeCompare(b.full_name, 'ru'),
   )
 }
 
-function matchesEmployee(task: Task, employeeFilter: string): boolean {
+/** Если ответственный явно не проставлен, но у задачи ровно один исполнитель —
+ * он же считается ответственным (правило Арсения). */
+function isResponsibleFor(task: Task, id: number): boolean {
+  if (task.responsible) return task.responsible.id === id
+  return task.assignees.length === 1 && task.assignees[0].id === id
+}
+
+function matchesEmployee(task: Task, employeeFilter: string, roleFilter: Record<EmployeeRole, boolean>): boolean {
   if (employeeFilter === EMPLOYEE_ALL) return true
   if (employeeFilter === EMPLOYEE_UNASSIGNED) return task.assignees.length === 0
   const id = Number(employeeFilter)
-  return task.assignees.some((a) => a.id === id)
+  return (
+    (roleFilter.assignee && task.assignees.some((a) => a.id === id)) ||
+    (roleFilter.reviewer && task.reviewers.some((r) => r.id === id)) ||
+    (roleFilter.responsible && isResponsibleFor(task, id))
+  )
 }
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -136,6 +160,9 @@ export function TasksPage() {
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
   const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
+  const [roleFilter, setRoleFilter] = useState<Record<EmployeeRole, boolean>>(ALL_ROLES)
+  const specificEmployeeSelected = employeeFilter !== EMPLOYEE_ALL && employeeFilter !== EMPLOYEE_UNASSIGNED
+  const noRoleSelected = specificEmployeeSelected && !roleFilter.assignee && !roleFilter.responsible && !roleFilter.reviewer
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
@@ -150,6 +177,10 @@ export function TasksPage() {
   useEffect(() => {
     if (subTab !== 'all') setEmployeeFilter(EMPLOYEE_ALL)
   }, [subTab])
+
+  useEffect(() => {
+    if (!specificEmployeeSelected) setRoleFilter(ALL_ROLES)
+  }, [specificEmployeeSelected])
 
   useEffect(() => {
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
@@ -172,7 +203,7 @@ export function TasksPage() {
     // чтобы выбранный период их не терял целиком.
     .filter((t) => matchesDateFilter(t.deadline ?? t.created_at, range))
     .filter((t) => !q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
-    .filter((t) => matchesEmployee(t, employeeFilter))
+    .filter((t) => matchesEmployee(t, employeeFilter, roleFilter))
 
   return (
     <div>
@@ -238,8 +269,30 @@ export function TasksPage() {
               </option>
             ))}
           </Select>
+          {specificEmployeeSelected && (
+            <div className="flex flex-wrap items-center gap-3">
+              {(Object.keys(ROLE_LABEL) as EmployeeRole[]).map((role) => (
+                <label key={role} className="flex items-center gap-1.5 text-[13px] text-ink">
+                  <input
+                    type="checkbox"
+                    checked={roleFilter[role]}
+                    onChange={() => setRoleFilter((prev) => ({ ...prev, [role]: !prev[role] }))}
+                    className="h-4 w-4 accent-[#395b4b]"
+                  />
+                  {ROLE_LABEL[role]}
+                </label>
+              ))}
+            </div>
+          )}
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
         </div>
+      )}
+
+      {noRoleSelected && (
+        <p className="mb-3 text-[13px] text-muted">
+          Отметьте хотя бы одну роль (исполнитель, ответственный или проверяющий), чтобы увидеть задачи
+          выбранного сотрудника.
+        </p>
       )}
 
       <KanbanBoard
