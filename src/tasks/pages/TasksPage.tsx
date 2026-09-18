@@ -78,11 +78,22 @@ function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
   )
 }
 
-function matchesEmployee(task: Task, employeeFilter: string): boolean {
+/** Если ответственный явно не проставлен, но у задачи ровно один исполнитель —
+ * он же считается ответственным (правило Арсения). */
+function isResponsibleFor(task: Task, id: number): boolean {
+  if (task.responsible) return task.responsible.id === id
+  return task.assignees.length === 1 && task.assignees[0].id === id
+}
+
+function matchesEmployee(task: Task, employeeFilter: string, roleFilter: Record<EmployeeRole, boolean>): boolean {
   if (employeeFilter === EMPLOYEE_ALL) return true
   if (employeeFilter === EMPLOYEE_UNASSIGNED) return task.assignees.length === 0
   const id = Number(employeeFilter)
-  return task.assignees.some((a) => a.id === id)
+  return (
+    (roleFilter.assignee && task.assignees.some((a) => a.id === id)) ||
+    (roleFilter.reviewer && task.reviewers.some((r) => r.id === id)) ||
+    (roleFilter.responsible && isResponsibleFor(task, id))
+  )
 }
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -141,6 +152,7 @@ export function TasksPage() {
   const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
   const [roleFilter, setRoleFilter] = useState<Record<EmployeeRole, boolean>>(ALL_ROLES)
   const specificEmployeeSelected = employeeFilter !== EMPLOYEE_ALL && employeeFilter !== EMPLOYEE_UNASSIGNED
+  const noRoleSelected = specificEmployeeSelected && !roleFilter.assignee && !roleFilter.responsible && !roleFilter.reviewer
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
@@ -181,7 +193,7 @@ export function TasksPage() {
     // чтобы выбранный период их не терял целиком.
     .filter((t) => matchesDateFilter(t.deadline ?? t.created_at, range))
     .filter((t) => !q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
-    .filter((t) => matchesEmployee(t, employeeFilter))
+    .filter((t) => matchesEmployee(t, employeeFilter, roleFilter))
 
   return (
     <div>
@@ -264,6 +276,13 @@ export function TasksPage() {
           )}
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
         </div>
+      )}
+
+      {noRoleSelected && (
+        <p className="mb-3 text-[13px] text-muted">
+          Отметьте хотя бы одну роль (исполнитель, ответственный или проверяющий), чтобы увидеть задачи
+          выбранного сотрудника.
+        </p>
       )}
 
       <KanbanBoard
