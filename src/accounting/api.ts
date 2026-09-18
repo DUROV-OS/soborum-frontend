@@ -11,6 +11,7 @@ import {
   PaymentImportResult,
   SupplierOrder,
   SupplierOrderItem,
+  SupplierOrderStatus,
 } from './types'
 
 const SECTION = 'accounting'
@@ -152,7 +153,17 @@ export function createSupplierOrder(input: SupplierOrderCreateInput): Promise<Su
   return apiRequest<SupplierOrder>({ section: SECTION, path: '/supplier-orders', method: 'POST', body: input })
 }
 
-/** DELETE /api/accounting/supplier-orders/:id — только для статуса «заказана» */
+/** POST /api/accounting/supplier-orders/:id/status — только вперёд (ordered → in_transit → received) */
+export function changeSupplierOrderStatus(id: number, to: SupplierOrderStatus): Promise<SupplierOrder> {
+  return apiRequest<SupplierOrder>({
+    section: SECTION,
+    path: `/supplier-orders/${id}/status`,
+    method: 'POST',
+    body: { to },
+  })
+}
+
+/** DELETE /api/accounting/supplier-orders/:id — только для статуса «заказана», доступ ADMIN (require_full) */
 export function deleteSupplierOrder(id: number): Promise<void> {
   return apiRequest<void>({ section: SECTION, path: `/supplier-orders/${id}`, method: 'DELETE' })
 }
