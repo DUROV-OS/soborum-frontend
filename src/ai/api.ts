@@ -9,6 +9,7 @@ import {
   ChatDomain,
   ChatMode,
   ChatOut,
+  DailyPlanOut,
   FileAssetOut,
   GrowthProposalOut,
   GrowthProposalPrepareTaskOut,
@@ -87,6 +88,11 @@ export function getSectionAnalytics(section: AnalyticsSection): Promise<SectionA
 /** GET /api/ai/tasks/priorities */
 export function getTaskPriorities(): Promise<TaskPrioritiesOut> {
   return apiRequest<TaskPrioritiesOut>({ section: SECTION, path: '/tasks/priorities' })
+}
+
+/** GET /api/ai/tasks/daily-plan */
+export function getDailyPlan(reload?: boolean): Promise<DailyPlanOut> {
+  return apiRequest<DailyPlanOut>({ section: SECTION, path: '/tasks/daily-plan', query: { reload } })
 }
 
 /** GET /api/ai/chats */
