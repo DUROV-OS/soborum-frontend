@@ -8,6 +8,7 @@ import { getHouseModel } from '../api'
 import { ConfirmationBadge } from '../components/ConfirmationBadge'
 import { ModelHousesBlock } from '../components/ModelHousesBlock'
 import { PlanningImage } from '../components/PlanningImage'
+import { TypicalDocumentsBlock } from '../components/TypicalDocumentsBlock'
 import { HouseModelDetail } from '../types'
 
 function Section({ title, content }: { title: string; content: string | null }) {
@@ -99,6 +100,13 @@ export function HouseModelDetailPage() {
           <Section title="Реальные сделки без ПЗ" content={model.deals_without_pz_md} />
           <Section title="Проектные файлы" content={model.files_md} />
           {model.notes_md && <Section title="Заметки" content={model.notes_md} />}
+
+          <TypicalDocumentsBlock
+            modelKey={model.key}
+            typicalAr={model.typical_ar}
+            typicalKr={model.typical_kr}
+            onChanged={(next) => setModel({ ...model, ...next })}
+          />
 
           <section className="rounded-xl border border-dashed border-border bg-surface-muted p-4">
             <h2 className="mb-2 text-[13px] font-medium text-muted">
