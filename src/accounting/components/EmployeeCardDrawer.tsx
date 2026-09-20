@@ -4,9 +4,14 @@ import { Drawer } from '@/shared/ui/Drawer'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
+import * as accountingApi from '../api'
 import { useAccountingStore } from '../store'
-import { EmployeeSalaryOverview, STATUS_LABEL, STATUS_TONE } from '../types'
+import { EmployeeKpiPeriod, EmployeeSalaryOverview, STATUS_LABEL, STATUS_TONE } from '../types'
 import { AccrueSalaryModal } from './AccrueSalaryModal'
+
+function monthLabel(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+}
 
 function money(amount: number): string {
   return `${amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
@@ -34,12 +39,24 @@ export function EmployeeCardDrawer({
   const [amountInput, setAmountInput] = useState('')
   const [savingAmount, setSavingAmount] = useState(false)
   const [amountError, setAmountError] = useState<string | null>(null)
+  const [kpiHistory, setKpiHistory] = useState<EmployeeKpiPeriod[]>([])
 
   useEffect(() => {
     setAmountInput(movement ? String(movement.amount) : '')
     setAmountError(null)
     setError(null)
   }, [movement?.id, movement?.amount])
+
+  useEffect(() => {
+    if (!employee) {
+      setKpiHistory([])
+      return
+    }
+    accountingApi
+      .getEmployeeKpiHistory(employee.employee_id)
+      .then(setKpiHistory)
+      .catch(() => setKpiHistory([]))
+  }, [employee?.employee_id])
 
   if (!employee) return null
 
@@ -129,6 +146,20 @@ export function EmployeeCardDrawer({
               <CircleHelp size={14} />
             </span>
           </div>
+
+          {kpiHistory.length > 0 && (
+            <div className="text-[13px]">
+              <div className="mb-1.5 text-muted">История KPI по месяцам</div>
+              <ul className="flex flex-col gap-1">
+                {kpiHistory.map((period) => (
+                  <li key={period.period_start} className="flex items-center justify-between gap-2 text-ink">
+                    <span className="capitalize text-muted">{monthLabel(period.period_start)}</span>
+                    <span>{period.kpi === null ? 'нет данных' : period.kpi}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
             {!movement && (
