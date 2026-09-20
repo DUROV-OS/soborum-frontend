@@ -10,6 +10,7 @@ import { useClientsStore } from '../store'
 import { CLIENT_STAGES } from '../types'
 import { nextStageOf, stageLabel } from '../rules'
 import { ReadRow, Section } from '../components/PanelPrimitives'
+import { AiPlanOverlay } from '../components/AiPlanOverlay'
 import { DocumentPanel } from '../components/DocumentPanel'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
@@ -29,6 +30,7 @@ export function ClientDetailPage() {
   const canFull = accessLevelAtLeast(level, 'full')
   const [error, setError] = useState<string | null>(null)
   const [advancing, setAdvancing] = useState(false)
+  const [showAiPlanOverlay, setShowAiPlanOverlay] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
@@ -44,9 +46,16 @@ export function ClientDetailPage() {
   const next = nextStageOf(client.stage)
 
   async function handleAdvance() {
+    // Переход payment -> postpayment синхронно запускает на бэкенде OCR + AI-разбор
+    // КР и генерацию плана работ (app/clients/service.py:transition_stage) — заметно
+    // дольше остальных, мгновенных переходов стадии. Показываем оверлей только для
+    // него; блокировку действий на карточке по-прежнему даёт существующий `advancing`.
+    const isAiPlanTransition = next === 'postpayment'
     setAdvancing(true)
+    if (isAiPlanTransition) setShowAiPlanOverlay(true)
     const result = await advance(clientId)
     setAdvancing(false)
+    if (isAiPlanTransition) setShowAiPlanOverlay(false)
     setError(result.ok ? null : result.reason ?? 'Не удалось перевести на следующую стадию')
   }
 
@@ -65,6 +74,7 @@ export function ClientDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
+      {showAiPlanOverlay && <AiPlanOverlay />}
       <Link to="/clients" className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
         <ArrowLeft size={14} />
         Все клиенты
