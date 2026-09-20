@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { FileAsset } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useAccountingStore } from '../store'
+import { MovementDocumentsField } from './MovementDocumentsField'
 import {
   ASSESSMENT_LABEL,
   CLIENT_SOURCE_SUBKINDS,
@@ -21,6 +23,8 @@ const EMPTY = {
   client_id: '' as number | '',
   payment_purpose: '',
   comment: '',
+  link: '',
+  documents: [] as FileAsset[],
 }
 
 export function CreateMovementModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -63,6 +67,8 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
       client_id: needsClient ? Number(form.client_id) : undefined,
       payment_purpose: form.payment_purpose.trim() || undefined,
       comment: form.comment.trim() || undefined,
+      document_ids: form.documents.length ? form.documents.map((d) => d.id) : undefined,
+      link: form.link.trim() || undefined,
     })
     setBusy(false)
     if (result.ok) close()
@@ -172,6 +178,22 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
             value={form.comment}
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
             placeholder="необязательно"
+          />
+        </Field>
+
+        <Field label="Ссылка" hint="Необязательно — на договор, чат, счёт и т.п.">
+          <Input
+            type="url"
+            value={form.link}
+            onChange={(e) => setForm({ ...form, link: e.target.value })}
+            placeholder="https://…"
+          />
+        </Field>
+
+        <Field label="Документ">
+          <MovementDocumentsField
+            documents={form.documents}
+            onChange={(documents) => setForm({ ...form, documents })}
           />
         </Field>
 

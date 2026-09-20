@@ -3,7 +3,7 @@ import { listClients } from '@/clients/api'
 import { ApiError } from '@/shared/lib/httpClient'
 import { DateFilter, dateFilterRange } from '@/shared/lib/dateFilter'
 import * as accountingApi from './api'
-import { MoneyMovementCreateInput } from './api'
+import { MoneyMovementCreateInput, MoneyMovementUpdateInput } from './api'
 import {
   EmployeeSalaryOverview,
   MoneyDirection,
@@ -75,6 +75,7 @@ interface AccountingState {
   setFilters: (patch: Partial<MovementFilters>) => void
   resetFilters: () => void
   create: (input: MoneyMovementCreateInput) => Promise<ActionResult>
+  update: (id: number, input: MoneyMovementUpdateInput) => Promise<ActionResult>
   changeStatus: (
     id: number,
     to: Exclude<MoneyMovementStatus, 'draft'>,
@@ -194,6 +195,16 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
     try {
       const created = await accountingApi.createMovement(input)
       set({ movements: [created, ...get().movements] })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  update: async (id, input) => {
+    try {
+      const updated = await accountingApi.updateMovement(id, input)
+      set({ movements: get().movements.map((m) => (m.id === id ? updated : m)) })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }

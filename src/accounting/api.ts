@@ -1,3 +1,4 @@
+import { FileAsset } from '@/clients/types'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
   EmployeeSalaryOverview,
@@ -61,11 +62,35 @@ export interface MoneyMovementCreateInput {
   payment_purpose?: string
   comment?: string
   external_number?: string
+  document_ids?: number[]
+  link?: string
+}
+
+export interface MoneyMovementUpdateInput {
+  document_ids?: number[]
+  link?: string | null
 }
 
 /** POST /api/accounting/money-movements — всегда создаётся в статусе draft */
 export function createMovement(input: MoneyMovementCreateInput): Promise<MoneyMovement> {
   return apiRequest<MoneyMovement>({ section: SECTION, path: '/money-movements', method: 'POST', body: input })
+}
+
+/** PATCH /api/accounting/money-movements/:id — только для draft/approved (0072-d: вложения и ссылка) */
+export function updateMovement(id: number, input: MoneyMovementUpdateInput): Promise<MoneyMovement> {
+  return apiRequest<MoneyMovement>({
+    section: SECTION,
+    path: `/money-movements/${id}`,
+    method: 'PATCH',
+    body: input,
+  })
+}
+
+/** POST /api/accounting/money-movement-documents (multipart) — id идёт в document_ids проводки */
+export function uploadMovementDocument(file: File): Promise<FileAsset> {
+  const form = new FormData()
+  form.append('file', file)
+  return apiRequest<FileAsset>({ section: SECTION, path: '/money-movement-documents', method: 'POST', form })
 }
 
 /** POST /api/accounting/money-movements/:id/status */
