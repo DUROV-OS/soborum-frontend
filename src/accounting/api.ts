@@ -1,6 +1,7 @@
 import { FileAsset } from '@/clients/types'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
+  EmployeeKpiPeriod,
   EmployeeSalaryOverview,
   MoneyAssessment,
   MoneyDirection,
@@ -116,6 +117,14 @@ export function deleteMovement(id: number): Promise<void> {
 /** GET /api/accounting/salary-overview */
 export function getSalaryOverview(): Promise<EmployeeSalaryOverview[]> {
   return apiRequest<EmployeeSalaryOverview[]>({ section: SECTION, path: '/salary-overview' })
+}
+
+/** GET /api/accounting/employee-kpi-history/:employeeId (0042) */
+export function getEmployeeKpiHistory(employeeId: number): Promise<EmployeeKpiPeriod[]> {
+  return apiRequest<EmployeeKpiPeriod[]>({
+    section: SECTION,
+    path: `/employee-kpi-history/${employeeId}`,
+  })
 }
 
 // --- Импорт платежей таблицей (задача 0011-k) ---

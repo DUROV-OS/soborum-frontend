@@ -122,11 +122,10 @@ export function EmployeeCardDrawer({
 
           <div className="flex items-center gap-1.5 text-[13px] text-muted">
             <span>
-              KPI: <span className="text-ink">{employee.kpi}</span>
+              KPI за этот месяц:{' '}
+              <span className="text-ink">{employee.kpi === null ? 'нет данных за период' : employee.kpi}</span>
             </span>
-            <span
-              title="Черновой показатель: временная случайная заглушка, не настоящий расчёт. Будет заменена в 0042."
-            >
+            <span title="Доля задач с прошедшим в этом месяце дедлайном, выполненных в срок (задачи с опозданием считаются наполовину). Задачи без дедлайна и с дедлайном в будущем не учитываются.">
               <CircleHelp size={14} />
             </span>
           </div>
