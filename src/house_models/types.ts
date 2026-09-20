@@ -39,3 +39,13 @@ export interface HouseModelDetail extends HouseModelBrief {
   open_questions_md: string | null
   notes_md: string | null
 }
+
+/** Строка GET /catalog/:key/productions (0073-b) — реальный дом этой модели в
+ * производстве. Как и список /api/production/, не отдаёт цену/контакты
+ * клиента — только то же, что уже видно в разделе «Производство». */
+export interface HouseModelProduction {
+  production_id: number
+  cycle_id: number
+  house_index: number
+  client_display_name: string
+}

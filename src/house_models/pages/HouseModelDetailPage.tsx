@@ -6,6 +6,7 @@ import { LoadingState } from '@/shared/ui/LoadingState'
 import { Markdown } from '@/shared/ui/Markdown'
 import { getHouseModel } from '../api'
 import { ConfirmationBadge } from '../components/ConfirmationBadge'
+import { ModelHousesBlock } from '../components/ModelHousesBlock'
 import { PlanningImage } from '../components/PlanningImage'
 import { HouseModelDetail } from '../types'
 
@@ -74,6 +75,8 @@ export function HouseModelDetailPage() {
               )}
             </div>
           </div>
+
+          <ModelHousesBlock modelKey={model.key} />
 
           <Section title="Характеристики" content={model.characteristics_md} />
 
