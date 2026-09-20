@@ -262,7 +262,7 @@ function BlockCard({
     onUpdated(updated)
   }
 
-  async function saveMaterial(material: TemplateBlockMaterial, patch: { name?: string; unit?: string }) {
+  async function saveMaterial(material: TemplateBlockMaterial, patch: stageTemplateApi.MaterialPatch) {
     const updated = await stageTemplateApi.updateStageTemplateMaterial(template.id, block.id, material.id, patch)
     onUpdated(updated)
   }
@@ -330,28 +330,48 @@ function BlockCard({
           <div className="mb-1.5 text-[12px] font-medium text-muted">Материалы</div>
           <div className="flex flex-col gap-2">
             {block.materials.map((material) => (
-              <div key={material.id} className="flex items-center justify-between gap-2 text-[13px]">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <EditableField
-                    value={material.name}
-                    locked={locked}
-                    onSave={(name) => saveMaterial(material, { name })}
-                    className="min-w-0 flex-1 text-ink"
-                  />
-                  <span className="text-muted">·</span>
-                  <EditableField
-                    value={material.unit}
-                    locked={locked}
-                    onSave={(unit) => saveMaterial(material, { unit })}
-                    className="w-14 shrink-0 text-muted"
-                  />
+              <div key={material.id} className="flex flex-col gap-1 text-[13px]">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <EditableField
+                      value={material.name}
+                      locked={locked}
+                      onSave={(name) => saveMaterial(material, { name })}
+                      className="min-w-0 flex-1 text-ink"
+                    />
+                    <span className="text-muted">·</span>
+                    <EditableField
+                      value={material.unit}
+                      locked={locked}
+                      onSave={(unit) => saveMaterial(material, { unit })}
+                      className="w-14 shrink-0 text-muted"
+                    />
+                  </div>
+                  <PageRefChip pageRef={material.kr_page_ref} onSelect={onSelectPage} />
                 </div>
-                <PageRefChip pageRef={material.kr_page_ref} onSelect={onSelectPage} />
+                <WarehouseMatchField material={material} />
               </div>
             ))}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Строка «Склад» под названием/ед. материала (0073-a): показывает карточку
+ * склада, уже сопоставленную ИИ при генерации шаблона, с пометкой «требует
+ * проверки» для среднего доверия ИИ или «Не сопоставлено», если сопоставить
+ * не удалось (сработает прежний ручной фолбэк на инстанциации плана). Ручной
+ * подбор/замена — отдельным шагом. */
+function WarehouseMatchField({ material }: { material: TemplateBlockMaterial }) {
+  const label = material.warehouse_material_title ?? 'Не сопоставлено'
+
+  return (
+    <div className="flex items-center gap-1.5 pl-0.5 text-[12px]">
+      <span className="text-muted">Склад:</span>
+      <span className={material.warehouse_material_id ? 'text-ink' : 'text-muted'}>{label}</span>
+      {material.confidence === 'medium' && <Chip tone="warning">требует проверки</Chip>}
     </div>
   )
 }

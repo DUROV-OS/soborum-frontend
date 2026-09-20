@@ -12,12 +12,19 @@ export interface TemplateBlockTask {
   kr_page_ref: KrPageRef | null
 }
 
+export type MatchConfidence = 'high' | 'medium'
+
 export interface TemplateBlockMaterial {
   id: number
   name: string
   unit: string
   kr_page_ref: KrPageRef | null
   warehouse_material_id: number | null
+  // 0073-a: сопоставление со складом — от ИИ при генерации шаблона (высокая
+  // уверенность применяется сразу, средняя — помечается «требует проверки»)
+  // или подтверждённое/поправленное инженером на этой же проверке.
+  warehouse_material_title: string | null
+  confidence: MatchConfidence | null
 }
 
 export interface StageTemplateBlock {
