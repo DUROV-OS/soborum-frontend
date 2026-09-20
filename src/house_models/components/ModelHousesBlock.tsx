@@ -36,6 +36,10 @@ export function ModelHousesBlock({ modelKey }: { modelKey: string }) {
 
       {!houses && !error && <p className="text-[13px] text-muted">Загрузка…</p>}
 
+      {houses && houses.length === 0 && (
+        <p className="text-[13px] text-muted">Пока не строится ни один дом этой модели.</p>
+      )}
+
       {houses && houses.length > 0 && (
         <div className="flex flex-col gap-2">
           {houses.map((house) => (

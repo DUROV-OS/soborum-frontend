@@ -42,7 +42,11 @@ function TypicalFileRow({
       <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-3 py-2">
         <div className="text-[13px]">
           <span className="mr-2 text-muted">{label}:</span>
-          {asset && <FileLink id={asset.id} filename={asset.filename} />}
+          {asset ? (
+            <FileLink id={asset.id} filename={asset.filename} />
+          ) : (
+            <span className="text-muted">не загружен</span>
+          )}
         </div>
         {editable && (
           <button
