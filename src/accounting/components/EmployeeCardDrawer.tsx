@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CircleHelp } from 'lucide-react'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
@@ -107,6 +108,28 @@ export function EmployeeCardDrawer({
               <div className="text-[15px] text-ink">{money(movement.amount)}</div>
             </div>
           )}
+
+          <div className="text-[13px] text-muted">
+            Прошлое начисление:{' '}
+            {employee.last_posted_at && employee.last_posted_amount !== null ? (
+              <span className="text-ink">
+                {new Date(employee.last_posted_at).toLocaleDateString('ru-RU')}, {money(employee.last_posted_amount)}
+              </span>
+            ) : (
+              <span className="text-ink">ещё не было</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-[13px] text-muted">
+            <span>
+              KPI: <span className="text-ink">{employee.kpi}</span>
+            </span>
+            <span
+              title="Черновой показатель: временная случайная заглушка, не настоящий расчёт. Будет заменена в 0042."
+            >
+              <CircleHelp size={14} />
+            </span>
+          </div>
 
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
             {!movement && (
