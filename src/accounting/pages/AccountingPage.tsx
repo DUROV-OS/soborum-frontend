@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Calculator, Plus, Trash2, Upload } from 'lucide-react'
+import { Calculator, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -9,6 +9,7 @@ import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
+import { DATE_FILTER_LABEL } from '@/shared/lib/dateFilter'
 import { useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
@@ -22,6 +23,7 @@ import {
   MoneySubkind,
   SOURCE_KIND_LABEL,
   STATUS_LABEL,
+  STATUS_SORT_ORDER,
   STATUS_TONE,
   SUBKIND_LABEL,
 } from '../types'
@@ -31,13 +33,31 @@ function money(amount: number, direction: MoneyDirection): string {
   return `${sign}${amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
 }
 
+/** Активный фильтр — снимается по клику на крестик, без отдельной кнопки «Сбросить». */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <Chip tone="brand">
+      <span className="flex items-center gap-1.5">
+        {label}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Убрать фильтр «${label}»`}
+          className="text-brand-dark/70 hover:text-danger"
+        >
+          <X size={12} />
+        </button>
+      </span>
+    </Chip>
+  )
+}
+
 export function AccountingPage() {
   const movements = useAccountingStore((s) => s.movements)
   const loading = useAccountingStore((s) => s.loading)
   const filters = useAccountingStore((s) => s.filters)
   const load = useAccountingStore((s) => s.load)
   const setFilters = useAccountingStore((s) => s.setFilters)
-  const resetFilters = useAccountingStore((s) => s.resetFilters)
   const remove = useAccountingStore((s) => s.remove)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
 
@@ -78,6 +98,43 @@ export function AccountingPage() {
     filters.status !== 'all' ||
     filters.source_kind !== 'all' ||
     filters.period !== 'all'
+
+  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (filters.direction !== 'all') {
+    activeFilterChips.push({
+      key: 'direction',
+      label: `Направление: ${DIRECTION_LABEL[filters.direction]}`,
+      onRemove: () => setFilters({ direction: 'all' }),
+    })
+  }
+  if (filters.subkind !== 'all') {
+    activeFilterChips.push({
+      key: 'subkind',
+      label: `Вид: ${SUBKIND_LABEL[filters.subkind]}`,
+      onRemove: () => setFilters({ subkind: 'all' }),
+    })
+  }
+  if (filters.status !== 'all') {
+    activeFilterChips.push({
+      key: 'status',
+      label: `Статус: ${STATUS_LABEL[filters.status]}`,
+      onRemove: () => setFilters({ status: 'all' }),
+    })
+  }
+  if (filters.source_kind !== 'all') {
+    activeFilterChips.push({
+      key: 'source_kind',
+      label: `Источник: ${SOURCE_KIND_LABEL[filters.source_kind]}`,
+      onRemove: () => setFilters({ source_kind: 'all' }),
+    })
+  }
+  if (filters.period !== 'all') {
+    activeFilterChips.push({
+      key: 'period',
+      label: `Период: ${DATE_FILTER_LABEL[filters.period]}`,
+      onRemove: () => setFilters({ period: 'all' }),
+    })
+  }
 
   return (
     <div>
@@ -167,12 +224,15 @@ export function AccountingPage() {
               ))}
             </Select>
             <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
-            {filtersDirty && (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Сбросить
-              </Button>
-            )}
           </div>
+
+          {activeFilterChips.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {activeFilterChips.map((f) => (
+                <FilterChip key={f.key} label={f.label} onRemove={f.onRemove} />
+              ))}
+            </div>
+          )}
 
           {!loading && movements.length === 0 ? (
             <EmptyState
@@ -191,6 +251,7 @@ export function AccountingPage() {
                   header: 'Дата',
                   accessor: (m) =>
                     new Date(m.posted_at ?? m.created_at).toLocaleDateString('ru-RU'),
+                  sortValue: (m) => new Date(m.posted_at ?? m.created_at),
                 },
                 {
                   header: 'Вид',
@@ -210,14 +271,20 @@ export function AccountingPage() {
                       {money(m.amount, m.direction)}
                     </span>
                   ),
+                  sortValue: (m) => (m.direction === 'expense' ? -m.amount : m.amount),
                 },
                 {
                   header: 'Налог',
                   align: 'right',
                   className: 'tabular',
                   accessor: (m) => (m.tax ? `${m.tax.toLocaleString('ru-RU')} ₽` : '—'),
+                  sortValue: (m) => m.tax,
                 },
-                { header: 'Инициатор', accessor: (m) => m.initiator_name ?? `№${m.initiator_id}` },
+                {
+                  header: 'Инициатор',
+                  accessor: (m) => m.initiator_name ?? `№${m.initiator_id}`,
+                  sortValue: (m) => m.initiator_name ?? String(m.initiator_id),
+                },
                 {
                   header: 'Источник',
                   accessor: (m) =>
@@ -226,6 +293,7 @@ export function AccountingPage() {
                 {
                   header: 'Статус',
                   accessor: (m) => <Chip tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status]}</Chip>,
+                  sortValue: (m) => STATUS_SORT_ORDER[m.status],
                 },
                 ...(isAdmin
                   ? [
