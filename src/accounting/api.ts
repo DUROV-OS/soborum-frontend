@@ -67,6 +67,7 @@ export interface MoneyMovementCreateInput {
 }
 
 export interface MoneyMovementUpdateInput {
+  amount?: number
   document_ids?: number[]
   link?: string | null
 }
@@ -76,7 +77,7 @@ export function createMovement(input: MoneyMovementCreateInput): Promise<MoneyMo
   return apiRequest<MoneyMovement>({ section: SECTION, path: '/money-movements', method: 'POST', body: input })
 }
 
-/** PATCH /api/accounting/money-movements/:id — только для draft/approved (0072-d: вложения и ссылка) */
+/** PATCH /api/accounting/money-movements/:id — только для draft/approved (0072-d: вложения и ссылка; 0041: сумма) */
 export function updateMovement(id: number, input: MoneyMovementUpdateInput): Promise<MoneyMovement> {
   return apiRequest<MoneyMovement>({
     section: SECTION,
