@@ -23,7 +23,7 @@ interface ConsultState {
   draft: string
   hydrate: () => void
   setDraft: (text: string) => void
-  send: (message: string, contextNote?: string) => Promise<void>
+  send: (message: string) => Promise<void>
   resolveAction: (id: number, decision: 'approve' | 'reject') => Promise<void>
   clear: () => Promise<void>
 }
@@ -87,7 +87,7 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
 
   setDraft: (text) => set({ draft: text }),
 
-  send: async (message, contextNote) => {
+  send: async (message) => {
     const text = message.trim()
     if (!text) return
     const { chatId, messages } = get()
@@ -132,7 +132,7 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
     let streamError: string | null = null
 
     try {
-      await aiApi.askConsultStream({ chat_id: chatId, message: text, context_note: contextNote }, (event: StreamEvent) => {
+      await aiApi.askConsultStream({ chat_id: chatId, message: text }, (event: StreamEvent) => {
         sawByte = true
         if (event.type === 'topic_reset') return
         if (event.type === 'done') {
@@ -161,7 +161,7 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
       }
       // Стрим не поднялся — блокирующий запрос как раньше.
       try {
-        const response = await aiApi.askConsult({ chat_id: chatId, message: text, context_note: contextNote })
+        const response = await aiApi.askConsult({ chat_id: chatId, message: text })
         const assistantId = response.pending_actions[0]?.message_id ?? Date.now() + 1
         const nextMessages = [
           ...get().messages.filter((item) => item.id !== userBubble.id),

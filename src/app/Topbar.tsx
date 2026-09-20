@@ -2,7 +2,6 @@ import { Menu } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { RoleSwitcher } from '@/auth/pages/RoleSwitcher'
 import { MeetingButton } from '@/meeting/components/MeetingButton'
-import { JarvisToggle } from '@/shared/components/JarvisToggle'
 import { SECTIONS } from '@/shared/sections'
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
@@ -23,7 +22,6 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         <span className="truncate text-[13px] font-medium text-muted">{section?.label ?? 'Durov OS'}</span>
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <JarvisToggle />
         <MeetingButton />
         <RoleSwitcher />
       </div>
