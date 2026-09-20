@@ -31,6 +31,10 @@ export interface MovementFilters {
   status: MoneyMovementStatus | 'all'
   source_kind: MoneySourceKind | 'all'
   period: DateFilter
+  /** Произвольный диапазон дат ('' — не задан), берёт верх над `period`, если оба края заданы (0072-b). */
+  custom_date_from: string
+  custom_date_to: string
+  initiator_id: number | 'all'
 }
 
 const DEFAULT_FILTERS: MovementFilters = {
@@ -39,6 +43,9 @@ const DEFAULT_FILTERS: MovementFilters = {
   status: 'all',
   source_kind: 'all',
   period: 'all',
+  custom_date_from: '',
+  custom_date_to: '',
+  initiator_id: 'all',
 }
 
 interface AccountingState {
@@ -84,12 +91,17 @@ function reasonOf(error: unknown): string {
 }
 
 function toQuery(filters: MovementFilters): accountingApi.MoneyMovementFilters {
-  const range = dateFilterRange(filters.period)
+  const customRange: [Date, Date] | null =
+    filters.custom_date_from && filters.custom_date_to
+      ? [new Date(`${filters.custom_date_from}T00:00:00`), new Date(`${filters.custom_date_to}T23:59:59.999`)]
+      : null
+  const range = customRange ?? dateFilterRange(filters.period)
   return {
     direction: filters.direction === 'all' ? undefined : filters.direction,
     subkind: filters.subkind === 'all' ? undefined : filters.subkind,
     status: filters.status === 'all' ? undefined : filters.status,
     source_kind: filters.source_kind === 'all' ? undefined : filters.source_kind,
+    initiator_id: filters.initiator_id === 'all' ? undefined : filters.initiator_id,
     date_from: range ? range[0].toISOString() : undefined,
     date_to: range ? range[1].toISOString() : undefined,
   }

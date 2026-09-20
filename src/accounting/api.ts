@@ -23,6 +23,7 @@ export interface MoneyMovementFilters {
   client_id?: number
   employee_id?: number
   supply_id?: number
+  initiator_id?: number
   date_from?: string
   date_to?: string
   limit?: number
