@@ -10,7 +10,7 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { DATE_FILTER_LABEL } from '@/shared/lib/dateFilter'
-import { useAccountingStore } from '../store'
+import { AmountFilterMode, useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
@@ -31,6 +31,60 @@ import {
 function money(amount: number, direction: MoneyDirection): string {
   const sign = direction === 'expense' ? '−' : ''
   return `${sign}${amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
+}
+
+const AMOUNT_MODE_LABEL: Record<AmountFilterMode, string> = {
+  all: 'Не важно',
+  range: 'Диапазон',
+  gt: 'Больше',
+  lt: 'Меньше',
+  eq: 'Равно',
+}
+
+/** Общий вид фильтра «Сумма»/«Налог» — режим сравнения + одно или два числовых поля (0072-c). */
+function AmountRangeFilter({
+  label,
+  mode,
+  from,
+  to,
+  onModeChange,
+  onFromChange,
+  onToChange,
+}: {
+  label: string
+  mode: AmountFilterMode
+  from: string
+  to: string
+  onModeChange: (mode: AmountFilterMode) => void
+  onFromChange: (value: string) => void
+  onToChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select className="w-full sm:w-40" value={mode} onChange={(e) => onModeChange(e.target.value as AmountFilterMode)}>
+        {(Object.keys(AMOUNT_MODE_LABEL) as AmountFilterMode[]).map((m) => (
+          <option key={m} value={m}>
+            {label}: {AMOUNT_MODE_LABEL[m]}
+          </option>
+        ))}
+      </Select>
+      {mode !== 'all' && (
+        <Input
+          type="number"
+          className="w-24"
+          placeholder={mode === 'range' ? 'от' : 'значение'}
+          value={from}
+          onChange={(e) => onFromChange(e.target.value)}
+        />
+      )}
+      {mode === 'range' && (
+        <>
+          <span className="text-muted">—</span>
+          <Input type="number" className="w-24" placeholder="до" value={to} onChange={(e) => onToChange(e.target.value)} />
+        </>
+      )}
+    </div>
+  )
 }
 
 /** Активный фильтр — снимается по клику на крестик, без отдельной кнопки «Сбросить». */
@@ -55,6 +109,7 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
 export function AccountingPage() {
   const movements = useAccountingStore((s) => s.movements)
   const loading = useAccountingStore((s) => s.loading)
+  const loadError = useAccountingStore((s) => s.loadError)
   const filters = useAccountingStore((s) => s.filters)
   const load = useAccountingStore((s) => s.load)
   const setFilters = useAccountingStore((s) => s.setFilters)
@@ -103,7 +158,9 @@ export function AccountingPage() {
     filters.period !== 'all' ||
     filters.custom_date_from !== '' ||
     filters.custom_date_to !== '' ||
-    filters.initiator_id !== 'all'
+    filters.initiator_id !== 'all' ||
+    filters.amount_mode !== 'all' ||
+    filters.tax_mode !== 'all'
 
   // Список инициаторов для фильтра строится из реально встречающихся
   // инициаторов уже загруженных проводок, а не из полного списка аккаунтов
@@ -166,6 +223,20 @@ export function AccountingPage() {
       key: 'initiator',
       label: `Инициатор: ${initiator?.name ?? `№${filters.initiator_id}`}`,
       onRemove: () => setFilters({ initiator_id: 'all' }),
+    })
+  }
+  if (filters.amount_mode !== 'all') {
+    activeFilterChips.push({
+      key: 'amount',
+      label: `Сумма: ${AMOUNT_MODE_LABEL[filters.amount_mode]}`,
+      onRemove: () => setFilters({ amount_mode: 'all', amount_from: '', amount_to: '' }),
+    })
+  }
+  if (filters.tax_mode !== 'all') {
+    activeFilterChips.push({
+      key: 'tax',
+      label: `Налог: ${AMOUNT_MODE_LABEL[filters.tax_mode]}`,
+      onRemove: () => setFilters({ tax_mode: 'all', tax_from: '', tax_to: '' }),
     })
   }
 
@@ -304,7 +375,26 @@ export function AccountingPage() {
                 </Button>
               </>
             )}
+            <AmountRangeFilter
+              label="Сумма"
+              mode={filters.amount_mode}
+              from={filters.amount_from}
+              to={filters.amount_to}
+              onModeChange={(amount_mode) => setFilters({ amount_mode, amount_from: '', amount_to: '' })}
+              onFromChange={(amount_from) => setFilters({ amount_from })}
+              onToChange={(amount_to) => setFilters({ amount_to })}
+            />
+            <AmountRangeFilter
+              label="Налог"
+              mode={filters.tax_mode}
+              from={filters.tax_from}
+              to={filters.tax_to}
+              onModeChange={(tax_mode) => setFilters({ tax_mode, tax_from: '', tax_to: '' })}
+              onFromChange={(tax_from) => setFilters({ tax_from })}
+              onToChange={(tax_to) => setFilters({ tax_to })}
+            />
           </div>
+          {loadError && <p className="mb-3 text-[12px] text-danger">{loadError}</p>}
 
           {activeFilterChips.length > 0 && (
             <div className="mb-3 flex flex-wrap items-center gap-2">
