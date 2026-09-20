@@ -33,6 +33,10 @@ export interface MovementFilters {
   status: MoneyMovementStatus | 'all'
   source_kind: MoneySourceKind | 'all'
   period: DateFilter
+  /** Произвольный диапазон дат ('' — не задан), берёт верх над `period`, если оба края заданы (0072-b). */
+  custom_date_from: string
+  custom_date_to: string
+  initiator_id: number | 'all'
   /** `range` — оба поля границы; `gt`/`lt`/`eq` — используется только `_from` как значение сравнения. */
   amount_mode: AmountFilterMode
   amount_from: string
@@ -48,6 +52,9 @@ const DEFAULT_FILTERS: MovementFilters = {
   status: 'all',
   source_kind: 'all',
   period: 'all',
+  custom_date_from: '',
+  custom_date_to: '',
+  initiator_id: 'all',
   amount_mode: 'all',
   amount_from: '',
   amount_to: '',
@@ -122,7 +129,11 @@ function numericBounds(
 }
 
 function toQuery(filters: MovementFilters): accountingApi.MoneyMovementFilters {
-  const range = dateFilterRange(filters.period)
+  const customRange: [Date, Date] | null =
+    filters.custom_date_from && filters.custom_date_to
+      ? [new Date(`${filters.custom_date_from}T00:00:00`), new Date(`${filters.custom_date_to}T23:59:59.999`)]
+      : null
+  const range = customRange ?? dateFilterRange(filters.period)
   const amountBounds = numericBounds(filters.amount_mode, filters.amount_from, filters.amount_to)
   const taxBounds = numericBounds(filters.tax_mode, filters.tax_from, filters.tax_to)
   return {
@@ -130,6 +141,7 @@ function toQuery(filters: MovementFilters): accountingApi.MoneyMovementFilters {
     subkind: filters.subkind === 'all' ? undefined : filters.subkind,
     status: filters.status === 'all' ? undefined : filters.status,
     source_kind: filters.source_kind === 'all' ? undefined : filters.source_kind,
+    initiator_id: filters.initiator_id === 'all' ? undefined : filters.initiator_id,
     amount_min: amountBounds.min,
     amount_max: amountBounds.max,
     tax_min: taxBounds.min,

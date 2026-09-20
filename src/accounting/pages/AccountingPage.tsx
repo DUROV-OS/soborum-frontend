@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Calculator, Plus, Trash2, Upload } from 'lucide-react'
+import { Calculator, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
@@ -9,6 +9,7 @@ import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
+import { DATE_FILTER_LABEL } from '@/shared/lib/dateFilter'
 import { AmountFilterMode, useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
@@ -22,6 +23,7 @@ import {
   MoneySubkind,
   SOURCE_KIND_LABEL,
   STATUS_LABEL,
+  STATUS_SORT_ORDER,
   STATUS_TONE,
   SUBKIND_LABEL,
 } from '../types'
@@ -85,6 +87,25 @@ function AmountRangeFilter({
   )
 }
 
+/** Активный фильтр — снимается по клику на крестик, без отдельной кнопки «Сбросить». */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <Chip tone="brand">
+      <span className="flex items-center gap-1.5">
+        {label}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Убрать фильтр «${label}»`}
+          className="text-brand-dark/70 hover:text-danger"
+        >
+          <X size={12} />
+        </button>
+      </span>
+    </Chip>
+  )
+}
+
 export function AccountingPage() {
   const movements = useAccountingStore((s) => s.movements)
   const loading = useAccountingStore((s) => s.loading)
@@ -92,7 +113,6 @@ export function AccountingPage() {
   const filters = useAccountingStore((s) => s.filters)
   const load = useAccountingStore((s) => s.load)
   const setFilters = useAccountingStore((s) => s.setFilters)
-  const resetFilters = useAccountingStore((s) => s.resetFilters)
   const remove = useAccountingStore((s) => s.remove)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
 
@@ -106,6 +126,9 @@ export function AccountingPage() {
   const [tab, setTab] = useState<'register' | 'salary'>('register')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
+  const [customRangeOpen, setCustomRangeOpen] = useState(
+    () => Boolean(filters.custom_date_from || filters.custom_date_to),
+  )
 
   useEffect(() => {
     // Переход по ссылке «создана проводка» (0011-f) — открываем карточку и
@@ -133,8 +156,89 @@ export function AccountingPage() {
     filters.status !== 'all' ||
     filters.source_kind !== 'all' ||
     filters.period !== 'all' ||
+    filters.custom_date_from !== '' ||
+    filters.custom_date_to !== '' ||
+    filters.initiator_id !== 'all' ||
     filters.amount_mode !== 'all' ||
     filters.tax_mode !== 'all'
+
+  // Список инициаторов для фильтра строится из реально встречающихся
+  // инициаторов уже загруженных проводок, а не из полного списка аккаунтов
+  // (доступного только admin) — по тому же принципу, что employeeOptions в
+  // TasksPage.tsx.
+  const initiatorOptions = useMemo(() => {
+    const byId = new Map<number, string>()
+    for (const m of movements) byId.set(m.initiator_id, m.initiator_name ?? `№${m.initiator_id}`)
+    return Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  }, [movements])
+
+  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (filters.direction !== 'all') {
+    activeFilterChips.push({
+      key: 'direction',
+      label: `Направление: ${DIRECTION_LABEL[filters.direction]}`,
+      onRemove: () => setFilters({ direction: 'all' }),
+    })
+  }
+  if (filters.subkind !== 'all') {
+    activeFilterChips.push({
+      key: 'subkind',
+      label: `Вид: ${SUBKIND_LABEL[filters.subkind]}`,
+      onRemove: () => setFilters({ subkind: 'all' }),
+    })
+  }
+  if (filters.status !== 'all') {
+    activeFilterChips.push({
+      key: 'status',
+      label: `Статус: ${STATUS_LABEL[filters.status]}`,
+      onRemove: () => setFilters({ status: 'all' }),
+    })
+  }
+  if (filters.source_kind !== 'all') {
+    activeFilterChips.push({
+      key: 'source_kind',
+      label: `Источник: ${SOURCE_KIND_LABEL[filters.source_kind]}`,
+      onRemove: () => setFilters({ source_kind: 'all' }),
+    })
+  }
+  if (filters.custom_date_from && filters.custom_date_to) {
+    activeFilterChips.push({
+      key: 'period',
+      label: `Период: ${new Date(filters.custom_date_from).toLocaleDateString('ru-RU')} – ${new Date(filters.custom_date_to).toLocaleDateString('ru-RU')}`,
+      onRemove: () => {
+        setCustomRangeOpen(false)
+        setFilters({ custom_date_from: '', custom_date_to: '' })
+      },
+    })
+  } else if (filters.period !== 'all') {
+    activeFilterChips.push({
+      key: 'period',
+      label: `Период: ${DATE_FILTER_LABEL[filters.period]}`,
+      onRemove: () => setFilters({ period: 'all' }),
+    })
+  }
+  if (filters.initiator_id !== 'all') {
+    const initiator = initiatorOptions.find((i) => i.id === filters.initiator_id)
+    activeFilterChips.push({
+      key: 'initiator',
+      label: `Инициатор: ${initiator?.name ?? `№${filters.initiator_id}`}`,
+      onRemove: () => setFilters({ initiator_id: 'all' }),
+    })
+  }
+  if (filters.amount_mode !== 'all') {
+    activeFilterChips.push({
+      key: 'amount',
+      label: `Сумма: ${AMOUNT_MODE_LABEL[filters.amount_mode]}`,
+      onRemove: () => setFilters({ amount_mode: 'all', amount_from: '', amount_to: '' }),
+    })
+  }
+  if (filters.tax_mode !== 'all') {
+    activeFilterChips.push({
+      key: 'tax',
+      label: `Налог: ${AMOUNT_MODE_LABEL[filters.tax_mode]}`,
+      onRemove: () => setFilters({ tax_mode: 'all', tax_from: '', tax_to: '' }),
+    })
+  }
 
   return (
     <div>
@@ -223,7 +327,54 @@ export function AccountingPage() {
                 </option>
               ))}
             </Select>
-            <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
+            <Select
+              className="w-full sm:w-44"
+              value={String(filters.initiator_id)}
+              onChange={(e) =>
+                setFilters({ initiator_id: e.target.value === 'all' ? 'all' : Number(e.target.value) })
+              }
+            >
+              <option value="all">Любой инициатор</option>
+              {initiatorOptions.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </Select>
+            {customRangeOpen ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  className="w-full sm:w-auto"
+                  value={filters.custom_date_from}
+                  onChange={(e) => setFilters({ custom_date_from: e.target.value })}
+                />
+                <span className="text-muted">—</span>
+                <Input
+                  type="date"
+                  className="w-full sm:w-auto"
+                  value={filters.custom_date_to}
+                  onChange={(e) => setFilters({ custom_date_to: e.target.value })}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCustomRangeOpen(false)
+                    setFilters({ custom_date_from: '', custom_date_to: '' })
+                  }}
+                >
+                  Пресеты периода
+                </Button>
+              </div>
+            ) : (
+              <>
+                <DateFilterSelect value={filters.period} onChange={(period) => setFilters({ period })} />
+                <Button variant="ghost" size="sm" onClick={() => setCustomRangeOpen(true)}>
+                  Свой диапазон
+                </Button>
+              </>
+            )}
             <AmountRangeFilter
               label="Сумма"
               mode={filters.amount_mode}
@@ -242,13 +393,16 @@ export function AccountingPage() {
               onFromChange={(tax_from) => setFilters({ tax_from })}
               onToChange={(tax_to) => setFilters({ tax_to })}
             />
-            {filtersDirty && (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Сбросить
-              </Button>
-            )}
           </div>
           {loadError && <p className="mb-3 text-[12px] text-danger">{loadError}</p>}
+
+          {activeFilterChips.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {activeFilterChips.map((f) => (
+                <FilterChip key={f.key} label={f.label} onRemove={f.onRemove} />
+              ))}
+            </div>
+          )}
 
           {!loading && movements.length === 0 ? (
             <EmptyState
@@ -267,6 +421,7 @@ export function AccountingPage() {
                   header: 'Дата',
                   accessor: (m) =>
                     new Date(m.posted_at ?? m.created_at).toLocaleDateString('ru-RU'),
+                  sortValue: (m) => new Date(m.posted_at ?? m.created_at),
                 },
                 {
                   header: 'Вид',
@@ -286,14 +441,20 @@ export function AccountingPage() {
                       {money(m.amount, m.direction)}
                     </span>
                   ),
+                  sortValue: (m) => (m.direction === 'expense' ? -m.amount : m.amount),
                 },
                 {
                   header: 'Налог',
                   align: 'right',
                   className: 'tabular',
                   accessor: (m) => (m.tax ? `${m.tax.toLocaleString('ru-RU')} ₽` : '—'),
+                  sortValue: (m) => m.tax,
                 },
-                { header: 'Инициатор', accessor: (m) => m.initiator_name ?? `№${m.initiator_id}` },
+                {
+                  header: 'Инициатор',
+                  accessor: (m) => m.initiator_name ?? `№${m.initiator_id}`,
+                  sortValue: (m) => m.initiator_name ?? String(m.initiator_id),
+                },
                 {
                   header: 'Источник',
                   accessor: (m) =>
@@ -302,6 +463,7 @@ export function AccountingPage() {
                 {
                   header: 'Статус',
                   accessor: (m) => <Chip tone={STATUS_TONE[m.status]}>{STATUS_LABEL[m.status]}</Chip>,
+                  sortValue: (m) => STATUS_SORT_ORDER[m.status],
                 },
                 ...(isAdmin
                   ? [

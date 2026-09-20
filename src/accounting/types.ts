@@ -107,6 +107,14 @@ export const STATUS_TONE: Record<MoneyMovementStatus, 'neutral' | 'info' | 'succ
   cancelled: 'danger',
 }
 
+/** Порядок значимости статуса для сортировки реестра (0072-a) — не алфавитный. */
+export const STATUS_SORT_ORDER: Record<MoneyMovementStatus, number> = {
+  draft: 0,
+  approved: 1,
+  posted: 2,
+  cancelled: 3,
+}
+
 /** GET /api/accounting/salary-overview — строка раздела «Сотрудники» (0023). */
 export interface EmployeeSalaryOverview {
   employee_id: number
