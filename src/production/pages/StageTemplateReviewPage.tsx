@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, FileText, Lock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Lock, Search } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -7,7 +7,11 @@ import { PlanningImage } from '@/house_models/components/PlanningImage'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { Input } from '@/shared/ui/Field'
 import { LoadingState } from '@/shared/ui/LoadingState'
+import { Modal } from '@/shared/ui/Modal'
+import * as warehouseApi from '@/warehouse/api'
+import { Material } from '@/warehouse/types'
 import * as stageTemplateApi from '../stageTemplateApi'
 import {
   KrExtraction,
@@ -349,7 +353,11 @@ function BlockCard({
                   </div>
                   <PageRefChip pageRef={material.kr_page_ref} onSelect={onSelectPage} />
                 </div>
-                <WarehouseMatchField material={material} />
+                <WarehouseMatchField
+                  material={material}
+                  locked={locked}
+                  onPick={(warehouseMaterialId) => saveMaterial(material, { warehouse_material_id: warehouseMaterialId })}
+                />
               </div>
             ))}
           </div>
@@ -360,18 +368,111 @@ function BlockCard({
 }
 
 /** Строка «Склад» под названием/ед. материала (0073-a): показывает карточку
- * склада, уже сопоставленную ИИ при генерации шаблона, с пометкой «требует
- * проверки» для среднего доверия ИИ или «Не сопоставлено», если сопоставить
- * не удалось (сработает прежний ручной фолбэк на инстанциации плана). Ручной
- * подбор/замена — отдельным шагом. */
-function WarehouseMatchField({ material }: { material: TemplateBlockMaterial }) {
+ * склада, уже сопоставленную ИИ при генерации шаблона или человеком на этой
+ * же проверке, с пометкой «требует проверки» для среднего доверия ИИ.
+ * Пока шаблон редактируется — значение всегда можно поправить/подобрать
+ * заново из каталога склада (поиск по названию/коду), как и остальные поля
+ * материала на этой странице. */
+function WarehouseMatchField({
+  material,
+  locked,
+  onPick,
+}: {
+  material: TemplateBlockMaterial
+  locked: boolean
+  onPick: (warehouseMaterialId: number) => void
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const label = material.warehouse_material_title ?? 'Не сопоставлено'
 
   return (
     <div className="flex items-center gap-1.5 pl-0.5 text-[12px]">
       <span className="text-muted">Склад:</span>
-      <span className={material.warehouse_material_id ? 'text-ink' : 'text-muted'}>{label}</span>
+      {locked ? (
+        <span className={material.warehouse_material_id ? 'text-ink' : 'text-muted'}>{label}</span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className={`rounded border border-transparent hover:border-border hover:bg-surface-muted px-1 -mx-1 ${
+            material.warehouse_material_id ? 'text-ink' : 'text-muted'
+          }`}
+        >
+          {label}
+        </button>
+      )}
       {material.confidence === 'medium' && <Chip tone="warning">требует проверки</Chip>}
+      {pickerOpen && (
+        <WarehousePickerModal
+          onClose={() => setPickerOpen(false)}
+          onSelect={(id) => {
+            onPick(id)
+            setPickerOpen(false)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+/** Модалка ручного подбора/замены карточки склада — поиск по названию и коду
+ * по всему каталогу (тот же список, что и на странице склада). */
+function WarehousePickerModal({ onClose, onSelect }: { onClose: () => void; onSelect: (id: number) => void }) {
+  const [materials, setMaterials] = useState<Material[] | null>(null)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    warehouseApi.listMaterials().then((data) => {
+      if (!cancelled) setMaterials(data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    const list = materials ?? []
+    const needle = query.trim().toLowerCase()
+    if (!needle) return list
+    return list.filter(
+      (m) => m.title.toLowerCase().includes(needle) || m.code.toLowerCase().includes(needle)
+    )
+  }, [materials, query])
+
+  return (
+    <Modal open onClose={onClose} title="Сопоставить со складом">
+      <div className="flex flex-col gap-3">
+        <div className="relative">
+          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Поиск по названию или коду…"
+            className="pl-8"
+          />
+        </div>
+        <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+          {materials === null && <p className="p-3 text-[13px] text-muted">Загружаем каталог склада…</p>}
+          {materials !== null && filtered.length === 0 && (
+            <p className="p-3 text-[13px] text-muted">Ничего не найдено.</p>
+          )}
+          {filtered.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onSelect(m.id)}
+              className="flex w-full items-center justify-between gap-2 border-b border-border px-3 py-2 text-left text-[13px] last:border-b-0 hover:bg-surface-muted"
+            >
+              <span className="min-w-0 flex-1 truncate text-ink">{m.title}</span>
+              <span className="shrink-0 text-[12px] text-muted">
+                {m.code} · {m.unit}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Modal>
   )
 }
