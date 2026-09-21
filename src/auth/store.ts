@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
-import { Account, AccessLevel } from './types'
+import { Account, AccessLevel, Role } from './types'
 
 interface AuthState {
   current: Account | null
@@ -16,7 +16,8 @@ interface AuthState {
   hasAccess: (section: SectionId) => boolean
   accessLevel: (section: SectionId) => AccessLevel
   updateAccess: (id: number, moduleAccess: Partial<Record<SectionId, AccessLevel>>) => Promise<void>
-  addAccount: (input: Omit<authApi.CreateAccountInput, 'email'> & { email: string }) => Promise<void>
+  addAccount: (input: authApi.CreateAccountInput) => Promise<void>
+  setAccountRole: (id: number, role: Role) => Promise<void>
   resetPassword: (id: number) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
@@ -89,6 +90,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   addAccount: async (input) => {
     const created = await authApi.createAccount(input)
     set((state) => ({ accounts: [...state.accounts, created] }))
+  },
+
+  /** Назначение и снятие админских прав (0074). Гранты на разделы бэк при
+   * назначении чистит, поэтому просто подменяем аккаунт ответом сервера. */
+  setAccountRole: async (id, role) => {
+    const updated = await authApi.updateAccountRole(id, role)
+    set((state) => ({ accounts: state.accounts.map((a) => (a.id === id ? updated : a)) }))
   },
 
   resetPassword: async (id) => {

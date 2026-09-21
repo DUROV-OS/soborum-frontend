@@ -9,7 +9,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { useAuthStore } from '../store'
-import { AccessLevel } from '../types'
+import { AccessLevel, Role } from '../types'
 
 const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
   ['none', 'Нет доступа'],
@@ -203,12 +203,14 @@ function CreateAccountModal({
     email: string
     password: string
     full_name: string
+    role: Role
     module_access: Partial<Record<SectionId, AccessLevel>>
   }) => Promise<void>
 }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<Role>('worker')
   const [levels, setLevels] = useState<Partial<Record<SectionId, AccessLevel>>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -217,6 +219,7 @@ function CreateAccountModal({
     setFullName('')
     setEmail('')
     setPassword('')
+    setRole('worker')
     setLevels({})
     setError(null)
   }
@@ -225,7 +228,15 @@ function CreateAccountModal({
     if (!fullName || !email || !password) return
     setSaving(true)
     try {
-      await onCreate({ email, password, full_name: fullName, module_access: levels })
+      // Администратору матрица не нужна — он получает полный доступ по роли,
+      // и бэк всё равно чистит гранты при назначении админом (0074).
+      await onCreate({
+        email,
+        password,
+        full_name: fullName,
+        role,
+        module_access: role === 'admin' ? {} : levels,
+      })
       reset()
       onClose()
     } catch (e) {
@@ -270,6 +281,18 @@ function CreateAccountModal({
         <Field label="Пароль" required>
           <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
+        <Field label="Роль" required>
+          <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            <option value="worker">Сотрудник</option>
+            <option value="admin">Администратор — полный доступ ко всем разделам</option>
+          </Select>
+        </Field>
+        {role === 'admin' ? (
+          <p className="rounded-md bg-surface-muted p-2.5 text-[12px] text-muted">
+            Администратор видит и может всё в системе, включая раздел «Доступ». Уровни по разделам ему
+            не выставляются.
+          </p>
+        ) : (
         <Field label="Доступ к разделам">
           <div className="flex flex-col gap-2">
             {ASSIGNABLE_SECTIONS.map((section) => (
@@ -293,6 +316,7 @@ function CreateAccountModal({
             ))}
           </div>
         </Field>
+        )}
         {error && <p className="text-[12px] text-danger">{error}</p>}
       </div>
     </Modal>
