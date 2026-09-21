@@ -25,7 +25,11 @@ export function FeedbackPage() {
   const submit = useFeedbackStore((s) => s.submit)
 
   const [text, setText] = useState('')
-  const [section, setSection] = useState<string>(fromSection ?? SELECTABLE_SECTIONS[0].id)
+  // Раздел текущего экрана как подсказка; администраторские экраны
+  // («Доступ», сами «Заявки») в списке не предлагаются — берём первый обычный.
+  const [section, setSection] = useState<string>(
+    SELECTABLE_SECTIONS.some((s) => s.id === fromSection) ? (fromSection as string) : SELECTABLE_SECTIONS[0].id,
+  )
   const [files, setFiles] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)

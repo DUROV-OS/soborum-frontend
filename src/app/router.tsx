@@ -3,6 +3,7 @@ import { LoginPage } from '@/auth/pages/LoginPage'
 import { AccessMatrixPage } from '@/auth/pages/AccessMatrixPage'
 import { useAuthStore } from '@/auth/store'
 import { ClientDetailPage } from '@/clients/pages/ClientDetailPage'
+import { FeedbackAdminPage } from '@/feedback/pages/FeedbackAdminPage'
 import { FeedbackPage } from '@/feedback/pages/FeedbackPage'
 import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
@@ -61,6 +62,14 @@ export function AppRouter() {
         {/* Заявки «Пожелания/предложения» (0075) — без AccessGate: писать о
             проблемах системы может любой вошедший сотрудник. */}
         <Route path="/feedback" element={<FeedbackPage />} />
+        <Route
+          path="/feedback/all"
+          element={
+            <AccessGate section="feedback_admin">
+              <FeedbackAdminPage />
+            </AccessGate>
+          }
+        />
         <Route
           path="/today"
           element={
