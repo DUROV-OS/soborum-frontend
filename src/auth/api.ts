@@ -1,6 +1,6 @@
 import { apiRequest, login as loginRequest, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
-import { Account, AccessLevel } from './types'
+import { Account, AccessLevel, Role } from './types'
 
 const SECTION = 'auth'
 
@@ -25,6 +25,9 @@ export interface CreateAccountInput {
   email: string
   password: string
   full_name: string
+  /** Роль создаваемой учётной записи (0074). Администратору гранты не нужны — он
+   * и так видит всё, поэтому форма в этом случае шлёт пустую матрицу. */
+  role: Role
   module_access: Partial<Record<SectionId, AccessLevel>>
 }
 
@@ -34,7 +37,18 @@ export function createAccount(input: CreateAccountInput): Promise<Account> {
     section: SECTION,
     path: '/users',
     method: 'POST',
-    body: { ...input, role: 'worker' },
+    body: input,
+  })
+}
+
+/** PATCH /api/auth/users/:id — смена роли (0074).
+ * Бэк отклоняет смену собственной роли и снятие прав с последнего админа. */
+export function updateAccountRole(id: number, role: Role): Promise<Account> {
+  return apiRequest<Account>({
+    section: SECTION,
+    path: `/users/${id}`,
+    method: 'PATCH',
+    body: { role },
   })
 }
 
