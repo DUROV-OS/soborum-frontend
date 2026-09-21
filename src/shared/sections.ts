@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Mic,
   Repeat,
+  Inbox,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -28,6 +29,9 @@ import {
  * module_access и в Task.link_type, так что переименовывать их нельзя.
  * 'admin' — чисто фронтовое значение для пункта меню «Доступ», бэкенд его
  * не знает: администраторская страница гейтится по role==='admin'.
+ * 'feedback_admin' — тоже фронтовое: раздел «Заявки» (пожелания и предложения
+ * сотрудников, 0075). Гейтится ролью так же, как «Доступ»; на бэкенде это
+ * /api/feedback, у которого нет своего Module.
  * 'agents' — тоже фронтовое: операционная команда из восьми ролей, не Module
  * на бэкенде. Доступен каждому вошедшему, как «Пульс».
  * 'chats' — фронтовое: все чаты мессенджера MAX (oneme). Данные MAX общие
@@ -64,6 +68,7 @@ export type SectionId =
   | 'meetings'
   | 'accounting'
   | 'suppliers'
+  | 'feedback_admin'
 
 export interface SectionMeta {
   id: SectionId
@@ -95,6 +100,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
   { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },
+  { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },
   { id: 'admin', label: 'Доступ', path: '/admin', icon: ShieldCheck, adminOnly: true },
 ]
 
