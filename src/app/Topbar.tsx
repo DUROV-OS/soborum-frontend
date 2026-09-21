@@ -1,6 +1,7 @@
 import { Menu } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { RoleSwitcher } from '@/auth/pages/RoleSwitcher'
+import { FeedbackButton } from '@/feedback/components/FeedbackButton'
 import { MeetingButton } from '@/meeting/components/MeetingButton'
 import { SECTIONS } from '@/shared/sections'
 
@@ -23,6 +24,7 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <MeetingButton />
+        <FeedbackButton />
         <RoleSwitcher />
       </div>
     </header>
