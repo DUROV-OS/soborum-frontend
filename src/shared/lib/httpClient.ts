@@ -1,3 +1,5 @@
+import { logClientEvent } from './clientLog'
+
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/$/, '')
 
 const TOKEN_KEY = 'soborbum.auth.token'
@@ -75,7 +77,14 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, await extractErrorMessage(response))
+    const message = await extractErrorMessage(response)
+    // Для «логов пользователя» в заявке 0075 — только метод, путь и код,
+    // без тела запроса и ответа.
+    logClientEvent(
+      'api',
+      `${options.method ?? 'GET'} ${API_BASE}/${options.section}${options.path} → ${response.status} ${message}`,
+    )
+    throw new ApiError(response.status, message)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
