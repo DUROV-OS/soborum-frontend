@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, KeyRound, Plus } from 'lucide-react'
+import { ArrowRight, KeyRound, Plus, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ASSIGNABLE_SECTIONS, SectionId } from '@/shared/sections'
 import { Button } from '@/shared/ui/Button'
@@ -97,6 +97,16 @@ export function AccessMatrixPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось изменить роль')
     }
+  }
+
+  function promote(account: Account) {
+    void setRole(
+      account,
+      'admin',
+      `Сделать «${account.full_name}» администратором?\n\n` +
+        'Учётная запись получит полный доступ ко всем разделам системы, включая «Доступ», ' +
+        'и сможет управлять другими сотрудниками.',
+    )
   }
 
   function demote(account: Account) {
@@ -208,6 +218,7 @@ export function AccessMatrixPage() {
                 </th>
               ))}
               <th className="px-3 py-2.5 text-center font-medium text-muted">Пароль</th>
+              <th className="px-3 py-2.5 text-center font-medium text-muted">Роль</th>
             </tr>
           </thead>
           <tbody>
@@ -244,6 +255,16 @@ export function AccessMatrixPage() {
                   >
                     <KeyRound size={13} />
                     Сбросить
+                  </button>
+                </td>
+                <td className="px-3 py-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => promote(account)}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-border px-2.5 py-1 text-[12px] text-ink hover:border-brand/40"
+                  >
+                    <ShieldCheck size={13} />
+                    Сделать администратором
                   </button>
                 </td>
               </tr>
