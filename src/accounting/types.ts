@@ -127,9 +127,21 @@ export interface EmployeeSalaryOverview {
   /** Последняя ПРОВЕДЁННАЯ (posted) зарплатная проводка — история, не открытая. */
   last_posted_at: string | null
   last_posted_amount: number | null
-  /** ВРЕМЕННАЯ ЗАГЛУШКА (0041): случайное число 0–100, разное при каждой загрузке —
-   * до реального расчёта в 0042. В интерфейсе показывать только с пометкой «черновой показатель». */
-  kpi: number
+  /** KPI за текущий календарный месяц (0042: доля задач с прошедшим дедлайном,
+   * выполненных в срок). `null` — за месяц нет ни одной оценённой задачи, это не то
+   * же самое, что 0 — показывать «нет данных за период», а не число. */
+  kpi: number | null
+}
+
+/** GET /api/accounting/employee-kpi-history/:employeeId — до 6 последних периодов. */
+export interface EmployeeKpiPeriod {
+  period_start: string
+  period_end: string
+  tasks_total: number
+  tasks_on_time: number
+  tasks_late: number
+  tasks_overdue: number
+  kpi: number | null
 }
 
 // --- Заказы у поставщика (задача 0011-d, UI — 0011-f) ---
