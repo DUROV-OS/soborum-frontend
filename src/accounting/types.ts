@@ -119,11 +119,17 @@ export const STATUS_SORT_ORDER: Record<MoneyMovementStatus, number> = {
   cancelled: 3,
 }
 
-/** GET /api/accounting/salary-overview — строка раздела «Сотрудники» (0023). */
+/** GET /api/accounting/salary-overview — строка раздела «Сотрудники» (0023, карточка — 0041). */
 export interface EmployeeSalaryOverview {
   employee_id: number
   full_name: string
   open_movement: MoneyMovement | null
+  /** Последняя ПРОВЕДЁННАЯ (posted) зарплатная проводка — история, не открытая. */
+  last_posted_at: string | null
+  last_posted_amount: number | null
+  /** ВРЕМЕННАЯ ЗАГЛУШКА (0041): случайное число 0–100, разное при каждой загрузке —
+   * до реального расчёта в 0042. В интерфейсе показывать только с пометкой «черновой показатель». */
+  kpi: number
 }
 
 // --- Заказы у поставщика (задача 0011-d, UI — 0011-f) ---
