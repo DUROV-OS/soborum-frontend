@@ -1,3 +1,5 @@
+import { FileAsset } from '@/clients/types'
+
 export type HouseModelKind = 'catalog' | 'individual'
 export type HouseModelConfirmation = 'confirmed' | 'partial' | 'none'
 
@@ -38,4 +40,19 @@ export interface HouseModelDetail extends HouseModelBrief {
   files_md: string | null
   open_questions_md: string | null
   notes_md: string | null
+
+  // Типовые АР/КР (0073-b) — единственные поля карточки, редактируемые (только
+  // администратором) через PATCH /catalog/:key/typical-documents.
+  typical_ar: FileAsset | null
+  typical_kr: FileAsset | null
+}
+
+/** Строка GET /catalog/:key/productions (0073-b) — реальный дом этой модели в
+ * производстве. Как и список /api/production/, не отдаёт цену/контакты
+ * клиента — только то же, что уже видно в разделе «Производство». */
+export interface HouseModelProduction {
+  production_id: number
+  cycle_id: number
+  house_index: number
+  client_display_name: string
 }
