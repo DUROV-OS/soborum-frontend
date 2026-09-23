@@ -12,6 +12,7 @@ import { isStageManual, nextStageOf, stageLabel } from '../rules'
 import { ReadRow, Section } from '../components/PanelPrimitives'
 import { DocumentPanel } from '../components/DocumentPanel'
 import { SourcePanel } from '../components/SourcePanel'
+import { TasksPanel } from '../components/TasksPanel'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { NotesPanel } from '../components/NotesPanel'
@@ -126,6 +127,8 @@ export function ClientDetailPage() {
               ))
             : <ReadRow label="Способы связи" value={undefined} />}
         </Section>
+
+        <TasksPanel client={client} />
 
         <SourcePanel client={client} />
 
