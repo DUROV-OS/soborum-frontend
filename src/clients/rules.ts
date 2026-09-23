@@ -1,4 +1,4 @@
-import { Client, ClientStage, CLIENT_STAGES, PaymentPlan } from './types'
+import { AUTOMATIC_STAGES, Client, ClientStage, CLIENT_STAGES, PaymentPlan } from './types'
 
 const STAGE_ORDER = CLIENT_STAGES.map((s) => s.key)
 
@@ -13,6 +13,12 @@ export function stageLabel(stage: ClientStage): string {
 export function nextStageOf(stage: ClientStage): ClientStage | null {
   const index = stageIndex(stage)
   return index < STAGE_ORDER.length - 1 ? STAGE_ORDER[index + 1] : null
+}
+
+/** Переводит ли клиента с этой стадии человек кнопкой. На автоматических
+ * стадиях (0079) кнопки нет — там клиента двигает раздел «Монтаж». */
+export function isStageManual(stage: ClientStage): boolean {
+  return !AUTOMATIC_STAGES.includes(stage)
 }
 
 export type ClientFieldGroup = 'documents' | 'payment'
@@ -60,7 +66,7 @@ export function paymentStageRule(plan: PaymentPlan | null): PaymentStageRule {
       requiresConfirmation: true,
       paidLabel: 'Аванс поступил',
       unpaidLabel: 'Аванс не поступил',
-      note: 'Формат «аванс + оплата после получения»: на этой стадии подтверждается поступление аванса. Остаток принимается на «Постоплате».',
+      note: 'Формат «аванс + оплата после получения»: на этой стадии подтверждается поступление аванса. Остаток принимается на стадии «Дом в производстве».',
     }
   }
   if (plan === 'post_payment') {
