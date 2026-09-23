@@ -17,7 +17,7 @@ import { CounterpartyPicker } from '../components/CounterpartyPicker'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { MoneySummaryTiles } from '../components/MoneySummaryTiles'
 import { OverviewTab } from '../components/OverviewTab'
-import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
+import { ImportStatementModal } from '../components/ImportStatementModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
 import { SalaryTab } from './SalaryTab'
 import {
@@ -293,7 +293,7 @@ export function AccountingPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setImporting(true)}>
               <Upload size={16} />
-              Импорт платежей
+              Импорт выписки
             </Button>
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
@@ -624,7 +624,7 @@ export function AccountingPage() {
       )}
 
       <CreateMovementModal open={creating} onClose={() => setCreating(false)} />
-      <ImportPaymentsModal open={importing} onClose={() => setImporting(false)} />
+      <ImportStatementModal open={importing} onClose={() => setImporting(false)} />
       <MovementDetailDrawer movement={selected} onClose={() => setSelectedId(null)} />
       <CounterpartyDrawer
         onOpenMovement={(id) => {
