@@ -5,6 +5,7 @@ import { DateFilter, dateFilterRange } from '@/shared/lib/dateFilter'
 import * as accountingApi from './api'
 import { MoneyMovementCreateInput, MoneyMovementUpdateInput } from './api'
 import {
+  BankAccount,
   EmployeeSalaryOverview,
   MoneyDirection,
   MoneyMovement,
@@ -12,6 +13,8 @@ import {
   MoneyMovementStatus,
   MoneySourceKind,
   MoneySubkind,
+  MoneySummary,
+  Organization,
   PaymentImportResult,
 } from './types'
 
@@ -64,6 +67,18 @@ const DEFAULT_FILTERS: MovementFilters = {
 }
 
 interface AccountingState {
+  // --- Организации и счета (0081-b) ---
+  organizations: Organization[]
+  /** Организация открытой вкладки. null — справочник ещё не загружен. */
+  selectedOrganizationId: number | null
+  /** Счёт внутри выбранной организации; реестр и сводка режутся по нему. */
+  selectedAccountId: number | null
+  summary: MoneySummary | null
+  summaryLoading: boolean
+  selectOrganization: (organizationId: number) => void
+  selectAccount: (accountId: number) => void
+  loadSummary: () => Promise<void>
+
   movements: MoneyMovement[]
   enums: MoneyMovementEnums | null
   clients: ClientOption[]
@@ -152,7 +167,22 @@ function toQuery(filters: MovementFilters): accountingApi.MoneyMovementFilters {
   }
 }
 
+/** Действующие счета организации, счёт по умолчанию первым. */
+function accountsOf(organizations: Organization[], organizationId: number | null): BankAccount[] {
+  const org = organizations.find((o) => o.id === organizationId)
+  if (!org) return []
+  return [...org.accounts]
+    .filter((a) => a.is_active)
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.id - b.id)
+}
+
 export const useAccountingStore = create<AccountingState>((set, get) => ({
+  organizations: [],
+  selectedOrganizationId: null,
+  selectedAccountId: null,
+  summary: null,
+  summaryLoading: true,
+
   movements: [],
   enums: null,
   clients: [],
@@ -163,8 +193,26 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
   load: async () => {
     set({ loading: true, loadError: null })
     try {
+      // Справочник организаций тянем один раз: он задаёт вкладки, и без счёта
+      // непонятно, какой срез реестра запрашивать.
+      const organizations = get().organizations.length
+        ? get().organizations
+        : await accountingApi.listOrganizations()
+      let { selectedOrganizationId, selectedAccountId } = get()
+      if (selectedOrganizationId === null || !organizations.some((o) => o.id === selectedOrganizationId)) {
+        selectedOrganizationId = organizations[0]?.id ?? null
+        selectedAccountId = null
+      }
+      const accounts = accountsOf(organizations, selectedOrganizationId)
+      if (selectedAccountId === null || !accounts.some((a) => a.id === selectedAccountId)) {
+        selectedAccountId = accounts[0]?.id ?? null
+      }
+      set({ organizations, selectedOrganizationId, selectedAccountId })
+
       const [movements, enums, clients] = await Promise.all([
-        accountingApi.listMovements(toQuery(get().filters)),
+        selectedAccountId === null
+          ? Promise.resolve([])
+          : accountingApi.listMovements({ ...toQuery(get().filters), account_id: selectedAccountId }),
         get().enums ? Promise.resolve(get().enums!) : accountingApi.getEnums(),
         get().clients.length ? Promise.resolve(null) : listClients().catch(() => null),
       ])
@@ -176,9 +224,39 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
           ? clients.map((c) => ({ id: c.id, name: c.full_name })).sort((a, b) => a.name.localeCompare(b.name, 'ru'))
           : state.clients,
       }))
+      void get().loadSummary()
     } catch (error) {
       set({ movements: [], loading: false, loadError: reasonOf(error) })
     }
+  },
+
+  loadSummary: async () => {
+    set({ summaryLoading: true })
+    try {
+      // Период берём из тех же фильтров реестра, чтобы цифры над таблицей
+      // совпадали с тем, что под ней.
+      const { date_from, date_to } = toQuery(get().filters)
+      const summary = await accountingApi.getMoneySummary({ date_from, date_to })
+      set({ summary, summaryLoading: false })
+    } catch {
+      set({ summary: null, summaryLoading: false })
+    }
+  },
+
+  selectOrganization: (organizationId) => {
+    if (organizationId === get().selectedOrganizationId) return
+    // Счёт сбрасывается на счёт по умолчанию новой организации; фильтры
+    // (период, вид, статус) остаются — человек смотрит тот же срез, но по
+    // другому юрлицу.
+    const accounts = accountsOf(get().organizations, organizationId)
+    set({ selectedOrganizationId: organizationId, selectedAccountId: accounts[0]?.id ?? null })
+    get().load()
+  },
+
+  selectAccount: (accountId) => {
+    if (accountId === get().selectedAccountId) return
+    set({ selectedAccountId: accountId })
+    get().load()
   },
 
   setFilters: (patch) => {
@@ -280,7 +358,22 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
 
   accrueSalary: async (employeeId, amount) => {
     try {
-      await accountingApi.createMovement({ subkind: 'salary_payout', amount, employee_id: employeeId })
+      // Вкладка «Сотрудники» не разнесена по юрлицам (0081-b, осознанное
+      // ограничение) — зарплатная проводка идёт на счёт по умолчанию первой
+      // организации, как и до появления счетов.
+      const organizations = get().organizations.length
+        ? get().organizations
+        : await accountingApi.listOrganizations()
+      const accountId = accountsOf(organizations, organizations[0]?.id ?? null)[0]?.id
+      if (accountId === undefined) {
+        return { ok: false, reason: 'Не заведено ни одного действующего счёта' }
+      }
+      await accountingApi.createMovement({
+        subkind: 'salary_payout',
+        amount,
+        employee_id: employeeId,
+        account_id: accountId,
+      })
       await get().loadSalaryOverview()
       return { ok: true }
     } catch (error) {
