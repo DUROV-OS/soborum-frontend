@@ -14,6 +14,11 @@ interface ClientsState {
   /** id клиента, чья стадия только что изменилась переходом — используется доской,
    * чтобы раскрыть на мобильном аккордеоне колонку новой стадии, а не терять карточку. */
   lastAdvancedId: number | null
+  /** Найденные по строке поиска клиенты; `null` — поиск не активен и доска
+   * показывает обычный список за выбранный период (0079-f). */
+  searchResults: Client[] | null
+  searching: boolean
+  search: (text: string) => Promise<void>
   clearLastAdvanced: () => void
   load: () => Promise<void>
   create: (input: ClientCreateInput) => Promise<Client>
@@ -73,6 +78,25 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     clients: [],
     loading: true,
     lastAdvancedId: null,
+    searchResults: null,
+    searching: false,
+
+    search: async (text) => {
+      const query = text.trim()
+      if (!query) {
+        set({ searchResults: null, searching: false })
+        return
+      }
+      set({ searching: true })
+      try {
+        set({ searchResults: await clientsApi.listClients(query), searching: false })
+      } catch {
+        // Пустой результат честнее оборванной доски: сам запрос покажет
+        // ошибку сети в общем перехватчике.
+        set({ searchResults: [], searching: false })
+      }
+    },
+
     clearLastAdvanced: () => set({ lastAdvancedId: null }),
 
     load: async () => {

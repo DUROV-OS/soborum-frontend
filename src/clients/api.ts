@@ -14,9 +14,11 @@ import {
 
 const SECTION = 'clients'
 
-/** GET /api/clients/ */
-export function listClients(): Promise<Client[]> {
-  return apiRequest<Client[]>({ section: SECTION, path: '/' })
+/** GET /api/clients/ — `search` ищет по фамилии/имени и телефону сразу по всем
+ * стадиям (0079-f). */
+export function listClients(search?: string): Promise<Client[]> {
+  const path = search ? `/?search=${encodeURIComponent(search)}` : '/'
+  return apiRequest<Client[]>({ section: SECTION, path })
 }
 
 /** GET /api/clients/:id */
