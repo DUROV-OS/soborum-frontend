@@ -127,6 +127,10 @@ export interface Client {
   phone: string
   email: string
   contacts: ClientContact[]
+  /** Источник клиента (0079-c): у прямого клиента via_agency = false и пустые agency_*. */
+  via_agency: boolean
+  agency_name: string | null
+  agency_contact: string | null
   /** Чаты MAX, привязанные к клиенту (0053) — 1:N, редактируется в любой момент. */
   chat_links: ClientChatLink[]
   order_type: OrderType | null
@@ -157,7 +161,16 @@ export interface Client {
   notes: ClientNote[]
 }
 
-export interface ClientCreateInput {
+/** Источник клиента (0079-c): пришёл сам или его привело агентство-партнёр.
+ * `agency_name` обязательно при `via_agency = true`; при снятии отметки бэк
+ * чистит оба поля агентства. */
+export interface ClientSourceInput {
+  via_agency: boolean
+  agency_name?: string | null
+  agency_contact?: string | null
+}
+
+export interface ClientCreateInput extends ClientSourceInput {
   full_name: string
   phone: string
   email: string

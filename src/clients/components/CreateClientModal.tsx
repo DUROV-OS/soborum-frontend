@@ -16,17 +16,24 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [contacts, setContacts] = useState<ClientContact[]>([{ messenger: 'Telegram', contact: '' }])
+  const [viaAgency, setViaAgency] = useState(false)
+  const [agencyName, setAgencyName] = useState('')
+  const [agencyContact, setAgencyContact] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const filledContacts = contacts.filter((c) => c.messenger.trim() && c.contact.trim())
-  const valid = fullName && phone && email && filledContacts.length > 0
+  const valid =
+    Boolean(fullName && phone && email) && filledContacts.length > 0 && (!viaAgency || Boolean(agencyName.trim()))
 
   function reset() {
     setFullName('')
     setPhone('')
     setEmail('')
     setContacts([{ messenger: 'Telegram', contact: '' }])
+    setViaAgency(false)
+    setAgencyName('')
+    setAgencyContact('')
     setError(null)
   }
 
@@ -43,6 +50,9 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
         phone,
         email,
         contacts: filledContacts.map((c) => ({ messenger: c.messenger.trim(), contact: c.contact.trim() })),
+        via_agency: viaAgency,
+        agency_name: viaAgency ? agencyName.trim() : null,
+        agency_contact: viaAgency ? agencyContact.trim() || null : null,
       })
       reset()
       onClose()
@@ -133,6 +143,36 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
             <Plus size={13} />
             Ещё способ связи
           </button>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-[13px] text-ink">
+            <input
+              type="checkbox"
+              checked={viaAgency}
+              onChange={(e) => setViaAgency(e.target.checked)}
+              className="h-4 w-4 accent-[#395b4b]"
+            />
+            Клиента привело агентство
+          </label>
+          {viaAgency && (
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Агентство" required>
+                <Input
+                  value={agencyName}
+                  onChange={(e) => setAgencyName(e.target.value)}
+                  placeholder="Название агентства"
+                />
+              </Field>
+              <Field label="Контакт агента" hint="Необязательно">
+                <Input
+                  value={agencyContact}
+                  onChange={(e) => setAgencyContact(e.target.value)}
+                  placeholder="+7 900 … / @agent"
+                />
+              </Field>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-[12px] text-danger">{error}</p>}
