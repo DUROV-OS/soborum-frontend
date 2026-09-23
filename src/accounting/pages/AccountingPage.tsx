@@ -12,6 +12,8 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { DATE_FILTER_LABEL } from '@/shared/lib/dateFilter'
 import { AmountFilterMode, useAccountingStore } from '../store'
 import { CreateMovementModal } from '../components/CreateMovementModal'
+import { MoneySummaryTiles } from '../components/MoneySummaryTiles'
+import { OverviewTab } from '../components/OverviewTab'
 import { ImportPaymentsModal } from '../components/ImportPaymentsModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
 import { SalaryTab } from './SalaryTab'
@@ -114,6 +116,13 @@ export function AccountingPage() {
   const load = useAccountingStore((s) => s.load)
   const setFilters = useAccountingStore((s) => s.setFilters)
   const remove = useAccountingStore((s) => s.remove)
+  const organizations = useAccountingStore((s) => s.organizations)
+  const selectedOrganizationId = useAccountingStore((s) => s.selectedOrganizationId)
+  const selectedAccountId = useAccountingStore((s) => s.selectedAccountId)
+  const selectOrganization = useAccountingStore((s) => s.selectOrganization)
+  const selectAccount = useAccountingStore((s) => s.selectAccount)
+  const summary = useAccountingStore((s) => s.summary)
+  const summaryLoading = useAccountingStore((s) => s.summaryLoading)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -123,7 +132,9 @@ export function AccountingPage() {
     const requested = searchParams.get('movement')
     return requested ? Number(requested) : null
   })
-  const [tab, setTab] = useState<'register' | 'salary'>('register')
+  // Вкладки: сводка по обеим организациям, затем вкладка на каждое юрлицо
+  // (реестр её счёта), затем прежняя вкладка «Сотрудники» (0081-b).
+  const [tab, setTab] = useState<'overview' | 'register' | 'salary'>('register')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [customRangeOpen, setCustomRangeOpen] = useState(
@@ -150,6 +161,13 @@ export function AccountingPage() {
   }, [load])
 
   const selected = movements.find((m) => m.id === selectedId) ?? null
+  const currentOrganization = organizations.find((o) => o.id === selectedOrganizationId) ?? null
+  const accountOptions = (currentOrganization?.accounts ?? []).filter((a) => a.is_active)
+  // Сводка приходит целиком (все организации) — берём из неё срез выбранного счёта.
+  const accountTotals =
+    summary?.organizations
+      .find((o) => o.organization_id === selectedOrganizationId)
+      ?.accounts.find((a) => a.account_id === selectedAccountId) ?? null
   const filtersDirty =
     filters.direction !== 'all' ||
     filters.subkind !== 'all' ||
@@ -246,10 +264,12 @@ export function AccountingPage() {
         <div>
           <h1 className="text-[20px] font-medium text-ink">Бухгалтерия</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Единый реестр движения денежных средств: вид, сумма, налог, инициатор, статус.
+            {tab === 'register' && currentOrganization
+              ? `${currentOrganization.name} — движение денег по выбранному счёту.`
+              : 'Движение денежных средств обеих организаций: приход, расход и сальдо по счетам.'}
           </p>
         </div>
-        {tab === 'register' && (
+        {tab === 'register' && accountOptions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setImporting(true)}>
               <Upload size={16} />
@@ -266,18 +286,72 @@ export function AccountingPage() {
       <div className="mb-4">
         <Tabs
           tabs={[
-            { key: 'register', label: 'Реестр' },
+            { key: 'overview', label: 'Сводка' },
+            ...organizations.map((org) => ({ key: `org-${org.id}`, label: org.short_name })),
             { key: 'salary', label: 'Сотрудники' },
           ]}
-          activeKey={tab}
-          onChange={setTab}
+          activeKey={tab === 'register' ? `org-${selectedOrganizationId}` : tab}
+          onChange={(key) => {
+            if (key === 'overview' || key === 'salary') {
+              setTab(key)
+              return
+            }
+            setTab('register')
+            selectOrganization(Number(key.replace('org-', '')))
+          }}
         />
       </div>
 
-      {tab === 'salary' ? (
+      {tab === 'overview' ? (
+        <OverviewTab />
+      ) : tab === 'salary' ? (
         <SalaryTab />
+      ) : accountOptions.length === 0 ? (
+        <EmptyState
+          icon={<Calculator size={24} />}
+          title="У организации нет действующих счетов"
+          description="Заведите счёт, чтобы видеть по нему приход и расход."
+        />
       ) : (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-[13px] text-muted">Счёт:</span>
+            {accountOptions.length <= 3 ? (
+              accountOptions.map((account) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => selectAccount(account.id)}
+                  className={`rounded-full border px-3 py-1.5 text-[13px] transition-colors ${
+                    account.id === selectedAccountId
+                      ? 'border-brand bg-brand/10 text-brand-dark'
+                      : 'border-border text-muted hover:text-ink'
+                  }`}
+                >
+                  {account.name}
+                </button>
+              ))
+            ) : (
+              <Select
+                className="w-full sm:w-64"
+                value={String(selectedAccountId ?? '')}
+                onChange={(e) => selectAccount(Number(e.target.value))}
+              >
+                {accountOptions.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+
+          <MoneySummaryTiles
+            totals={accountTotals}
+            loading={summaryLoading}
+            hint="Проведённые проводки этого счёта за выбранный период"
+          />
+
           <div className="mb-3 flex flex-wrap gap-2">
             <Select
               className="w-full sm:w-44"
