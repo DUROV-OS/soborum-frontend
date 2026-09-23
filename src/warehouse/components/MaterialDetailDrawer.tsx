@@ -87,6 +87,8 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
           <Row label="Закупочная цена" value={material.purchase_price ? `${material.purchase_price} ₽` : '—'} />
         </div>
 
+        <CharacteristicsBlock material={material} />
+
         {canEdit && (
           <div>
             <Field label="Пороговое значение">
@@ -188,6 +190,35 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
         </div>
       </div>
     </Drawer>
+  )
+}
+
+/** Характеристики материала (0078): показываем только заполненные поля,
+ * пустой блок не рисуем — у материалов до 0078 характеристик нет. */
+function CharacteristicsBlock({ material }: { material: Material }) {
+  const rows: { label: string; value: string }[] = [
+    { label: 'Вид', value: material.kind ?? '' },
+    { label: 'Размер', value: material.size ?? '' },
+    { label: 'Диаметр', value: material.diameter ?? '' },
+    { label: 'Серийный номер', value: material.serial_number ?? '' },
+    {
+      label: 'Количество в упаковке',
+      value: material.pack_quantity === null ? '' : `${material.pack_quantity} ${material.unit}`,
+    },
+    { label: 'Поставщик', value: material.supplier_name ?? '' },
+  ].filter((row) => row.value.trim() !== '')
+
+  if (rows.length === 0) return null
+
+  return (
+    <div>
+      <div className="mb-2 text-[13px] font-medium text-ink">Характеристики</div>
+      <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
+        {rows.map((row) => (
+          <Row key={row.label} label={row.label} value={row.value} />
+        ))}
+      </div>
+    </div>
   )
 }
 
