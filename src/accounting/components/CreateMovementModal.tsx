@@ -16,6 +16,7 @@ import {
 
 const EMPTY = {
   subkind: 'sale_income' as MoneySubkind,
+  account_id: '' as number | '',
   amount: '',
   tax: '',
   assessment: 'actual' as MoneyAssessment,
@@ -30,11 +31,24 @@ const EMPTY = {
 export function CreateMovementModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const clients = useAccountingStore((s) => s.clients)
   const create = useAccountingStore((s) => s.create)
+  const organizations = useAccountingStore((s) => s.organizations)
+  const selectedAccountId = useAccountingStore((s) => s.selectedAccountId)
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const needsClient = CLIENT_SOURCE_SUBKINDS.includes(form.subkind)
+
+  // Счета всех организаций одним списком: проводку заводят с той вкладки, где
+  // открыт раздел, но переложить её на счёт другого юрлица прямо в форме —
+  // нормальный случай, ради него не надо закрывать окно.
+  const accountOptions = organizations.flatMap((org) =>
+    org.accounts
+      .filter((a) => a.is_active)
+      .map((a) => ({ id: a.id, label: `${org.short_name} — ${a.name}` })),
+  )
+  // Предзаполнение счётом текущей вкладки; пока справочник не загружен — пусто.
+  const accountId = form.account_id === '' ? selectedAccountId : form.account_id
 
   function reset() {
     setForm(EMPTY)
@@ -57,10 +71,15 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
       setError('Выберите клиента')
       return
     }
+    if (accountId === null) {
+      setError('Выберите счёт, по которому прошёл платёж')
+      return
+    }
     setBusy(true)
     const result = await create({
       subkind: form.subkind,
       amount,
+      account_id: accountId,
       tax: form.tax === '' ? undefined : Number(form.tax),
       assessment: form.assessment,
       affects_profit: form.affects_profit,
@@ -85,13 +104,29 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
           <Button variant="ghost" onClick={close} disabled={busy}>
             Отмена
           </Button>
-          <Button onClick={submit} disabled={busy}>
+          <Button onClick={submit} disabled={busy || accountId === null}>
             {busy ? '…' : 'Создать черновик'}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
+        <Field label="Счёт" required hint="Организация и счёт, по которому прошёл платёж.">
+          <Select
+            value={accountId ?? ''}
+            onChange={(e) =>
+              setForm({ ...form, account_id: e.target.value === '' ? '' : Number(e.target.value) })
+            }
+          >
+            <option value="">— выберите счёт —</option>
+            {accountOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
         <Field label="Вид проводки" required hint="Зарплата и оплата поставки заводятся из своих разделов.">
           <Select
             value={form.subkind}
