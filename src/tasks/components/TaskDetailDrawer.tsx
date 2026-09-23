@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { Paperclip, X } from 'lucide-react'
 import { useAccessLevel } from '@/app/AccessGate'
+import { useAuthStore } from '@/auth/store'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
@@ -15,6 +16,8 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   const setStatus = useTasksStore((s) => s.setStatus)
   const submitReport = useTasksStore((s) => s.submitReport)
   const review = useTasksStore((s) => s.review)
+  const editReportComment = useTasksStore((s) => s.editReportComment)
+  const currentUserId = useAuthStore((s) => s.current?.id ?? null)
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -137,7 +140,14 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
             <div className="mb-2 text-[13px] text-muted">Отчёты по задаче</div>
             <div className="flex flex-col gap-3">
               {task.reports.map((report) => (
-                <ReportCard key={report.id} report={report} />
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  // Свой комментарий автор правит в любой момент, в том числе
+                  // после того, как задачу приняли (0077).
+                  canEditComment={canEdit && report.author.id === currentUserId}
+                  onSave={(text) => editReportComment(taskId, report.id, text)}
+                />
               ))}
             </div>
           </div>
@@ -216,16 +226,83 @@ function FormBox({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-muted p-4">{children}</div>
 }
 
-function ReportCard({ report }: { report: TaskReport }) {
+function ReportCard({
+  report,
+  canEditComment,
+  onSave,
+}: {
+  report: TaskReport
+  canEditComment: boolean
+  onSave: (comment: string) => Promise<{ ok: boolean; reason?: string }>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(report.comment)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  async function save() {
+    if (!draft.trim()) return
+    setSaving(true)
+    const result = await onSave(draft.trim())
+    setSaving(false)
+    if (result.ok) {
+      setEditing(false)
+      setSaveError(null)
+    } else {
+      setSaveError(result.reason ?? 'Не удалось сохранить комментарий')
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-surface p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-[12px] text-muted">
         <span>
           {TASK_REPORT_KIND_LABEL[report.kind]} · {report.author.full_name}
         </span>
-        <span>{new Date(report.created_at).toLocaleString('ru-RU')}</span>
+        <span>
+          {new Date(report.created_at).toLocaleString('ru-RU')}
+          {report.updated_at && ' · изменён'}
+        </span>
       </div>
-      {report.comment && <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-ink">{report.comment}</p>}
+      {editing ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <Textarea rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          {saveError && <p className="text-[12px] text-danger">{saveError}</p>}
+          <div className="flex gap-2">
+            <Button size="sm" disabled={saving || !draft.trim()} onClick={save}>
+              {saving ? 'Сохраняем…' : 'Сохранить'}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={saving}
+              onClick={() => {
+                setDraft(report.comment)
+                setSaveError(null)
+                setEditing(false)
+              }}
+            >
+              Отмена
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {report.comment && <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-ink">{report.comment}</p>}
+          {canEditComment && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(report.comment)
+                setEditing(true)
+              }}
+              className="mt-1.5 text-[12px] text-brand-dark hover:underline"
+            >
+              Изменить комментарий
+            </button>
+          )}
+        </>
+      )}
       {report.files.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
           {report.files.map((file) => (

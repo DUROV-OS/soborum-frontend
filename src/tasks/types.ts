@@ -35,6 +35,8 @@ export interface TaskReport {
   kind: TaskReportKind
   comment: string
   created_at: string
+  /** Не null, если автор правил комментарий уже после отправки. */
+  updated_at: string | null
   files: FileAsset[]
 }
 

@@ -71,6 +71,16 @@ export function reviewTask(id: number, accept: boolean, comment: string, files: 
   return apiRequest<Task>({ section: SECTION, path: `/${id}/review`, method: 'POST', form })
 }
 
+/** PATCH /api/tasks/:id/reports/:reportId — правка своего комментария, в том числе после приёмки. */
+export function editReportComment(taskId: number, reportId: number, comment: string): Promise<Task> {
+  return apiRequest<Task>({
+    section: SECTION,
+    path: `/${taskId}/reports/${reportId}`,
+    method: 'PATCH',
+    body: { comment },
+  })
+}
+
 /** DELETE /api/tasks/:id */
 export function deleteTask(id: number): Promise<void> {
   return apiRequest<void>({ section: SECTION, path: `/${id}`, method: 'DELETE' })
