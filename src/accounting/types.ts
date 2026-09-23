@@ -71,6 +71,35 @@ export interface MoneySummary {
   organizations: OrganizationSummary[]
 }
 
+// --- Единый справочник контрагентов (задача 0081-c) ---
+
+export type CounterpartyKind = 'client' | 'supplier' | 'employee' | 'government' | 'other'
+
+export const COUNTERPARTY_KIND_LABEL: Record<CounterpartyKind, string> = {
+  client: 'Клиент',
+  supplier: 'Поставщик',
+  employee: 'Сотрудник',
+  government: 'Госорган',
+  other: 'Прочий',
+}
+
+/** Зеркалит app/accounting/schemas.py::CounterpartyOut. Суммы — только по
+ * проведённым платежам; черновик деньгами ещё не является. */
+export interface Counterparty {
+  id: number
+  name: string
+  inn: string | null
+  kind: CounterpartyKind
+  client_id: number | null
+  supplier_id: number | null
+  comment: string | null
+  is_active: boolean
+  total_income: number
+  total_expense: number
+  payments_count: number
+  last_payment_at: string | null
+}
+
 export interface MoneyMovement {
   id: number
   direction: MoneyDirection
@@ -90,10 +119,17 @@ export interface MoneyMovement {
   organization_name: string | null
   status: MoneyMovementStatus
   posted_at: string | null
+  /** Дата платёжного документа (приходит с импортом выписки). История
+   * контрагента сортируется по ней, а не по дате заведения записи. */
+  doc_date: string | null
   cancel_reason: string | null
   payment_purpose: string | null
   comment: string | null
   external_number: string | null
+  /** Контрагент из единого справочника (0081-c). Отдельно от source_kind:
+   * та привязка есть не у каждого платежа, эта — у любого. */
+  counterparty_id: number | null
+  counterparty_name: string | null
   source_kind: MoneySourceKind
   client_id: number | null
   employee_id: number | null
