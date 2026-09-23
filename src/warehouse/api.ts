@@ -13,6 +13,11 @@ export function listWarehouses(): Promise<string[]> {
   return apiRequest<string[]>({ section: SECTION, path: '/warehouses' })
 }
 
+/** GET /api/warehouse/material-units — единицы измерения для формы материала */
+export function listMaterialUnits(): Promise<string[]> {
+  return apiRequest<string[]>({ section: SECTION, path: '/material-units' })
+}
+
 /** GET /api/warehouse/categories — список категорий материалов (значения enum) */
 export function listCategories(): Promise<string[]> {
   return apiRequest<string[]>({ section: SECTION, path: '/categories' })
@@ -23,7 +28,17 @@ export function getMaterial(id: number): Promise<Material> {
   return apiRequest<Material>({ section: SECTION, path: `/materials/${id}` })
 }
 
-export interface MaterialCreateInput {
+/** Характеристики материала (0078) — общая часть create/update. */
+export interface MaterialCharacteristicsInput {
+  kind?: string
+  size?: string
+  diameter?: string
+  serial_number?: string
+  pack_quantity?: number
+  supplier_id?: number | null
+}
+
+export interface MaterialCreateInput extends MaterialCharacteristicsInput {
   warehouse: string
   category?: string
   title: string
@@ -40,7 +55,7 @@ export function createMaterial(input: MaterialCreateInput): Promise<Material> {
   return apiRequest<Material>({ section: SECTION, path: '/materials', method: 'POST', body: input })
 }
 
-export interface MaterialUpdateInput {
+export interface MaterialUpdateInput extends MaterialCharacteristicsInput {
   category?: string
   title?: string
   code?: string
