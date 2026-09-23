@@ -80,6 +80,49 @@ export function chatStateLabel(state: ClientChatState | null): string {
   return CLIENT_CHAT_STATES.find((s) => s.key === state)?.label ?? '—'
 }
 
+/** Задача менеджера по клиенту (0079-d): «связаться», «выслать каталог»,
+ * «уточнить по ипотеке». Обычная задача системы — она же видна в «Моих
+ * задачах». Пока открыта задача с `blocking`, клиента нельзя перевести на
+ * следующую стадию. */
+export interface ClientTask {
+  id: number
+  title: string
+  description: string | null
+  deadline: string | null
+  status: 'not_ready' | 'ready' | 'in_progress' | 'in_review' | 'done'
+  blocking: boolean
+  /** Стадия клиента на момент постановки — видно, на каком шаге он застрял. */
+  stage: ClientStage | null
+  assignee_ids: number[]
+  reports: ClientTaskReport[]
+}
+
+/** Строка журнала задачи: решение по задаче или перенос срока с причиной. */
+export interface ClientTaskReport {
+  id: number
+  kind: 'submission' | 'review_accepted' | 'review_returned' | 'deadline_shift'
+  comment: string
+  author_id: number
+  created_at: string
+}
+
+export interface ClientTaskInput {
+  title: string
+  description?: string | null
+  /** ISO-строка. Срок обязателен — задача без срока теряется. */
+  deadline: string
+  assignee_ids?: number[]
+  blocking?: boolean
+}
+
+/** Частые формулировки задач — подсказки, а не ограничение: текст произвольный. */
+export const CLIENT_TASK_SUGGESTIONS = [
+  'Связаться',
+  'Напомнить о себе',
+  'Выслать каталог',
+  'Уточнить по ипотеке',
+]
+
 export interface FileAsset {
   id: number
   filename: string
@@ -159,6 +202,8 @@ export interface Client {
   balance_paid: boolean | null
   balance_paid_at: string | null
   notes: ClientNote[]
+  /** Задачи по клиенту (0079-d), свежие сверху — и открытые, и закрытые. */
+  tasks: ClientTask[]
 }
 
 /** Источник клиента (0079-c): пришёл сам или его привело агентство-партнёр.
