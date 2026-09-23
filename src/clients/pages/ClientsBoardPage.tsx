@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Building2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -31,7 +31,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         Кнопка «Новый клиент» в правом верхнем углу открывает форму создания карточки — заполните имя, телефон и
-        другие данные.
+        другие данные. Если клиента привело агентство-партнёр, отметьте это в форме: на карточке появится метка с
+        названием агентства, и связь с партнёром не потеряется.
       </p>
     ),
   },
@@ -122,6 +123,12 @@ export function ClientsBoardPage() {
           <div>
             <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
             <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
+            {client.via_agency && (
+              <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
+                <Building2 size={11} className="shrink-0" />
+                <span className="truncate">{client.agency_name}</span>
+              </div>
+            )}
             {client.house_model && (
               <div className="mt-2 text-[12px] text-brand-dark">{client.house_model.title}</div>
             )}

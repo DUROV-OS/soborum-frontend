@@ -1,5 +1,14 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Client, ClientChatLink, ClientChatState, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
+import {
+  Client,
+  ClientChatLink,
+  ClientChatState,
+  ClientCreateInput,
+  ClientNote,
+  ClientSourceInput,
+  OrderType,
+  PaymentPlan,
+} from './types'
 
 const SECTION = 'clients'
 
@@ -16,6 +25,12 @@ export function getClient(id: number): Promise<Client> {
 /** POST /api/clients/ */
 export function createClient(input: ClientCreateInput): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: '/', method: 'POST', body: input })
+}
+
+/** PATCH /api/clients/:id/source — кто привёл клиента (0079-c). В отличие от
+ * ФИО/телефона/почты источник правится и после создания карточки. */
+export function updateSource(id: number, patch: ClientSourceInput): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/source`, method: 'PATCH', body: patch })
 }
 
 export interface DocumentsUpdateInput {

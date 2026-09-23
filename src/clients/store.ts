@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
-import { Client, ClientCreateInput } from './types'
+import { Client, ClientCreateInput, ClientSourceInput } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -17,6 +17,7 @@ interface ClientsState {
   clearLastAdvanced: () => void
   load: () => Promise<void>
   create: (input: ClientCreateInput) => Promise<Client>
+  updateSource: (id: number, patch: ClientSourceInput) => Promise<ActionResult>
   updateDocuments: (id: number, patch: clientsApi.DocumentsUpdateInput) => Promise<ActionResult>
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
@@ -82,6 +83,7 @@ export const useClientsStore = create<ClientsState>((set, get) => {
       return client
     },
 
+    updateSource: (id, patch) => applyClientMutation(() => clientsApi.updateSource(id, patch)),
     updateDocuments: (id, patch) => applyClientMutation(() => clientsApi.updateDocuments(id, patch)),
     updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
