@@ -201,16 +201,17 @@ export function listCounterpartyPayments(id: number): Promise<MoneyMovement[]> {
 }
 
 
-// --- Импорт платежей таблицей (задача 0011-k) ---
+// --- Импорт выписки из банк-клиента (задачи 0011-k, 0081-e) ---
 
-/** POST /api/accounting/money-movements/import (multipart) */
-export function importPayments(file: File): Promise<PaymentImportResult> {
+/** POST /api/accounting/money-movements/import (multipart) — на конкретный счёт. */
+export function importStatement(file: File, accountId: number): Promise<PaymentImportResult> {
   const form = new FormData()
   form.append('file', file)
   return apiRequest<PaymentImportResult>({
     section: SECTION,
     path: '/money-movements/import',
     method: 'POST',
+    query: { account_id: accountId },
     form,
   })
 }
@@ -240,7 +241,7 @@ export function createImportBackfillTask(
 
 /** GET /api/accounting/money-movements/import/template */
 export function downloadImportTemplate(): Promise<void> {
-  return downloadFile(SECTION, '/money-movements/import/template', 'shablon_platezhey.xlsx')
+  return downloadFile(SECTION, '/money-movements/import/template', 'shablon_vypiski.xlsx')
 }
 
 // --- Заказы у поставщика (задача 0011-d, UI — 0011-f) ---

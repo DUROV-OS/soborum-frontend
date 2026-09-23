@@ -283,6 +283,7 @@ export interface PaymentColumnMapping {
   direction_col: string | null
   doc_date: string | null
   counterparty: string | null
+  counterparty_inn: string | null
   tax: string | null
   external_number: string | null
   subkind: string | null
@@ -296,7 +297,14 @@ export interface PaymentImportResult {
   note: string
   column_mapping: PaymentColumnMapping
   missing_fields: string[]
+  /** Строк, где колонка контрагента оказалась пустой. */
   unmatched_source: number
+  /** Строк, совпавших с уже загруженной проводкой этого счёта (0081-e). */
+  duplicates: number
+  counterparties_created: number
+  counterparties_matched: number
+  account_id: number | null
+  account_label: string | null
   preliminary_subkind: number
   created_ids: number[]
   backfill_suggested: boolean
@@ -309,9 +317,10 @@ export const IMPORT_FIELD_LABEL: Record<string, string> = {
   direction_col: 'Тип операции',
   doc_date: 'Дата документа',
   counterparty: 'Контрагент',
+  counterparty_inn: 'ИНН контрагента',
   tax: 'НДС',
   external_number: 'Номер документа',
   subkind: 'Вид',
   payment_purpose: 'Назначение платежа',
-  source: 'Источник (контрагент)',
+  source: 'Контрагент',
 }
