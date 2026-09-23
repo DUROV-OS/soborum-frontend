@@ -4,8 +4,10 @@ import { accessLevelAtLeast } from '@/auth/types'
 import { Chip } from '@/shared/ui/Chip'
 import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
-import { Field, Input, Textarea } from '@/shared/ui/Field'
+import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
+import * as suppliersApi from '@/suppliers/api'
+import { Supplier } from '@/suppliers/types'
 import * as warehouseApi from '../api'
 import { useWarehouseStore } from '../store'
 import { Material, MOVEMENT_REASON_LABEL, StockMovement } from '../types'
@@ -86,6 +88,8 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
           <Row label="Склад" value={material.warehouse || '—'} />
           <Row label="Закупочная цена" value={material.purchase_price ? `${material.purchase_price} ₽` : '—'} />
         </div>
+
+        <CharacteristicsBlock material={material} canEdit={canEdit} />
 
         {canEdit && (
           <div>
@@ -188,6 +192,168 @@ export function MaterialDetailDrawer({ material, onClose }: { material: Material
         </div>
       </div>
     </Drawer>
+  )
+}
+
+/** Характеристики материала (0078): показываем заполненные поля, а при уровне
+ * доступа `edit` даём их править прямо в карточке — включая очистку поля. */
+function CharacteristicsBlock({ material, canEdit }: { material: Material; canEdit: boolean }) {
+  const updateMaterial = useWarehouseStore((s) => s.updateMaterial)
+  const [editing, setEditing] = useState(false)
+  const [kind, setKind] = useState('')
+  const [size, setSize] = useState('')
+  const [diameter, setDiameter] = useState('')
+  const [serialNumber, setSerialNumber] = useState('')
+  const [packQuantity, setPackQuantity] = useState<number | ''>('')
+  const [supplierId, setSupplierId] = useState<number | ''>('')
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const materialId = material.id
+
+  // при смене материала (drawer переиспользуется) сбросить форму на его значения
+  useEffect(() => {
+    setEditing(false)
+    setError(null)
+    setKind(material.kind ?? '')
+    setSize(material.size ?? '')
+    setDiameter(material.diameter ?? '')
+    setSerialNumber(material.serial_number ?? '')
+    setPackQuantity(material.pack_quantity ?? '')
+    setSupplierId(material.supplier_id ?? '')
+  }, [materialId, material.kind, material.size, material.diameter, material.serial_number, material.pack_quantity, material.supplier_id])
+
+  useEffect(() => {
+    if (editing && suppliers.length === 0) suppliersApi.listSuppliers().then(setSuppliers)
+  }, [editing, suppliers.length])
+
+  const rows: { label: string; value: string }[] = [
+    { label: 'Вид', value: material.kind ?? '' },
+    { label: 'Размер', value: material.size ?? '' },
+    { label: 'Диаметр', value: material.diameter ?? '' },
+    { label: 'Серийный номер', value: material.serial_number ?? '' },
+    {
+      label: 'Количество в упаковке',
+      value: material.pack_quantity === null ? '' : `${material.pack_quantity} ${material.unit}`,
+    },
+    { label: 'Поставщик', value: material.supplier_name ?? '' },
+  ].filter((row) => row.value.trim() !== '')
+
+  // без права правки пустой блок не рисуем — у материалов до 0078 характеристик нет
+  if (!canEdit && rows.length === 0) return null
+
+  const packQuantityInvalid = packQuantity !== '' && packQuantity <= 0
+
+  async function save() {
+    if (packQuantityInvalid) return
+    setSaving(true)
+    const result = await updateMaterial(materialId, {
+      kind: kind.trim() || null,
+      size: size.trim() || null,
+      diameter: diameter.trim() || null,
+      serial_number: serialNumber.trim() || null,
+      pack_quantity: packQuantity === '' ? null : packQuantity,
+      supplier_id: supplierId === '' ? null : supplierId,
+    })
+    setSaving(false)
+    if (result.ok) {
+      setEditing(false)
+      setError(null)
+    } else {
+      setError(result.reason ?? 'Не удалось сохранить характеристики')
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-[13px] font-medium text-ink">Характеристики</div>
+        {canEdit && !editing && (
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            Изменить
+          </Button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Вид">
+              <Input value={kind} onChange={(e) => setKind(e.target.value)} placeholder="кровельный" />
+            </Field>
+            <Field label="Размер">
+              <Input value={size} onChange={(e) => setSize(e.target.value)} placeholder="10×1 м" />
+            </Field>
+            <Field label="Диаметр">
+              <Input value={diameter} onChange={(e) => setDiameter(e.target.value)} placeholder="30 мм" />
+            </Field>
+            <Field label="Серийный номер">
+              <Input
+                value={serialNumber}
+                onChange={(e) => setSerialNumber(e.target.value)}
+                placeholder="только для уникальных позиций"
+              />
+            </Field>
+            <Field label="Количество в упаковке">
+              <Input
+                type="number"
+                min={0}
+                value={packQuantity}
+                onChange={(e) => setPackQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+              />
+            </Field>
+            <Field label="Поставщик">
+              <Select
+                value={supplierId === '' ? '' : String(supplierId)}
+                onChange={(e) => setSupplierId(e.target.value === '' ? '' : Number(e.target.value))}
+              >
+                <option value="">— не выбран —</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+          {packQuantityInvalid && (
+            <p className="text-[12px] text-danger">Количество в упаковке должно быть больше нуля.</p>
+          )}
+          {error && <p className="text-[12px] text-danger">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={saving}
+              onClick={() => {
+                setEditing(false)
+                setError(null)
+                setKind(material.kind ?? '')
+                setSize(material.size ?? '')
+                setDiameter(material.diameter ?? '')
+                setSerialNumber(material.serial_number ?? '')
+                setPackQuantity(material.pack_quantity ?? '')
+                setSupplierId(material.supplier_id ?? '')
+              }}
+            >
+              Отмена
+            </Button>
+            <Button size="sm" onClick={save} disabled={saving || packQuantityInvalid}>
+              {saving ? 'Сохранение…' : 'Сохранить'}
+            </Button>
+          </div>
+        </div>
+      ) : rows.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
+          {rows.map((row) => (
+            <Row key={row.label} label={row.label} value={row.value} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-[13px] text-muted">Не заполнены.</p>
+      )}
+    </div>
   )
 }
 
