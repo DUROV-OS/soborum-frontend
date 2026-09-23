@@ -59,6 +59,18 @@ export function submitReport(id: number, comment: string, files: File[]): Promis
   return apiRequest<Task>({ section: SECTION, path: `/${id}/report`, method: 'POST', form })
 }
 
+/**
+ * POST /api/tasks/:id/review (multipart) — решение проверяющего с отчётом:
+ * принять задачу или вернуть в работу, приложив комментарий и файлы.
+ */
+export function reviewTask(id: number, accept: boolean, comment: string, files: File[]): Promise<Task> {
+  const form = new FormData()
+  form.append('accept', String(accept))
+  form.append('comment', comment)
+  for (const file of files) form.append('files', file)
+  return apiRequest<Task>({ section: SECTION, path: `/${id}/review`, method: 'POST', form })
+}
+
 /** DELETE /api/tasks/:id */
 export function deleteTask(id: number): Promise<void> {
   return apiRequest<void>({ section: SECTION, path: `/${id}`, method: 'DELETE' })
