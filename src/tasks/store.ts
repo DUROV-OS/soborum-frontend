@@ -14,6 +14,7 @@ interface TasksState {
   load: (filters?: tasksApi.TaskFilters) => Promise<void>
   create: (input: tasksApi.CreateTaskInput) => Promise<ActionResult>
   setStatus: (id: number, status: TaskStatus) => Promise<ActionResult>
+  submitReport: (id: number, comment: string, files: File[]) => Promise<ActionResult>
   claim: (id: number) => Promise<ActionResult>
 }
 
@@ -43,6 +44,16 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   setStatus: async (id, status) => {
     try {
       const updated = await tasksApi.setStatus(id, status)
+      set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  submitReport: async (id, comment, files) => {
+    try {
+      const updated = await tasksApi.submitReport(id, comment, files)
       set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
       return { ok: true }
     } catch (error) {

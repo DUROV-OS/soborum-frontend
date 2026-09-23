@@ -19,6 +19,15 @@ export type TaskLinkType =
   | 'warehouse_shortage'
   | 'growth_proposal'
 
+/** Отчёт исполнителя о сдаче задачи (0077): что сделано + файлы. */
+export interface TaskReport {
+  id: number
+  author: Account
+  comment: string
+  created_at: string
+  files: FileAsset[]
+}
+
 export interface Task {
   id: number
   title: string
@@ -36,5 +45,7 @@ export interface Task {
    * отдельно от assignees/reviewers, не обязан быть среди исполнителей. */
   responsible: Account | null
   images: FileAsset[]
+  /** Отчёты о сдаче, от первого к последнему. */
+  reports: TaskReport[]
   depends_on_ids: number[]
 }
