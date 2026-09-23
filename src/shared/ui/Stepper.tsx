@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
 
 export interface StepperStep {
@@ -13,6 +14,14 @@ export function Stepper({
   currentKey: string
 }) {
   const currentIndex = steps.findIndex((s) => s.key === currentKey)
+  const currentRef = useRef<HTMLLIElement>(null)
+
+  // Шагов может быть больше, чем влезает в ширину карточки (путь клиента из
+  // восьми стадий — 0079), и тогда лента уезжает вбок. Подтягиваем текущий
+  // шаг в видимую часть, иначе непонятно, где вообще находится карточка.
+  useEffect(() => {
+    currentRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [currentKey])
 
   return (
     <ol className="flex items-stretch overflow-x-auto">
@@ -20,7 +29,11 @@ export function Stepper({
         const isDone = index < currentIndex
         const isCurrent = index === currentIndex
         return (
-          <li key={step.key} className="flex flex-1 items-center last:flex-none">
+          <li
+            key={step.key}
+            ref={isCurrent ? currentRef : undefined}
+            className="flex flex-1 items-center last:flex-none"
+          >
             <div className="flex items-center gap-2">
               <span
                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-pill text-[12px] font-medium ${
