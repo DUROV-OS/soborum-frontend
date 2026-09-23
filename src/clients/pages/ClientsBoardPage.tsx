@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, Plus } from 'lucide-react'
+import { AlertTriangle, Building2, CalendarClock, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -12,7 +12,8 @@ import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { DateFilter, DEFAULT_DATE_FILTER, dateFilterRange, matchesDateFilter } from '@/shared/lib/dateFilter'
 import { useClientsStore } from '../store'
-import { CLIENT_STAGES } from '../types'
+import { deadlineLabel, nearestOpenTask } from '../taskDeadline'
+import { Client, CLIENT_STAGES } from '../types'
 import { CreateClientModal } from '../components/CreateClientModal'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -119,21 +120,7 @@ export function ClientsBoardPage() {
         onCardClick={(c) => navigate(`/clients/${c.id}`)}
         loading={loading}
         focusKey={advancedStage}
-        renderCard={(client) => (
-          <div>
-            <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
-            <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
-            {client.via_agency && (
-              <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
-                <Building2 size={11} className="shrink-0" />
-                <span className="truncate">{client.agency_name}</span>
-              </div>
-            )}
-            {client.house_model && (
-              <div className="mt-2 text-[12px] text-brand-dark">{client.house_model.title}</div>
-            )}
-          </div>
-        )}
+        renderCard={(client) => <ClientCard client={client} />}
       />
 
       <CreateClientModal open={creating} onClose={() => setCreating(false)} />
@@ -144,6 +131,44 @@ export function ClientsBoardPage() {
         title="Раздел «Клиенты»"
         pages={ONBOARDING_PAGES}
       />
+    </div>
+  )
+}
+
+/** Карточка на доске: кто клиент, откуда пришёл и что по нему горит.
+ * Ближайшая открытая задача со сроком — то самое «уведомление» о клиенте,
+ * которое видно, не открывая карточку (0079-e). */
+function ClientCard({ client }: { client: Client }) {
+  const task = nearestOpenTask(client.tasks)
+  const due = task ? deadlineLabel(task.deadline) : null
+  const dueTone = due?.overdue ? 'text-danger' : due?.urgent ? 'text-brand-dark' : 'text-muted'
+
+  return (
+    <div>
+      <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
+      <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
+      {client.via_agency && (
+        <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
+          <Building2 size={11} className="shrink-0" />
+          <span className="truncate">{client.agency_name}</span>
+        </div>
+      )}
+      {client.house_model && (
+        <div className="mt-2 text-[12px] text-brand-dark">{client.house_model.title}</div>
+      )}
+      {task && (
+        <div className={`mt-2 flex items-start gap-1 text-[12px] ${dueTone}`}>
+          {due?.overdue ? (
+            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+          ) : (
+            <CalendarClock size={12} className="mt-0.5 shrink-0" />
+          )}
+          <span>
+            {task.title}
+            {due && ` — ${due.text}`}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

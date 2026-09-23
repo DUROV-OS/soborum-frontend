@@ -6,6 +6,8 @@ import {
   ClientCreateInput,
   ClientNote,
   ClientSourceInput,
+  ClientTask,
+  ClientTaskInput,
   OrderType,
   PaymentPlan,
 } from './types'
@@ -31,6 +33,42 @@ export function createClient(input: ClientCreateInput): Promise<Client> {
  * ФИО/телефона/почты источник правится и после создания карточки. */
 export function updateSource(id: number, patch: ClientSourceInput): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: `/${id}/source`, method: 'PATCH', body: patch })
+}
+
+/** POST /api/clients/:id/tasks — завести задачу по клиенту (0079-d). */
+export function createClientTask(id: number, input: ClientTaskInput): Promise<ClientTask> {
+  return apiRequest<ClientTask>({ section: SECTION, path: `/${id}/tasks`, method: 'POST', body: input })
+}
+
+/** POST /api/clients/:id/tasks/:taskId/deadline — перенести срок с причиной. */
+export function shiftClientTaskDeadline(
+  id: number,
+  taskId: number,
+  deadline: string,
+  reason: string,
+): Promise<ClientTask> {
+  return apiRequest<ClientTask>({
+    section: SECTION,
+    path: `/${id}/tasks/${taskId}/deadline`,
+    method: 'POST',
+    body: { deadline, reason },
+  })
+}
+
+/** POST /api/clients/:id/tasks/:taskId/close — закрыть с решением и, по желанию,
+ * сразу завести вытекающую задачу. */
+export function closeClientTask(
+  id: number,
+  taskId: number,
+  resolution: string,
+  nextTask?: ClientTaskInput,
+): Promise<ClientTask> {
+  return apiRequest<ClientTask>({
+    section: SECTION,
+    path: `/${id}/tasks/${taskId}/close`,
+    method: 'POST',
+    body: { resolution, next_task: nextTask ?? null },
+  })
 }
 
 export interface DocumentsUpdateInput {

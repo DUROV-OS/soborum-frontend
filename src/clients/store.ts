@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
-import { Client, ClientCreateInput, ClientSourceInput } from './types'
+import { Client, ClientCreateInput, ClientSourceInput, ClientTaskInput } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -18,6 +18,9 @@ interface ClientsState {
   load: () => Promise<void>
   create: (input: ClientCreateInput) => Promise<Client>
   updateSource: (id: number, patch: ClientSourceInput) => Promise<ActionResult>
+  createTask: (id: number, input: ClientTaskInput) => Promise<ActionResult>
+  shiftTaskDeadline: (id: number, taskId: number, deadline: string, reason: string) => Promise<ActionResult>
+  closeTask: (id: number, taskId: number, resolution: string, next?: ClientTaskInput) => Promise<ActionResult>
   updateDocuments: (id: number, patch: clientsApi.DocumentsUpdateInput) => Promise<ActionResult>
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
@@ -84,6 +87,13 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     },
 
     updateSource: (id, patch) => applyClientMutation(() => clientsApi.updateSource(id, patch)),
+    // Эндпоинты задач отвечают самой задачей, а не клиентом — поэтому клиента
+    // после них перечитываем целиком (applyNoteMutation делает ровно это).
+    createTask: (id, input) => applyNoteMutation(id, () => clientsApi.createClientTask(id, input)),
+    shiftTaskDeadline: (id, taskId, deadline, reason) =>
+      applyNoteMutation(id, () => clientsApi.shiftClientTaskDeadline(id, taskId, deadline, reason)),
+    closeTask: (id, taskId, resolution, next) =>
+      applyNoteMutation(id, () => clientsApi.closeClientTask(id, taskId, resolution, next)),
     updateDocuments: (id, patch) => applyClientMutation(() => clientsApi.updateDocuments(id, patch)),
     updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
