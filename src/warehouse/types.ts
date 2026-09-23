@@ -18,6 +18,15 @@ export interface Material {
   quantity_in_stock: number
   purchase_price: number
   threshold: number
+  /** Характеристики (0078) — все необязательные, у старых материалов пустые. */
+  kind: string | null
+  size: string | null
+  diameter: string | null
+  serial_number: string | null
+  pack_quantity: number | null
+  supplier_id: number | null
+  /** Имя поставщика из справочника снабжения; null — поставщик не выбран. */
+  supplier_name: string | null
   total_requested: number
   needs_supply: boolean
   request_breakdown: RequestBreakdownItem[]
