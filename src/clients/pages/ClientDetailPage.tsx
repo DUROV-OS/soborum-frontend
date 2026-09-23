@@ -11,6 +11,7 @@ import { CLIENT_STAGES } from '../types'
 import { isStageManual, nextStageOf, stageLabel } from '../rules'
 import { ReadRow, Section } from '../components/PanelPrimitives'
 import { DocumentPanel } from '../components/DocumentPanel'
+import { SourcePanel } from '../components/SourcePanel'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { NotesPanel } from '../components/NotesPanel'
@@ -125,6 +126,8 @@ export function ClientDetailPage() {
               ))
             : <ReadRow label="Способы связи" value={undefined} />}
         </Section>
+
+        <SourcePanel client={client} />
 
         <DocumentPanel client={client} />
         <PaymentPanel client={client} />
