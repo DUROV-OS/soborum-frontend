@@ -11,6 +11,9 @@ import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
 import { DATE_FILTER_LABEL } from '@/shared/lib/dateFilter'
 import { AmountFilterMode, useAccountingStore } from '../store'
+import { CounterpartiesTab } from '../components/CounterpartiesTab'
+import { CounterpartyDrawer } from '../components/CounterpartyDrawer'
+import { CounterpartyPicker } from '../components/CounterpartyPicker'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { MoneySummaryTiles } from '../components/MoneySummaryTiles'
 import { OverviewTab } from '../components/OverviewTab'
@@ -123,6 +126,10 @@ export function AccountingPage() {
   const selectAccount = useAccountingStore((s) => s.selectAccount)
   const summary = useAccountingStore((s) => s.summary)
   const summaryLoading = useAccountingStore((s) => s.summaryLoading)
+  const counterparties = useAccountingStore((s) => s.counterparties)
+  const showCounterparty = useAccountingStore((s) => s.showCounterparty)
+  const externalMovement = useAccountingStore((s) => s.externalMovement)
+  const openMovementById = useAccountingStore((s) => s.openMovementById)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -134,7 +141,7 @@ export function AccountingPage() {
   })
   // Вкладки: сводка по обеим организациям, затем вкладка на каждое юрлицо
   // (реестр её счёта), затем прежняя вкладка «Сотрудники» (0081-b).
-  const [tab, setTab] = useState<'overview' | 'register' | 'salary'>('register')
+  const [tab, setTab] = useState<'overview' | 'register' | 'counterparties' | 'salary'>('register')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [customRangeOpen, setCustomRangeOpen] = useState(
@@ -160,7 +167,11 @@ export function AccountingPage() {
     load()
   }, [load])
 
-  const selected = movements.find((m) => m.id === selectedId) ?? null
+  // Платёж из карточки контрагента может быть с другого счёта — тогда его нет
+  // в загруженном реестре и он приходит отдельным запросом (externalMovement).
+  const selected =
+    movements.find((m) => m.id === selectedId) ??
+    (externalMovement && externalMovement.id === selectedId ? externalMovement : null)
   const currentOrganization = organizations.find((o) => o.id === selectedOrganizationId) ?? null
   const accountOptions = (currentOrganization?.accounts ?? []).filter((a) => a.is_active)
   // Сводка приходит целиком (все организации) — берём из неё срез выбранного счёта.
@@ -177,6 +188,7 @@ export function AccountingPage() {
     filters.custom_date_from !== '' ||
     filters.custom_date_to !== '' ||
     filters.initiator_id !== 'all' ||
+    filters.counterparty_id !== 'all' ||
     filters.amount_mode !== 'all' ||
     filters.tax_mode !== 'all'
 
@@ -243,6 +255,14 @@ export function AccountingPage() {
       onRemove: () => setFilters({ initiator_id: 'all' }),
     })
   }
+  if (filters.counterparty_id !== 'all') {
+    const counterparty = counterparties.find((c) => c.id === filters.counterparty_id)
+    activeFilterChips.push({
+      key: 'counterparty',
+      label: `Контрагент: ${counterparty?.name ?? `№${filters.counterparty_id}`}`,
+      onRemove: () => setFilters({ counterparty_id: 'all' }),
+    })
+  }
   if (filters.amount_mode !== 'all') {
     activeFilterChips.push({
       key: 'amount',
@@ -288,11 +308,12 @@ export function AccountingPage() {
           tabs={[
             { key: 'overview', label: 'Сводка' },
             ...organizations.map((org) => ({ key: `org-${org.id}`, label: org.short_name })),
+            { key: 'counterparties', label: 'Контрагенты' },
             { key: 'salary', label: 'Сотрудники' },
           ]}
           activeKey={tab === 'register' ? `org-${selectedOrganizationId}` : tab}
           onChange={(key) => {
-            if (key === 'overview' || key === 'salary') {
+            if (key === 'overview' || key === 'salary' || key === 'counterparties') {
               setTab(key)
               return
             }
@@ -304,6 +325,8 @@ export function AccountingPage() {
 
       {tab === 'overview' ? (
         <OverviewTab />
+      ) : tab === 'counterparties' ? (
+        <CounterpartiesTab />
       ) : tab === 'salary' ? (
         <SalaryTab />
       ) : accountOptions.length === 0 ? (
@@ -415,6 +438,13 @@ export function AccountingPage() {
                 </option>
               ))}
             </Select>
+            <div className="w-full sm:w-64">
+              <CounterpartyPicker
+                value={filters.counterparty_id === 'all' ? null : filters.counterparty_id}
+                onChange={(id) => setFilters({ counterparty_id: id ?? 'all' })}
+                allowCreate={false}
+              />
+            </div>
             {customRangeOpen ? (
               <div className="flex flex-wrap items-center gap-2">
                 <Input
@@ -530,6 +560,25 @@ export function AccountingPage() {
                   sortValue: (m) => m.initiator_name ?? String(m.initiator_id),
                 },
                 {
+                  header: 'Контрагент',
+                  accessor: (m) =>
+                    m.counterparty_id && m.counterparty_name ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          // не открываем карточку проводки: клик адресный
+                          e.stopPropagation()
+                          void showCounterparty(m.counterparty_id!)
+                        }}
+                        className="text-brand-dark underline-offset-2 hover:underline"
+                      >
+                        {m.counterparty_name}
+                      </button>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    ),
+                },
+                {
                   header: 'Источник',
                   accessor: (m) =>
                     m.source_label ?? <span className="text-muted">{SOURCE_KIND_LABEL[m.source_kind]}</span>,
@@ -577,6 +626,13 @@ export function AccountingPage() {
       <CreateMovementModal open={creating} onClose={() => setCreating(false)} />
       <ImportPaymentsModal open={importing} onClose={() => setImporting(false)} />
       <MovementDetailDrawer movement={selected} onClose={() => setSelectedId(null)} />
+      <CounterpartyDrawer
+        onOpenMovement={(id) => {
+          void showCounterparty(null)
+          void openMovementById(id)
+          setSelectedId(id)
+        }}
+      />
     </div>
   )
 }
