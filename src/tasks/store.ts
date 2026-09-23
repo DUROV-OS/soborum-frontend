@@ -15,6 +15,9 @@ interface TasksState {
   create: (input: tasksApi.CreateTaskInput) => Promise<ActionResult>
   update: (id: number, patch: tasksApi.UpdateTaskInput) => Promise<ActionResult>
   setStatus: (id: number, status: TaskStatus) => Promise<ActionResult>
+  submitReport: (id: number, comment: string, files: File[]) => Promise<ActionResult>
+  review: (id: number, accept: boolean, comment: string, files: File[]) => Promise<ActionResult>
+  editReportComment: (taskId: number, reportId: number, comment: string) => Promise<ActionResult>
   claim: (id: number) => Promise<ActionResult>
 }
 
@@ -55,6 +58,36 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     try {
       const updated = await tasksApi.setStatus(id, status)
       set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  submitReport: async (id, comment, files) => {
+    try {
+      const updated = await tasksApi.submitReport(id, comment, files)
+      set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  review: async (id, accept, comment, files) => {
+    try {
+      const updated = await tasksApi.reviewTask(id, accept, comment, files)
+      set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  editReportComment: async (taskId, reportId, comment) => {
+    try {
+      const updated = await tasksApi.editReportComment(taskId, reportId, comment)
+      set({ tasks: get().tasks.map((t) => (t.id === taskId ? updated : t)) })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
