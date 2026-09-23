@@ -28,13 +28,14 @@ export function getMaterial(id: number): Promise<Material> {
   return apiRequest<Material>({ section: SECTION, path: `/materials/${id}` })
 }
 
-/** Характеристики материала (0078) — общая часть create/update. */
+/** Характеристики материала (0078) — общая часть create/update.
+ * `null` в PATCH очищает поле (в POST достаточно не передавать его). */
 export interface MaterialCharacteristicsInput {
-  kind?: string
-  size?: string
-  diameter?: string
-  serial_number?: string
-  pack_quantity?: number
+  kind?: string | null
+  size?: string | null
+  diameter?: string | null
+  serial_number?: string | null
+  pack_quantity?: number | null
   supplier_id?: number | null
 }
 
