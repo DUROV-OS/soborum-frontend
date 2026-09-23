@@ -1,6 +1,18 @@
 import { HouseModelBrief } from '@/house_models/types'
 
-export type ClientStage = 'lead' | 'discussion' | 'approval' | 'payment' | 'postpayment'
+/** Путь клиента из восьми стадий (0079). Значения первых пяти остались от
+ * прежнего пятиколоночного пути — поменялись только подписи: `approval` —
+ * «Ипотека/Одобрение в банке», `payment` — «Договор подписан/Аванс внесён»,
+ * `postpayment` — «Дом в производстве». */
+export type ClientStage =
+  | 'lead'
+  | 'discussion'
+  | 'site_visit'
+  | 'approval'
+  | 'payment'
+  | 'postpayment'
+  | 'acceptance'
+  | 'completed'
 
 /** Одиночный заказ — один дом в производстве. Множественный — несколько домов
  * у одного клиента, под каждый на стадии производства заводится отдельный проект. */
@@ -42,10 +54,19 @@ export function planHasBalance(plan: PaymentPlan | null): boolean {
 export const CLIENT_STAGES: { key: ClientStage; label: string }[] = [
   { key: 'lead', label: 'Лид' },
   { key: 'discussion', label: 'Обсуждение' },
-  { key: 'approval', label: 'Согласование' },
-  { key: 'payment', label: 'Оплата' },
-  { key: 'postpayment', label: 'Постоплата' },
+  { key: 'site_visit', label: 'Гость на объекте' },
+  { key: 'approval', label: 'Ипотека/Одобрение в банке' },
+  { key: 'payment', label: 'Договор подписан/Аванс внесён' },
+  { key: 'postpayment', label: 'Дом в производстве' },
+  { key: 'acceptance', label: 'Приёмка' },
+  { key: 'completed', label: 'Успешно реализовано' },
 ]
+
+/** Стадии, которые двигает не человек, а ход работ: «Дом в производстве» и
+ * дальше переводит сам бэкенд по разделу «Монтаж» (0079). Кнопки перевода на
+ * них нет — попытка всё равно вернулась бы отказом с бэка. Список держим
+ * здесь одной константой, чтобы он не разъезжался по компонентам. */
+export const AUTOMATIC_STAGES: ClientStage[] = ['postpayment', 'acceptance', 'completed']
 
 export type ClientChatState = 'agreement' | 'waiting' | 'analysis'
 

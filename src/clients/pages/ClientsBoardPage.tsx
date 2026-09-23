@@ -20,8 +20,9 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Доска клиентов',
     body: (
       <p>
-        Каждая колонка — стадия пути клиента, от первого обращения до старта производства. Карточка клиента
-        находится в той колонке, которая соответствует его текущей стадии.
+        Каждая колонка — стадия пути клиента, от первого обращения до принятого дома. Карточка клиента
+        находится в той колонке, которая соответствует его текущей стадии. Колонок восемь — доска
+        прокручивается вбок.
       </p>
     ),
   },
@@ -40,6 +41,15 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
       <p>
         Кликните по карточке, чтобы открыть детали клиента: там же можно перевести его на следующую стадию,
         добавить заметки и файлы.
+      </p>
+    ),
+  },
+  {
+    title: 'Последние стадии — сами',
+    body: (
+      <p>
+        «Дом в производстве», «Приёмка» и «Успешно реализовано» вручную не переводятся: клиент переезжает по
+        ним сам, следом за ходом работ в разделе «Монтаж».
       </p>
     ),
   },
@@ -86,7 +96,7 @@ export function ClientsBoardPage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[20px] font-medium text-ink">Клиенты</h1>
-          <p className="mt-1 text-[13px] text-muted">Путь клиента до начала производства</p>
+          <p className="mt-1 text-[13px] text-muted">Путь клиента от первого обращения до принятого дома</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start">
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
