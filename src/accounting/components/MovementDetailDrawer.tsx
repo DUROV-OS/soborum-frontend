@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { FileAsset } from '@/clients/types'
@@ -33,6 +33,7 @@ export function MovementDetailDrawer({
   const changeStatus = useAccountingStore((s) => s.changeStatus)
   const update = useAccountingStore((s) => s.update)
   const remove = useAccountingStore((s) => s.remove)
+  const showCounterparty = useAccountingStore((s) => s.showCounterparty)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -108,6 +109,22 @@ export function MovementDetailDrawer({
               movement.account_name
                 ? `${movement.organization_name ?? '—'} — ${movement.account_name}`
                 : '—'
+            }
+          />
+          <Row
+            label="Контрагент"
+            value={
+              movement.counterparty_id && movement.counterparty_name ? (
+                <button
+                  type="button"
+                  onClick={() => void showCounterparty(movement.counterparty_id!)}
+                  className="text-brand-dark underline-offset-2 hover:underline"
+                >
+                  {movement.counterparty_name}
+                </button>
+              ) : (
+                '—'
+              )
             }
           />
           <Row label="Тип источника" value={SOURCE_KIND_LABEL[movement.source_kind]} />
@@ -247,7 +264,7 @@ export function MovementDetailDrawer({
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-muted">{label}</div>
