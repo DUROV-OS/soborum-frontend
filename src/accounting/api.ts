@@ -1,6 +1,9 @@
 import { FileAsset } from '@/clients/types'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
+  BankAccount,
+  Counterparty,
+  CounterpartyKind,
   EmployeeKpiPeriod,
   EmployeeSalaryOverview,
   MoneyAssessment,
@@ -10,6 +13,8 @@ import {
   MoneyMovementStatus,
   MoneySourceKind,
   MoneySubkind,
+  MoneySummary,
+  Organization,
   PaymentImportResult,
   SupplierOrder,
   SupplierOrderItem,
@@ -26,7 +31,10 @@ export interface MoneyMovementFilters {
   client_id?: number
   employee_id?: number
   supply_id?: number
+  counterparty_id?: number
   initiator_id?: number
+  account_id?: number
+  organization_id?: number
   amount_min?: number
   amount_max?: number
   tax_min?: number
@@ -55,6 +63,9 @@ export function getMovement(id: number): Promise<MoneyMovement> {
 export interface MoneyMovementCreateInput {
   subkind: MoneySubkind
   amount: number
+  /** Счёт обязателен: бэк отклоняет проводку без него (0081-a). */
+  account_id: number
+  counterparty_id?: number
   tax?: number
   currency?: string
   assessment?: MoneyAssessment
@@ -128,16 +139,80 @@ export function getEmployeeKpiHistory(employeeId: number): Promise<EmployeeKpiPe
   })
 }
 
-// --- Импорт платежей таблицей (задача 0011-k) ---
 
-/** POST /api/accounting/money-movements/import (multipart) */
-export function importPayments(file: File): Promise<PaymentImportResult> {
+// --- Организации, счета и сводка (задача 0081-a) ---
+
+/** GET /api/accounting/organizations — юрлица со вложенными счетами. */
+export function listOrganizations(): Promise<Organization[]> {
+  return apiRequest<Organization[]>({ section: SECTION, path: '/organizations' })
+}
+
+/** GET /api/accounting/accounts */
+export function listAccounts(organizationId?: number): Promise<BankAccount[]> {
+  return apiRequest<BankAccount[]>({
+    section: SECTION,
+    path: '/accounts',
+    query: organizationId ? { organization_id: organizationId } : {},
+  })
+}
+
+export interface MoneySummaryQuery {
+  organization_id?: number
+  account_id?: number
+  date_from?: string
+  date_to?: string
+}
+
+/** GET /api/accounting/money-summary — приход/расход/сальдо по счетам и итогом. */
+export function getMoneySummary(query: MoneySummaryQuery = {}): Promise<MoneySummary> {
+  return apiRequest<MoneySummary>({ section: SECTION, path: '/money-summary', query: { ...query } })
+}
+
+// --- Единый справочник контрагентов (задача 0081-c) ---
+
+/** GET /api/accounting/counterparties */
+export function listCounterparties(params: {
+  query?: string
+  kind?: CounterpartyKind
+  include_inactive?: boolean
+} = {}): Promise<Counterparty[]> {
+  return apiRequest<Counterparty[]>({ section: SECTION, path: '/counterparties', query: { ...params } })
+}
+
+/** GET /api/accounting/counterparties/:id — запись плюс суммы по её платежам. */
+export function getCounterparty(id: number): Promise<Counterparty> {
+  return apiRequest<Counterparty>({ section: SECTION, path: `/counterparties/${id}` })
+}
+
+export interface CounterpartyCreateInput {
+  name: string
+  inn?: string
+  kind?: CounterpartyKind
+  comment?: string
+}
+
+/** POST /api/accounting/counterparties */
+export function createCounterparty(input: CounterpartyCreateInput): Promise<Counterparty> {
+  return apiRequest<Counterparty>({ section: SECTION, path: '/counterparties', method: 'POST', body: input })
+}
+
+/** GET /api/accounting/counterparties/:id/payments — история, новые сверху. */
+export function listCounterpartyPayments(id: number): Promise<MoneyMovement[]> {
+  return apiRequest<MoneyMovement[]>({ section: SECTION, path: `/counterparties/${id}/payments` })
+}
+
+
+// --- Импорт выписки из банк-клиента (задачи 0011-k, 0081-e) ---
+
+/** POST /api/accounting/money-movements/import (multipart) — на конкретный счёт. */
+export function importStatement(file: File, accountId: number): Promise<PaymentImportResult> {
   const form = new FormData()
   form.append('file', file)
   return apiRequest<PaymentImportResult>({
     section: SECTION,
     path: '/money-movements/import',
     method: 'POST',
+    query: { account_id: accountId },
     form,
   })
 }
@@ -167,7 +242,7 @@ export function createImportBackfillTask(
 
 /** GET /api/accounting/money-movements/import/template */
 export function downloadImportTemplate(): Promise<void> {
-  return downloadFile(SECTION, '/money-movements/import/template', 'shablon_platezhey.xlsx')
+  return downloadFile(SECTION, '/money-movements/import/template', 'shablon_vypiski.xlsx')
 }
 
 // --- Заказы у поставщика (задача 0011-d, UI — 0011-f) ---

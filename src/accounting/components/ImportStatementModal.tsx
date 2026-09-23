@@ -4,6 +4,7 @@ import { CheckCircle2, Download, Sparkles, Upload } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Modal } from '@/shared/ui/Modal'
+import { Field, Select } from '@/shared/ui/Field'
 import { useAccountingStore } from '../store'
 import { IMPORT_FIELD_LABEL, PaymentColumnMapping, PaymentImportResult } from '../types'
 
@@ -14,32 +15,49 @@ const MAPPED_FIELDS: (keyof PaymentColumnMapping)[] = [
   'direction_col',
   'doc_date',
   'counterparty',
+  'counterparty_inn',
   'tax',
   'external_number',
   'subkind',
   'payment_purpose',
 ]
 
-export function ImportPaymentsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const importPayments = useAccountingStore((s) => s.importPayments)
+export function ImportStatementModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const importStatement = useAccountingStore((s) => s.importStatement)
   const downloadImportTemplate = useAccountingStore((s) => s.downloadImportTemplate)
+  const organizations = useAccountingStore((s) => s.organizations)
+  const selectedAccountId = useAccountingStore((s) => s.selectedAccountId)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Счёт выписки: по умолчанию тот, на чьей вкладке открыт раздел.
+  const [accountId, setAccountId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PaymentImportResult | null>(null)
+
+  const accountOptions = organizations.flatMap((org) =>
+    org.accounts
+      .filter((a) => a.is_active)
+      .map((a) => ({ id: a.id, label: `${org.short_name} — ${a.name}` })),
+  )
+  const targetAccountId = accountId ?? selectedAccountId
 
   function close() {
     setResult(null)
     setError(null)
     setBusy(false)
+    setAccountId(null)
     onClose()
   }
 
   async function handleFile(file: File) {
+    if (targetAccountId === null) {
+      setError('Выберите счёт, на который грузится выписка')
+      return
+    }
     setBusy(true)
     setError(null)
     setResult(null)
-    const res = await importPayments(file)
+    const res = await importStatement(file, targetAccountId)
     setBusy(false)
     if (res.ok && res.result) setResult(res.result)
     else setError(res.reason ?? 'Не удалось импортировать файл')
@@ -49,7 +67,7 @@ export function ImportPaymentsModal({ open, onClose }: { open: boolean; onClose:
     <Modal
       open={open}
       onClose={close}
-      title="Импорт платежей"
+      title="Импорт выписки"
       width="max-w-xl"
       footer={
         result ? <Button onClick={close}>Готово</Button> : <Button variant="ghost" onClick={close}>Закрыть</Button>
@@ -70,13 +88,27 @@ export function ImportPaymentsModal({ open, onClose }: { open: boolean; onClose:
       {!result && (
         <div className="flex flex-col gap-3">
           <p className="text-[13px] text-muted">
-            Таблица <span className="text-ink">.xlsx</span> или <span className="text-ink">.csv</span>: первая
-            строка — заголовки. ИИ сам определит, где сумма, дата, контрагент, НДС и номер документа. Каждая
-            строка становится проводкой в статусе «черновик».
+            Выгрузка из банк-клиента: <span className="text-ink">.xlsx</span> или{' '}
+            <span className="text-ink">.csv</span>, первая строка — заголовки. ИИ сам определит, где сумма,
+            дата, контрагент, НДС и номер документа. Каждая строка становится проводкой в статусе
+            «черновик» на выбранном счёте; строки, загруженные на этот счёт раньше, пропускаются.
           </p>
+          <Field label="Счёт" required hint="Все проводки выписки лягут на него.">
+            <Select
+              value={targetAccountId ?? ''}
+              onChange={(e) => setAccountId(e.target.value === '' ? null : Number(e.target.value))}
+            >
+              <option value="">— выберите счёт —</option>
+              {accountOptions.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || targetAccountId === null}
             onClick={() => inputRef.current?.click()}
             className="flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-border px-4 py-8 text-[13px] text-muted hover:border-brand/40 hover:text-brand disabled:opacity-50"
           >
@@ -135,10 +167,24 @@ function ImportReport({ result, onDone }: { result: PaymentImportResult; onDone:
         <CheckCircle2 size={16} className="text-success" />
         <span className="text-ink">Импортировано: {result.imported}</span>
         {result.skipped > 0 && <span className="text-muted">· пропущено: {result.skipped}</span>}
+        {result.duplicates > 0 && (
+          <span className="text-muted">· дублей: {result.duplicates}</span>
+        )}
         <Chip tone={result.ai_used ? 'ai' : 'neutral'}>
           {result.ai_used ? 'колонки разметил ИИ' : 'разметка по словарю'}
         </Chip>
       </div>
+      {result.account_label && (
+        <p className="text-[12px] text-muted">
+          Счёт: <span className="text-ink">{result.account_label}</span>
+        </p>
+      )}
+      {(result.counterparties_created > 0 || result.counterparties_matched > 0) && (
+        <p className="text-[12px] text-muted">
+          Контрагенты: сопоставлено {result.counterparties_matched}, заведено новых{' '}
+          {result.counterparties_created}
+        </p>
+      )}
       {result.note && <p className="text-[12px] text-muted">{result.note}</p>}
 
       <div>
@@ -159,7 +205,7 @@ function ImportReport({ result, onDone }: { result: PaymentImportResult; onDone:
             <div>Вид не задан у {result.preliminary_subkind} проводок — поставлен предварительный.</div>
           )}
           {result.unmatched_source > 0 && (
-            <div>Контрагент не сопоставлен клиенту у {result.unmatched_source} проводок — без источника.</div>
+            <div>Контрагент не указан в файле у {result.unmatched_source} проводок.</div>
           )}
         </div>
       )}

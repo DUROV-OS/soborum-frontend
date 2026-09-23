@@ -21,6 +21,85 @@ export type MoneyMovementStatus = 'draft' | 'approved' | 'posted' | 'cancelled'
 
 export type MoneySourceKind = 'none' | 'client' | 'employee' | 'supply'
 
+// --- Организации и банковские счета (задача 0081-a) ---
+
+/** Зеркалит app/accounting/schemas.py::BankAccountOut. */
+export interface BankAccount {
+  id: number
+  organization_id: number
+  name: string
+  bank_name: string | null
+  account_number: string | null
+  currency: string
+  is_default: boolean
+  is_active: boolean
+}
+
+/** Зеркалит OrganizationOut. Юрлицо компании — вкладка раздела. */
+export interface Organization {
+  id: number
+  name: string
+  short_name: string
+  inn: string | null
+  is_active: boolean
+  accounts: BankAccount[]
+}
+
+export interface MoneyTotals {
+  income: number
+  expense: number
+  /** income − expense; отрицательное — расход обогнал приход. */
+  balance: number
+  count: number
+}
+
+export interface AccountSummary extends MoneyTotals {
+  account_id: number
+  name: string
+}
+
+export interface OrganizationSummary extends MoneyTotals {
+  organization_id: number
+  name: string
+  short_name: string
+  accounts: AccountSummary[]
+}
+
+/** GET /api/accounting/money-summary — считает только проведённые проводки. */
+export interface MoneySummary {
+  total: MoneyTotals
+  organizations: OrganizationSummary[]
+}
+
+// --- Единый справочник контрагентов (задача 0081-c) ---
+
+export type CounterpartyKind = 'client' | 'supplier' | 'employee' | 'government' | 'other'
+
+export const COUNTERPARTY_KIND_LABEL: Record<CounterpartyKind, string> = {
+  client: 'Клиент',
+  supplier: 'Поставщик',
+  employee: 'Сотрудник',
+  government: 'Госорган',
+  other: 'Прочий',
+}
+
+/** Зеркалит app/accounting/schemas.py::CounterpartyOut. Суммы — только по
+ * проведённым платежам; черновик деньгами ещё не является. */
+export interface Counterparty {
+  id: number
+  name: string
+  inn: string | null
+  kind: CounterpartyKind
+  client_id: number | null
+  supplier_id: number | null
+  comment: string | null
+  is_active: boolean
+  total_income: number
+  total_expense: number
+  payments_count: number
+  last_payment_at: string | null
+}
+
 export interface MoneyMovement {
   id: number
   direction: MoneyDirection
@@ -32,12 +111,25 @@ export interface MoneyMovement {
   affects_profit: boolean
   initiator_id: number
   initiator_name: string | null
+  /** Счёт, по которому прошёл платёж (0081-a). null — только у проводок,
+   * заведённых до появления счетов и не попавших под миграцию. */
+  account_id: number | null
+  account_name: string | null
+  organization_id: number | null
+  organization_name: string | null
   status: MoneyMovementStatus
   posted_at: string | null
+  /** Дата платёжного документа (приходит с импортом выписки). История
+   * контрагента сортируется по ней, а не по дате заведения записи. */
+  doc_date: string | null
   cancel_reason: string | null
   payment_purpose: string | null
   comment: string | null
   external_number: string | null
+  /** Контрагент из единого справочника (0081-c). Отдельно от source_kind:
+   * та привязка есть не у каждого платежа, эта — у любого. */
+  counterparty_id: number | null
+  counterparty_name: string | null
   source_kind: MoneySourceKind
   client_id: number | null
   employee_id: number | null
@@ -191,6 +283,7 @@ export interface PaymentColumnMapping {
   direction_col: string | null
   doc_date: string | null
   counterparty: string | null
+  counterparty_inn: string | null
   tax: string | null
   external_number: string | null
   subkind: string | null
@@ -204,7 +297,14 @@ export interface PaymentImportResult {
   note: string
   column_mapping: PaymentColumnMapping
   missing_fields: string[]
+  /** Строк, где колонка контрагента оказалась пустой. */
   unmatched_source: number
+  /** Строк, совпавших с уже загруженной проводкой этого счёта (0081-e). */
+  duplicates: number
+  counterparties_created: number
+  counterparties_matched: number
+  account_id: number | null
+  account_label: string | null
   preliminary_subkind: number
   created_ids: number[]
   backfill_suggested: boolean
@@ -217,9 +317,10 @@ export const IMPORT_FIELD_LABEL: Record<string, string> = {
   direction_col: 'Тип операции',
   doc_date: 'Дата документа',
   counterparty: 'Контрагент',
+  counterparty_inn: 'ИНН контрагента',
   tax: 'НДС',
   external_number: 'Номер документа',
   subkind: 'Вид',
   payment_purpose: 'Назначение платежа',
-  source: 'Источник (контрагент)',
+  source: 'Контрагент',
 }
