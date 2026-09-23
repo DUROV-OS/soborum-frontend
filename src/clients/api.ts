@@ -1,11 +1,24 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Client, ClientChatLink, ClientChatState, ClientCreateInput, ClientNote, OrderType, PaymentPlan } from './types'
+import {
+  Client,
+  ClientChatLink,
+  ClientChatState,
+  ClientCreateInput,
+  ClientNote,
+  ClientSourceInput,
+  ClientTask,
+  ClientTaskInput,
+  OrderType,
+  PaymentPlan,
+} from './types'
 
 const SECTION = 'clients'
 
-/** GET /api/clients/ */
-export function listClients(): Promise<Client[]> {
-  return apiRequest<Client[]>({ section: SECTION, path: '/' })
+/** GET /api/clients/ — `search` ищет по фамилии/имени и телефону сразу по всем
+ * стадиям (0079-f). */
+export function listClients(search?: string): Promise<Client[]> {
+  const path = search ? `/?search=${encodeURIComponent(search)}` : '/'
+  return apiRequest<Client[]>({ section: SECTION, path })
 }
 
 /** GET /api/clients/:id */
@@ -16,6 +29,48 @@ export function getClient(id: number): Promise<Client> {
 /** POST /api/clients/ */
 export function createClient(input: ClientCreateInput): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: '/', method: 'POST', body: input })
+}
+
+/** PATCH /api/clients/:id/source — кто привёл клиента (0079-c). В отличие от
+ * ФИО/телефона/почты источник правится и после создания карточки. */
+export function updateSource(id: number, patch: ClientSourceInput): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/source`, method: 'PATCH', body: patch })
+}
+
+/** POST /api/clients/:id/tasks — завести задачу по клиенту (0079-d). */
+export function createClientTask(id: number, input: ClientTaskInput): Promise<ClientTask> {
+  return apiRequest<ClientTask>({ section: SECTION, path: `/${id}/tasks`, method: 'POST', body: input })
+}
+
+/** POST /api/clients/:id/tasks/:taskId/deadline — перенести срок с причиной. */
+export function shiftClientTaskDeadline(
+  id: number,
+  taskId: number,
+  deadline: string,
+  reason: string,
+): Promise<ClientTask> {
+  return apiRequest<ClientTask>({
+    section: SECTION,
+    path: `/${id}/tasks/${taskId}/deadline`,
+    method: 'POST',
+    body: { deadline, reason },
+  })
+}
+
+/** POST /api/clients/:id/tasks/:taskId/close — закрыть с решением и, по желанию,
+ * сразу завести вытекающую задачу. */
+export function closeClientTask(
+  id: number,
+  taskId: number,
+  resolution: string,
+  nextTask?: ClientTaskInput,
+): Promise<ClientTask> {
+  return apiRequest<ClientTask>({
+    section: SECTION,
+    path: `/${id}/tasks/${taskId}/close`,
+    method: 'POST',
+    body: { resolution, next_task: nextTask ?? null },
+  })
 }
 
 export interface DocumentsUpdateInput {
