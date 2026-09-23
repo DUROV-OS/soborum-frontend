@@ -84,7 +84,8 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
       }
     >
       <p className="mb-4 text-[13px] text-muted">
-        После создания базовые данные нельзя изменить.
+        После создания базовые данные нельзя изменить. Исключение — источник клиента: если агентство
+        выяснится позже, его можно указать прямо в карточке.
       </p>
       <datalist id={MESSENGER_LIST_ID}>
         {MESSENGER_SUGGESTIONS.map((m) => (
