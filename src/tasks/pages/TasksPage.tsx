@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { FileText, Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -244,6 +244,12 @@ export function TasksPage() {
             <div className="text-[13px] font-medium text-ink">{task.title}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
+              {task.reports.length > 0 && (
+                <span className="flex items-center gap-1 text-[11px] text-muted" title="Исполнитель приложил отчёт">
+                  <FileText size={11} />
+                  отчёт
+                </span>
+              )}
               {task.deadline && (
                 <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
               )}
