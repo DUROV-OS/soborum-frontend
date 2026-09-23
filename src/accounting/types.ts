@@ -21,6 +21,56 @@ export type MoneyMovementStatus = 'draft' | 'approved' | 'posted' | 'cancelled'
 
 export type MoneySourceKind = 'none' | 'client' | 'employee' | 'supply'
 
+// --- Организации и банковские счета (задача 0081-a) ---
+
+/** Зеркалит app/accounting/schemas.py::BankAccountOut. */
+export interface BankAccount {
+  id: number
+  organization_id: number
+  name: string
+  bank_name: string | null
+  account_number: string | null
+  currency: string
+  is_default: boolean
+  is_active: boolean
+}
+
+/** Зеркалит OrganizationOut. Юрлицо компании — вкладка раздела. */
+export interface Organization {
+  id: number
+  name: string
+  short_name: string
+  inn: string | null
+  is_active: boolean
+  accounts: BankAccount[]
+}
+
+export interface MoneyTotals {
+  income: number
+  expense: number
+  /** income − expense; отрицательное — расход обогнал приход. */
+  balance: number
+  count: number
+}
+
+export interface AccountSummary extends MoneyTotals {
+  account_id: number
+  name: string
+}
+
+export interface OrganizationSummary extends MoneyTotals {
+  organization_id: number
+  name: string
+  short_name: string
+  accounts: AccountSummary[]
+}
+
+/** GET /api/accounting/money-summary — считает только проведённые проводки. */
+export interface MoneySummary {
+  total: MoneyTotals
+  organizations: OrganizationSummary[]
+}
+
 export interface MoneyMovement {
   id: number
   direction: MoneyDirection
@@ -32,6 +82,12 @@ export interface MoneyMovement {
   affects_profit: boolean
   initiator_id: number
   initiator_name: string | null
+  /** Счёт, по которому прошёл платёж (0081-a). null — только у проводок,
+   * заведённых до появления счетов и не попавших под миграцию. */
+  account_id: number | null
+  account_name: string | null
+  organization_id: number | null
+  organization_name: string | null
   status: MoneyMovementStatus
   posted_at: string | null
   cancel_reason: string | null

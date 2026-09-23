@@ -1,6 +1,7 @@
 import { FileAsset } from '@/clients/types'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
+  BankAccount,
   EmployeeKpiPeriod,
   EmployeeSalaryOverview,
   MoneyAssessment,
@@ -10,6 +11,8 @@ import {
   MoneyMovementStatus,
   MoneySourceKind,
   MoneySubkind,
+  MoneySummary,
+  Organization,
   PaymentImportResult,
   SupplierOrder,
   SupplierOrderItem,
@@ -26,6 +29,8 @@ export interface MoneyMovementFilters {
   employee_id?: number
   supply_id?: number
   initiator_id?: number
+  account_id?: number
+  organization_id?: number
   amount_min?: number
   amount_max?: number
   tax_min?: number
@@ -54,6 +59,8 @@ export function getMovement(id: number): Promise<MoneyMovement> {
 export interface MoneyMovementCreateInput {
   subkind: MoneySubkind
   amount: number
+  /** Счёт обязателен: бэк отклоняет проводку без него (0081-a). */
+  account_id: number
   tax?: number
   currency?: string
   assessment?: MoneyAssessment
@@ -126,6 +133,36 @@ export function getEmployeeKpiHistory(employeeId: number): Promise<EmployeeKpiPe
     path: `/employee-kpi-history/${employeeId}`,
   })
 }
+
+
+// --- Организации, счета и сводка (задача 0081-a) ---
+
+/** GET /api/accounting/organizations — юрлица со вложенными счетами. */
+export function listOrganizations(): Promise<Organization[]> {
+  return apiRequest<Organization[]>({ section: SECTION, path: '/organizations' })
+}
+
+/** GET /api/accounting/accounts */
+export function listAccounts(organizationId?: number): Promise<BankAccount[]> {
+  return apiRequest<BankAccount[]>({
+    section: SECTION,
+    path: '/accounts',
+    query: organizationId ? { organization_id: organizationId } : {},
+  })
+}
+
+export interface MoneySummaryQuery {
+  organization_id?: number
+  account_id?: number
+  date_from?: string
+  date_to?: string
+}
+
+/** GET /api/accounting/money-summary — приход/расход/сальдо по счетам и итогом. */
+export function getMoneySummary(query: MoneySummaryQuery = {}): Promise<MoneySummary> {
+  return apiRequest<MoneySummary>({ section: SECTION, path: '/money-summary', query: { ...query } })
+}
+
 
 // --- Импорт платежей таблицей (задача 0011-k) ---
 
