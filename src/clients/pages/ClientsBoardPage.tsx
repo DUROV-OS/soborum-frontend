@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Building2, CalendarClock, Plus } from 'lucide-react'
+import { AlertTriangle, Building2, CalendarClock, Plus, Search, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
+import { Input } from '@/shared/ui/Field'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { KanbanBoard } from '@/shared/ui/KanbanBoard'
 import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
@@ -56,6 +57,16 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     ),
   },
   {
+    title: 'Поиск клиента',
+    body: (
+      <p>
+        Строка поиска вверху находит клиента по фамилии, имени или номеру телефона — сразу по всем стадиям и
+        без ограничения периодом. Телефон можно вводить в любом виде: «+7 900 …», «8 900 …» или последние
+        цифры.
+      </p>
+    ),
+  },
+  {
     title: 'Фильтр по периоду',
     body: (
       <p>
@@ -72,6 +83,10 @@ export function ClientsBoardPage() {
   const load = useClientsStore((s) => s.load)
   const lastAdvancedId = useClientsStore((s) => s.lastAdvancedId)
   const clearLastAdvanced = useClientsStore((s) => s.clearLastAdvanced)
+  const searchResults = useClientsStore((s) => s.searchResults)
+  const searching = useClientsStore((s) => s.searching)
+  const runSearch = useClientsStore((s) => s.search)
+  const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   const [dateFilter, setDateFilter] = useState<DateFilter>(DEFAULT_DATE_FILTER)
@@ -88,8 +103,17 @@ export function ClientsBoardPage() {
     if (advancedStage) clearLastAdvanced()
   }, [advancedStage, clearLastAdvanced])
 
+  // Поиск идёт по всем стадиям и без ограничения периодом — иначе «найти
+  // среди всех сразу» не работает: по умолчанию доска показывает только
+  // текущий месяц (0079-f).
+  useEffect(() => {
+    const timer = setTimeout(() => runSearch(query), 300)
+    return () => clearTimeout(timer)
+  }, [query, runSearch])
+
   const range = dateFilterRange(dateFilter)
-  const filtered = clients.filter((c) => matchesDateFilter(c.created_at, range))
+  const filtered =
+    searchResults ?? clients.filter((c) => matchesDateFilter(c.created_at, range))
 
   return (
     <div>
@@ -101,6 +125,26 @@ export function ClientsBoardPage() {
           <p className="mt-1 text-[13px] text-muted">Путь клиента от первого обращения до принятого дома</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start">
+          <div className="relative">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Фамилия или телефон"
+              aria-label="Поиск клиента по фамилии или телефону"
+              className="w-56 pl-8 pr-8"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Очистить поиск"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-pill p-1 text-muted hover:text-ink"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
           {canEdit && (
             <Button onClick={() => setCreating(true)}>
@@ -112,13 +156,19 @@ export function ClientsBoardPage() {
         </div>
       </div>
 
+      {searchResults !== null && (
+        <p className="mb-3 text-[12px] text-muted">
+          Поиск идёт по всем стадиям и не зависит от выбранного периода. Найдено: {searchResults.length}.
+        </p>
+      )}
+
       <KanbanBoard
         columns={CLIENT_STAGES}
         items={filtered}
         keyOf={(c) => String(c.id)}
         columnOf={(c) => c.stage}
         onCardClick={(c) => navigate(`/clients/${c.id}`)}
-        loading={loading}
+        loading={loading || searching}
         focusKey={advancedStage}
         renderCard={(client) => <ClientCard client={client} />}
       />
