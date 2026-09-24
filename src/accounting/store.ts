@@ -125,7 +125,10 @@ interface AccountingState {
     reason?: string,
   ) => Promise<ActionResult>
   remove: (id: number) => Promise<ActionResult>
-  importPayments: (file: File) => Promise<ActionResult & { result?: PaymentImportResult }>
+  importStatement: (
+    file: File,
+    accountId: number,
+  ) => Promise<ActionResult & { result?: PaymentImportResult }>
   aiFillSubkind: (ids: number[]) => Promise<ActionResult & { updated?: number; skipped?: number }>
   createImportBackfillTask: (
     ids: number[],
@@ -413,10 +416,12 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
     }
   },
 
-  importPayments: async (file) => {
+  importStatement: async (file, accountId) => {
     try {
-      const result = await accountingApi.importPayments(file)
+      const result = await accountingApi.importStatement(file, accountId)
       await get().load()
+      // Импорт заводит новых контрагентов — справочник перечитываем.
+      void get().loadCounterparties()
       return { ok: true, result }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
