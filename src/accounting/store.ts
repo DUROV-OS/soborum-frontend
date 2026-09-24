@@ -6,11 +6,13 @@ import * as accountingApi from './api'
 import { MoneyMovementCreateInput, MoneyMovementUpdateInput } from './api'
 import {
   BankAccount,
+  Counterparty,
   EmployeeSalaryOverview,
   MoneyDirection,
   MoneyMovement,
   MoneyMovementEnums,
   MoneyMovementStatus,
+  CounterpartyKind,
   MoneySourceKind,
   MoneySubkind,
   MoneySummary,
@@ -40,6 +42,8 @@ export interface MovementFilters {
   custom_date_from: string
   custom_date_to: string
   initiator_id: number | 'all'
+  /** Фильтр реестра по контрагенту (0081-d). */
+  counterparty_id: number | 'all'
   /** `range` — оба поля границы; `gt`/`lt`/`eq` — используется только `_from` как значение сравнения. */
   amount_mode: AmountFilterMode
   amount_from: string
@@ -58,6 +62,7 @@ const DEFAULT_FILTERS: MovementFilters = {
   custom_date_from: '',
   custom_date_to: '',
   initiator_id: 'all',
+  counterparty_id: 'all',
   amount_mode: 'all',
   amount_from: '',
   amount_to: '',
@@ -78,6 +83,29 @@ interface AccountingState {
   selectOrganization: (organizationId: number) => void
   selectAccount: (accountId: number) => void
   loadSummary: () => Promise<void>
+  // --- Справочник контрагентов (0081-d) ---
+  counterparties: Counterparty[]
+  counterpartiesLoading: boolean
+  counterpartyQuery: string
+  counterpartyKind: CounterpartyKind | 'all'
+  loadCounterparties: () => Promise<void>
+  setCounterpartyFilters: (patch: {
+    query?: string
+    kind?: CounterpartyKind | 'all'
+  }) => void
+  createCounterparty: (
+    input: accountingApi.CounterpartyCreateInput,
+  ) => Promise<ActionResult & { counterparty?: Counterparty }>
+  /** Карточка: сам контрагент и его платежи; null — карточка закрыта. */
+  openCounterpartyId: number | null
+  openCounterparty: Counterparty | null
+  counterpartyPayments: MoneyMovement[]
+  counterpartyCardLoading: boolean
+  showCounterparty: (id: number | null) => Promise<void>
+  /** Проводка, открытая не из текущего реестра (например из карточки
+   * контрагента — там платежи всех счетов). null — такой нет. */
+  externalMovement: MoneyMovement | null
+  openMovementById: (id: number) => Promise<void>
 
   movements: MoneyMovement[]
   enums: MoneyMovementEnums | null
@@ -158,6 +186,7 @@ function toQuery(filters: MovementFilters): accountingApi.MoneyMovementFilters {
     status: filters.status === 'all' ? undefined : filters.status,
     source_kind: filters.source_kind === 'all' ? undefined : filters.source_kind,
     initiator_id: filters.initiator_id === 'all' ? undefined : filters.initiator_id,
+    counterparty_id: filters.counterparty_id === 'all' ? undefined : filters.counterparty_id,
     amount_min: amountBounds.min,
     amount_max: amountBounds.max,
     tax_min: taxBounds.min,
@@ -182,6 +211,81 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
   selectedAccountId: null,
   summary: null,
   summaryLoading: true,
+  counterparties: [],
+  counterpartiesLoading: true,
+  counterpartyQuery: '',
+  counterpartyKind: 'all',
+  openCounterpartyId: null,
+  openCounterparty: null,
+  counterpartyPayments: [],
+  counterpartyCardLoading: false,
+  externalMovement: null,
+
+  openMovementById: async (id) => {
+    const known = get().movements.find((m) => m.id === id)
+    if (known) {
+      set({ externalMovement: null })
+      return
+    }
+    try {
+      set({ externalMovement: await accountingApi.getMovement(id) })
+    } catch {
+      set({ externalMovement: null })
+    }
+  },
+
+  loadCounterparties: async () => {
+    set({ counterpartiesLoading: true })
+    try {
+      const counterparties = await accountingApi.listCounterparties({
+        query: get().counterpartyQuery.trim() || undefined,
+        kind: get().counterpartyKind === 'all' ? undefined : (get().counterpartyKind as CounterpartyKind),
+      })
+      set({ counterparties, counterpartiesLoading: false })
+    } catch {
+      set({ counterparties: [], counterpartiesLoading: false })
+    }
+  },
+
+  setCounterpartyFilters: (patch) => {
+    set({
+      counterpartyQuery: patch.query ?? get().counterpartyQuery,
+      counterpartyKind: patch.kind ?? get().counterpartyKind,
+    })
+    get().loadCounterparties()
+  },
+
+  createCounterparty: async (input) => {
+    try {
+      const counterparty = await accountingApi.createCounterparty(input)
+      // Свежесозданный сразу попадает в список подстановки, без перезагрузки.
+      set({ counterparties: [counterparty, ...get().counterparties] })
+      return { ok: true, counterparty }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  showCounterparty: async (id) => {
+    if (id === null) {
+      set({ openCounterpartyId: null, openCounterparty: null, counterpartyPayments: [] })
+      return
+    }
+    set({ openCounterpartyId: id, counterpartyCardLoading: true })
+    try {
+      const [counterparty, payments] = await Promise.all([
+        accountingApi.getCounterparty(id),
+        accountingApi.listCounterpartyPayments(id),
+      ])
+      set({
+        openCounterparty: counterparty,
+        counterpartyPayments: payments,
+        counterpartyCardLoading: false,
+      })
+    } catch {
+      set({ openCounterparty: null, counterpartyPayments: [], counterpartyCardLoading: false })
+    }
+  },
 
   movements: [],
   enums: null,

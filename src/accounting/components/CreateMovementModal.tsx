@@ -4,6 +4,7 @@ import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useAccountingStore } from '../store'
+import { CounterpartyPicker } from './CounterpartyPicker'
 import { MovementDocumentsField } from './MovementDocumentsField'
 import {
   ASSESSMENT_LABEL,
@@ -17,6 +18,7 @@ import {
 const EMPTY = {
   subkind: 'sale_income' as MoneySubkind,
   account_id: '' as number | '',
+  counterparty_id: null as number | null,
   amount: '',
   tax: '',
   assessment: 'actual' as MoneyAssessment,
@@ -80,6 +82,7 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
       subkind: form.subkind,
       amount,
       account_id: accountId,
+      counterparty_id: form.counterparty_id ?? undefined,
       tax: form.tax === '' ? undefined : Number(form.tax),
       assessment: form.assessment,
       affects_profit: form.affects_profit,
@@ -125,6 +128,13 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
               </option>
             ))}
           </Select>
+        </Field>
+
+        <Field label="Контрагент" hint="Необязательно. Нужен, чтобы видеть историю платежей по нему.">
+          <CounterpartyPicker
+            value={form.counterparty_id}
+            onChange={(counterparty_id) => setForm({ ...form, counterparty_id })}
+          />
         </Field>
 
         <Field label="Вид проводки" required hint="Зарплата и оплата поставки заводятся из своих разделов.">

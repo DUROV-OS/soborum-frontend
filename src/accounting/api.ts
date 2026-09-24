@@ -2,6 +2,8 @@ import { FileAsset } from '@/clients/types'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
   BankAccount,
+  Counterparty,
+  CounterpartyKind,
   EmployeeKpiPeriod,
   EmployeeSalaryOverview,
   MoneyAssessment,
@@ -28,6 +30,7 @@ export interface MoneyMovementFilters {
   client_id?: number
   employee_id?: number
   supply_id?: number
+  counterparty_id?: number
   initiator_id?: number
   account_id?: number
   organization_id?: number
@@ -61,6 +64,7 @@ export interface MoneyMovementCreateInput {
   amount: number
   /** Счёт обязателен: бэк отклоняет проводку без него (0081-a). */
   account_id: number
+  counterparty_id?: number
   tax?: number
   currency?: string
   assessment?: MoneyAssessment
@@ -161,6 +165,39 @@ export interface MoneySummaryQuery {
 /** GET /api/accounting/money-summary — приход/расход/сальдо по счетам и итогом. */
 export function getMoneySummary(query: MoneySummaryQuery = {}): Promise<MoneySummary> {
   return apiRequest<MoneySummary>({ section: SECTION, path: '/money-summary', query: { ...query } })
+}
+
+// --- Единый справочник контрагентов (задача 0081-c) ---
+
+/** GET /api/accounting/counterparties */
+export function listCounterparties(params: {
+  query?: string
+  kind?: CounterpartyKind
+  include_inactive?: boolean
+} = {}): Promise<Counterparty[]> {
+  return apiRequest<Counterparty[]>({ section: SECTION, path: '/counterparties', query: { ...params } })
+}
+
+/** GET /api/accounting/counterparties/:id — запись плюс суммы по её платежам. */
+export function getCounterparty(id: number): Promise<Counterparty> {
+  return apiRequest<Counterparty>({ section: SECTION, path: `/counterparties/${id}` })
+}
+
+export interface CounterpartyCreateInput {
+  name: string
+  inn?: string
+  kind?: CounterpartyKind
+  comment?: string
+}
+
+/** POST /api/accounting/counterparties */
+export function createCounterparty(input: CounterpartyCreateInput): Promise<Counterparty> {
+  return apiRequest<Counterparty>({ section: SECTION, path: '/counterparties', method: 'POST', body: input })
+}
+
+/** GET /api/accounting/counterparties/:id/payments — история, новые сверху. */
+export function listCounterpartyPayments(id: number): Promise<MoneyMovement[]> {
+  return apiRequest<MoneyMovement[]>({ section: SECTION, path: `/counterparties/${id}/payments` })
 }
 
 
