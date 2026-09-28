@@ -9,6 +9,7 @@ import { usePartnersStore } from '../store'
 import { categoryLabel } from '../types'
 import { PartnerFormModal } from '../components/PartnerFormModal'
 import { PartnerNotesPanel } from '../components/PartnerNotesPanel'
+import { ReferredClientsPanel } from '../components/ReferredClientsPanel'
 
 export function PartnerDetailPage() {
   const { id = '' } = useParams()
@@ -107,6 +108,8 @@ export function PartnerDetailPage() {
             <p className="whitespace-pre-line text-[13px] text-ink">{partner.comment}</p>
           </Section>
         )}
+
+        <ReferredClientsPanel partnerId={partner.id} />
 
         <PartnerNotesPanel partner={partner} />
       </div>
