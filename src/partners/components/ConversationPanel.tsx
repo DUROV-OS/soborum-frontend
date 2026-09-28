@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Send } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Send, UserPlus } from 'lucide-react'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Section } from '@/clients/components/PanelPrimitives'
 import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
-import { getConversation, sendMessage } from '../conversationApi'
+import { ChannelInvite } from './ChannelInvite'
+import { createInvite, getConversation, sendMessage } from '../conversationApi'
 import {
   CHANNEL_LABELS,
   CHANNEL_ORDER,
   ChannelKind,
   ChannelStateInfo,
+  ChannelUnavailable,
   Conversation,
   ConversationMessage,
   ConversationOwner,
@@ -44,6 +46,10 @@ export function ConversationPanel({ owner, ownerId }: { owner: ConversationOwner
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  // «Пользователь не найден в Макс. Доступные каналы: …» — из 409 бэкенда.
+  const [unavailable, setUnavailable] = useState<(ChannelUnavailable & { channel: ChannelKind }) | null>(null)
+  const [invite, setInvite] = useState<{ channel: ChannelKind; link: string } | null>(null)
+  const [inviteError, setInviteError] = useState<string | null>(null)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
@@ -76,10 +82,33 @@ export function ConversationPanel({ owner, ownerId }: { owner: ConversationOwner
     if (result.ok) {
       setDraft('')
       setSendError(null)
+      setUnavailable(null)
+    } else if ('unavailable' in result) {
+      // Сообщение не ушло и в ленту не попало — черновик остаётся, чтобы
+      // отправить его в другой канал одной кнопкой.
+      setUnavailable({ ...result.unavailable, channel })
+      setSendError(null)
     } else {
-      setSendError('unavailable' in result ? result.unavailable.message : result.reason)
+      setSendError(result.reason)
     }
     refresh()
+  }
+
+  function switchTo(kind: ChannelKind) {
+    setChannel(kind)
+    setUnavailable(null)
+  }
+
+  async function handleInvite(kind: ChannelKind) {
+    setInviteError(null)
+    try {
+      const state = await createInvite(owner, ownerId, kind)
+      if (state.invite_link) setInvite({ channel: kind, link: state.invite_link })
+      else setInviteError(`Не удалось получить ссылку ${CHANNEL_LABELS[kind]} — мессенджер не ответил, попробуйте ещё раз`)
+      refresh()
+    } catch (e) {
+      setInviteError(e instanceof Error ? e.message : 'Не удалось создать приглашение')
+    }
   }
 
   const states = conversation
@@ -102,9 +131,22 @@ export function ConversationPanel({ owner, ownerId }: { owner: ConversationOwner
               >
                 <div className="font-medium text-ink">{CHANNEL_LABELS[state.channel]}</div>
                 <div className="text-muted">{channelStatusLabel(state)}</div>
+                {canEdit && state.configured && state.status !== 'CONNECTED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleInvite(state.channel)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[12px] text-brand hover:underline"
+                  >
+                    <UserPlus size={12} />
+                    {state.status === 'NONE' ? 'Пригласить' : 'Ссылка-приглашение'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
+
+          {invite && <ChannelInvite channel={invite.channel} link={invite.link} onClose={() => setInvite(null)} />}
+          {inviteError && <p className="mb-3 text-[12px] text-danger">{inviteError}</p>}
 
           <div ref={feedRef} className="mb-4 flex max-h-[420px] flex-col gap-2 overflow-y-auto">
             {conversation.messages.length === 0 ? (
@@ -146,6 +188,27 @@ export function ConversationPanel({ owner, ownerId }: { owner: ConversationOwner
                 </Button>
               </div>
               {sendError && <p className="mt-2 text-[12px] text-danger">{sendError}</p>}
+              {unavailable && (
+                <div className="mt-3 rounded-md border border-warning/60 bg-warning-bg/60 p-3 text-[13px]">
+                  <p className="flex items-start gap-1.5 text-ink">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-warning" />
+                    {unavailable.message}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {unavailable.available.map((kind) => (
+                      <Button key={kind} size="sm" variant="secondary" onClick={() => switchTo(kind)}>
+                        Писать в {CHANNEL_LABELS[kind]}
+                      </Button>
+                    ))}
+                    {states.find((s) => s.channel === unavailable.channel)?.configured && (
+                      <Button size="sm" variant="ghost" onClick={() => handleInvite(unavailable.channel)}>
+                        <UserPlus size={14} />
+                        Пригласить в {CHANNEL_LABELS[unavailable.channel]}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
