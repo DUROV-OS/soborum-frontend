@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Partner, PartnerInput, PartnerNote } from './types'
+import { Partner, PartnerInput, PartnerNote, ReferredClient } from './types'
 
 const SECTION = 'partners'
 
@@ -17,6 +17,11 @@ export function listCities(): Promise<string[]> {
 
 export function getPartner(id: number): Promise<Partner> {
   return apiRequest<Partner>({ section: SECTION, path: `/${id}` })
+}
+
+/** GET /api/partners/:id/clients — клиенты, которых привёл партнёр (0083-c). */
+export function listReferredClients(id: number): Promise<ReferredClient[]> {
+  return apiRequest<ReferredClient[]>({ section: SECTION, path: `/${id}/clients` })
 }
 
 export function createPartner(input: PartnerInput): Promise<Partner> {

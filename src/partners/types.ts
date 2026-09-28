@@ -13,6 +13,27 @@ export function categoryLabel(category: PartnerCategory): string {
   return PARTNER_CATEGORIES.find((c) => c.key === category)?.label ?? category
 }
 
+/** Партнёр в чужой выдаче — «Кто рекомендовал» у клиента (0083-c). */
+export interface PartnerBrief {
+  id: number
+  name: string
+  category: PartnerCategory
+  city: string
+  organization: string | null
+}
+
+export function partnerBriefLabel(p: PartnerBrief): string {
+  return `${p.name}, ${categoryLabel(p.category).toLocaleLowerCase('ru')}, ${p.city}`
+}
+
+/** Клиент, которого привёл партнёр (GET /api/partners/:id/clients). */
+export interface ReferredClient {
+  id: number
+  full_name: string
+  stage: string
+  created_at: string
+}
+
 export interface PartnerContact {
   messenger: string
   contact: string
