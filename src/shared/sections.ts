@@ -3,6 +3,7 @@ import {
   Boxes,
   Briefcase,
   Calculator,
+  Contact,
   ClipboardList,
   Factory,
   Handshake,
@@ -44,12 +45,16 @@ import {
  * отдельного гранта нет — пункт виден тем, у кого есть доступ к «Марине».
  * 'today' (в меню «Пульс») доступен каждому вошедшему сотруднику; сервер
  * отдаёт только показатели разрешённых ему разделов. AI-доступ не требуется.
+ * 'partners' — фронтовое: «База партнёров» (0083). На бэкенде это
+ * /api/partners под правом Module.CLIENTS — отдельного гранта нет, уровень
+ * доступа берётся из «Клиентов».
  * 'tasks_all' — псевдо-раздел: не открывает свою страницу и не появляется в
  * меню, это только флаг доступа к под-вкладке «Все задачи» внутри «Задачи»
  * (см. TasksPage) — назначается в матрице доступа наравне с разделами.
  */
 export type SectionId =
   | 'clients'
+  | 'partners'
   | 'production'
   | 'installation'
   | 'cycle'
@@ -86,6 +91,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
   { id: 'clients', label: 'Клиенты', path: '/clients', icon: Users },
+  { id: 'partners', label: 'База партнёров', path: '/partners', icon: Contact, notAssignable: true },
   { id: 'production', label: 'Производство', path: '/production', icon: Factory },
   { id: 'installation', label: 'Монтаж', path: '/montage', icon: Truck },
   { id: 'warehouse', label: 'Склад', path: '/warehouse', icon: Boxes },
@@ -112,6 +118,7 @@ export const SECTIONS: SectionMeta[] = [
 export const WORK_SECTION_IDS: SectionId[] = [
   'cycle',
   'clients',
+  'partners',
   'production',
   'warehouse',
   'installation',

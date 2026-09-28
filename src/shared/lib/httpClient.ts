@@ -18,22 +18,30 @@ export function getToken(): string | null {
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /** Разобранное JSON-тело ответа с ошибкой — для отказов с доп. полями рядом с
+   * `detail` (например `code`/`available` у «не найден в Макс», 0083-d). */
+  body?: Record<string, unknown>
+  constructor(status: number, message: string, body?: Record<string, unknown>) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
 async function extractErrorMessage(response: Response): Promise<string> {
+  return (await extractError(response)).message
+}
+
+async function extractError(response: Response): Promise<{ message: string; body?: Record<string, unknown> }> {
   try {
     const body = await response.json()
-    if (typeof body.detail === 'string') return body.detail
+    if (typeof body.detail === 'string') return { message: body.detail, body }
     if (Array.isArray(body.detail)) {
-      return body.detail.map((e: { msg?: string }) => e.msg).join('; ')
+      return { message: body.detail.map((e: { msg?: string }) => e.msg).join('; '), body }
     }
-    return response.statusText
+    return { message: response.statusText, body }
   } catch {
-    return response.statusText
+    return { message: response.statusText }
   }
 }
 
@@ -77,14 +85,14 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
   })
 
   if (!response.ok) {
-    const message = await extractErrorMessage(response)
+    const { message, body } = await extractError(response)
     // Для «логов пользователя» в заявке 0075 — только метод, путь и код,
     // без тела запроса и ответа.
     logClientEvent(
       'api',
       `${options.method ?? 'GET'} ${API_BASE}/${options.section}${options.path} → ${response.status} ${message}`,
     )
-    throw new ApiError(response.status, message)
+    throw new ApiError(response.status, message, body)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T

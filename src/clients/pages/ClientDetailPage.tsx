@@ -18,6 +18,7 @@ import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { NotesPanel } from '../components/NotesPanel'
 import { MaxChatPanel } from '../components/MaxChatPanel'
+import { ConversationPanel } from '@/partners/components/ConversationPanel'
 
 export function ClientDetailPage() {
   const { id = '' } = useParams()
@@ -146,6 +147,7 @@ export function ClientDetailPage() {
         <PaymentPanel client={client} />
         <BalancePaymentPanel client={client} />
         <NotesPanel client={client} />
+        <ConversationPanel owner="clients" ownerId={client.id} />
         <MaxChatPanel client={client} />
       </div>
     </div>

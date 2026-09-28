@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { ReferrerPicker } from '@/partners/components/ReferrerPicker'
+import { PartnerBrief } from '@/partners/types'
 import { useClientsStore } from '../store'
 import { ClientContact, MESSENGER_SUGGESTIONS } from '../types'
 
@@ -16,24 +18,22 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [contacts, setContacts] = useState<ClientContact[]>([{ messenger: 'Telegram', contact: '' }])
-  const [viaAgency, setViaAgency] = useState(false)
-  const [agencyName, setAgencyName] = useState('')
-  const [agencyContact, setAgencyContact] = useState('')
+  // Вместо галочки «привело агентство» с текстом (0079-c) — ссылка на
+  // партнёра из базы (0083-c): так у партнёра видно всех приведённых клиентов.
+  const [referrer, setReferrer] = useState<PartnerBrief | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const filledContacts = contacts.filter((c) => c.messenger.trim() && c.contact.trim())
   const valid =
-    Boolean(fullName && phone && email) && filledContacts.length > 0 && (!viaAgency || Boolean(agencyName.trim()))
+    Boolean(fullName && phone && email) && filledContacts.length > 0
 
   function reset() {
     setFullName('')
     setPhone('')
     setEmail('')
     setContacts([{ messenger: 'Telegram', contact: '' }])
-    setViaAgency(false)
-    setAgencyName('')
-    setAgencyContact('')
+    setReferrer(null)
     setError(null)
   }
 
@@ -50,9 +50,8 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
         phone,
         email,
         contacts: filledContacts.map((c) => ({ messenger: c.messenger.trim(), contact: c.contact.trim() })),
-        via_agency: viaAgency,
-        agency_name: viaAgency ? agencyName.trim() : null,
-        agency_contact: viaAgency ? agencyContact.trim() || null : null,
+        via_agency: false,
+        referrer_partner_id: referrer?.id ?? null,
       })
       reset()
       onClose()
@@ -84,8 +83,8 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
       }
     >
       <p className="mb-4 text-[13px] text-muted">
-        После создания базовые данные нельзя изменить. Исключение — источник клиента: если агентство
-        выяснится позже, его можно указать прямо в карточке.
+        После создания базовые данные нельзя изменить. Исключение — «Кто рекомендовал»: если это
+        выяснится позже, рекомендателя можно указать прямо в карточке.
       </p>
       <datalist id={MESSENGER_LIST_ID}>
         {MESSENGER_SUGGESTIONS.map((m) => (
@@ -146,35 +145,9 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
           </button>
         </div>
 
-        <div>
-          <label className="flex items-center gap-2 text-[13px] text-ink">
-            <input
-              type="checkbox"
-              checked={viaAgency}
-              onChange={(e) => setViaAgency(e.target.checked)}
-              className="h-4 w-4 accent-[#395b4b]"
-            />
-            Клиента привело агентство
-          </label>
-          {viaAgency && (
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Агентство" required>
-                <Input
-                  value={agencyName}
-                  onChange={(e) => setAgencyName(e.target.value)}
-                  placeholder="Название агентства"
-                />
-              </Field>
-              <Field label="Контакт агента" hint="Необязательно">
-                <Input
-                  value={agencyContact}
-                  onChange={(e) => setAgencyContact(e.target.value)}
-                  placeholder="+7 900 … / @agent"
-                />
-              </Field>
-            </div>
-          )}
-        </div>
+        <Field label="Кто рекомендовал" hint="Риэлтор, агентство или другой партнёр, который привёл клиента">
+          <ReferrerPicker value={referrer} onChange={setReferrer} />
+        </Field>
 
         {error && <p className="text-[12px] text-danger">{error}</p>}
       </div>
