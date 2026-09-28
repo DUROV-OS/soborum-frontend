@@ -1,3 +1,4 @@
+import { PartnerBrief } from '@/partners/types'
 import { HouseModelBrief } from '@/house_models/types'
 
 /** Путь клиента из восьми стадий (0079). Значения первых пяти остались от
@@ -174,6 +175,8 @@ export interface Client {
   via_agency: boolean
   agency_name: string | null
   agency_contact: string | null
+  /** Кто рекомендовал — партнёр из базы партнёров (0083-c), независим от agency_*. */
+  referrer: PartnerBrief | null
   /** Чаты MAX, привязанные к клиенту (0053) — 1:N, редактируется в любой момент. */
   chat_links: ClientChatLink[]
   order_type: OrderType | null
@@ -213,6 +216,8 @@ export interface ClientSourceInput {
   via_agency: boolean
   agency_name?: string | null
   agency_contact?: string | null
+  /** Источник уходит целиком: не переданный рекомендатель = «рекомендателя нет». */
+  referrer_partner_id?: number | null
 }
 
 export interface ClientCreateInput extends ClientSourceInput {

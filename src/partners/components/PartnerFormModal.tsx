@@ -42,10 +42,14 @@ export function PartnerFormModal({
   open,
   onClose,
   partner,
+  onCreated,
 }: {
   open: boolean
   onClose: () => void
   partner?: Partner
+  /** Если задан — после добавления партнёр отдаётся сюда, а не открывается его
+   * карточка: так форму зовут из «Кто рекомендовал» при создании клиента (0083-c). */
+  onCreated?: (partner: Partner) => void
 }) {
   const create = usePartnersStore((s) => s.create)
   const update = usePartnersStore((s) => s.update)
@@ -97,7 +101,8 @@ export function PartnerFormModal({
     try {
       const created = await create(input)
       onClose()
-      navigate(`/partners/${created.id}`)
+      if (onCreated) onCreated(created)
+      else navigate(`/partners/${created.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось добавить партнёра')
     } finally {
