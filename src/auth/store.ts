@@ -77,6 +77,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (section === 'today' || section === 'agents' || section === 'chats') return 'full'
     // «Совещания» — часть доступа к «Марине», отдельного гранта нет.
     if (section === 'meetings') return account.module_access.ai ?? 'none'
+    // «База партнёров» — под правом «Клиентов» (0083), отдельного гранта нет.
+    if (section === 'partners') return account.module_access.clients ?? 'none'
     return account.module_access[section] ?? 'none'
   },
 
