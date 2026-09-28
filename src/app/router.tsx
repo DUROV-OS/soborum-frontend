@@ -7,6 +7,8 @@ import { FeedbackAdminPage } from '@/feedback/pages/FeedbackAdminPage'
 import { FeedbackPage } from '@/feedback/pages/FeedbackPage'
 import { MyFeedbackPage } from '@/feedback/pages/MyFeedbackPage'
 import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
+import { PartnerDetailPage } from '@/partners/pages/PartnerDetailPage'
+import { PartnersPage } from '@/partners/pages/PartnersPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
@@ -93,6 +95,22 @@ export function AppRouter() {
           element={
             <AccessGate section="clients">
               <ClientDetailPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/partners"
+          element={
+            <AccessGate section="partners">
+              <PartnersPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/partners/:id"
+          element={
+            <AccessGate section="partners">
+              <PartnerDetailPage />
             </AccessGate>
           }
         />

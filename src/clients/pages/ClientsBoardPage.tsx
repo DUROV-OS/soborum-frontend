@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Building2, CalendarClock, Plus, Search, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Building2, CalendarClock, Contact, Plus, Search, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -151,6 +151,13 @@ export function ClientsBoardPage() {
             )}
           </div>
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
+          <Link
+            to="/partners"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md border border-brand/40 px-4 text-sm text-brand hover:border-brand hover:bg-brand/5"
+          >
+            <Contact size={16} />
+            База партнёров
+          </Link>
           {canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
