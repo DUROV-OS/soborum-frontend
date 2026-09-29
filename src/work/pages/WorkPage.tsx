@@ -122,7 +122,7 @@ export function WorkPage() {
 }
 
 /** Компактная карточка раздела без сигнала внимания — без min-height и без
- * места под блок «стоит заняться»/«всё в порядке» (его там никогда не будет). */
+ * места под блок «стоит заняться» / «что проверено» (его там никогда не будет). */
 function StaticWorkTile({
   section,
   note,
@@ -230,13 +230,13 @@ function WorkTile({
           </div>
           <p className="text-[15px] leading-relaxed text-ink">{action.description} ({action.count})</p>
         </div>
-      ) : checked && (
-        <div className={`mt-4 flex-1 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK.green}`}>
-          <div className={`mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold ${HEAT_TEXT.green}`}>
-            <CircleCheck size={14} />
-            всё в порядке
-          </div>
-          {clearText && <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>}
+      ) : checked && clearText && (
+        // Только текст бэка о том, что именно проверено и чисто (0084-c), без
+        // общей добавки «всё в порядке»: для производства он приходит лишь при
+        // благополучной оценке готовности.
+        <div className={`mt-4 flex flex-1 items-start gap-1.5 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK.green}`}>
+          <CircleCheck size={14} className={`mt-1 shrink-0 ${HEAT_TEXT.green}`} />
+          <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>
         </div>
       )}
     </NavLink>
