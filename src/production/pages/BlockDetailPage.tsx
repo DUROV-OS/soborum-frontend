@@ -230,7 +230,10 @@ export function BlockDetailPage() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] text-ink">{task.title}</span>
-                <Chip tone="neutral">{TASK_STATES.find((s) => s.key === task.status)?.label}</Chip>
+                <span className="flex flex-wrap justify-end gap-1.5">
+                  {task.review_blocked_reason === 'no_reviewer' && <Chip tone="danger">Нет проверяющего</Chip>}
+                  <Chip tone="neutral">{TASK_STATES.find((s) => s.key === task.status)?.label}</Chip>
+                </span>
               </div>
               <TaskPeopleBadges task={task} />
             </button>

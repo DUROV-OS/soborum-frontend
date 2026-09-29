@@ -19,14 +19,19 @@ export type TaskLinkType =
   | 'warehouse_shortage'
   | 'growth_proposal'
 
-/** Кто оставил запись: сдача исполнителя или решение проверяющего (0077). */
-export type TaskReportKind = 'submission' | 'review_accepted' | 'review_returned'
+/** Кто оставил запись: сдача исполнителя или решение проверяющего (0077),
+ * либо служебная запись о назначении проверяющего по политике (0084-f). */
+export type TaskReportKind = 'submission' | 'review_accepted' | 'review_returned' | 'reviewer_assigned'
 
 export const TASK_REPORT_KIND_LABEL: Record<TaskReportKind, string> = {
   submission: 'Отчёт исполнителя',
   review_accepted: 'Проверяющий принял',
   review_returned: 'Проверяющий вернул в работу',
+  reviewer_assigned: 'Проверяющий назначен по политике',
 }
+
+/** Политика приёмки задачи (0084-f, backend app/tasks/policy.py). */
+export type TaskReviewPolicy = 'review_required' | 'auto_close_allowed'
 
 /** Запись журнала отчётов задачи (0077): комментарий + файлы. */
 export interface TaskReport {
@@ -60,4 +65,9 @@ export interface Task {
   /** Журнал отчётов — сдачи и решения проверяющего, от первого к последнему. */
   reports: TaskReport[]
   depends_on_ids: number[]
+  /** review_required — задачу блока производства сдачей без проверяющего не
+   * закрыть, и исполнитель не принимает свою сдачу. */
+  review_policy: TaskReviewPolicy
+  /** 'no_reviewer' — задача на проверке, но принять её некому. */
+  review_blocked_reason: 'no_reviewer' | null
 }

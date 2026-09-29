@@ -244,6 +244,7 @@ export function TasksPage() {
             <div className="text-[13px] font-medium text-ink">{task.title}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
+              {task.review_blocked_reason === 'no_reviewer' && <Chip tone="danger">Нет проверяющего</Chip>}
               {task.reports.length > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-muted" title="Исполнитель приложил отчёт">
                   <FileText size={11} />
