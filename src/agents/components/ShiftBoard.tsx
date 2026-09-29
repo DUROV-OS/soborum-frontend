@@ -44,9 +44,6 @@ function readableStance(item: ShiftItem, charts: ShiftChart[]) {
   if (live) return live
   if (!/По запросу|Опираюсь на:|Не моё:/.test(item.stance)) return twoSentences(item.stance)
   const note = citationTitle(item.citations[0] ?? '')
-  if (item.agent_id === 'lawyer') {
-    return 'Ворованную базу конкурента нельзя. Договор без вас не выпускаем.'
-  }
   if (!note) return 'Живого факта нет — сделки и остатки не выдумываю.'
   return `В пакете: «${note}».`
 }
@@ -58,40 +55,35 @@ function cardNotes(item: ShiftItem, charts: ShiftChart[]) {
   return item.citations.map(citationTitle).filter(Boolean).slice(0, 2)
 }
 
-function approvalTitle(approval: ShiftApproval) {
-  if (approval.kind === 'pricing' || /финансист|цен/i.test(approval.title)) return 'Цена и скидка — только вы'
-  if (approval.kind === 'legal' || /юрист/i.test(approval.title)) return 'Юрист просит вас посмотреть'
-  return approval.title
-}
-
 function readableSummary(shift: AgentShift) {
   const pending = shift.approvals.filter((item) => item.status === 'pending').length
   if (/Смена:|escalate_human|Движок:|шаблон \+ vault|сверилась с базой/.test(shift.summary)) {
-    return pending ? `Вам решить ${pending} вопрос.` : 'Сейчас от вас ничего не нужно.'
+    // Сводка старого формата: статусов проверок в ней нет — благополучия не додумываем.
+    return pending
+      ? `Вам решить ${pending} ${pluralQuestions(pending)}. Проверки этой смены не подтверждены.`
+      : 'Проверки этой смены не подтверждены — статусов проверки в записи нет.'
   }
-  return twoSentences(shift.summary)
+  // Сводку пишет бэкенд целиком (с оговорками «не проверено», «без данных») — не режем.
+  return shift.summary
 }
 
-function readableReview(text: string, escalate: boolean, status?: ShiftReview['status']) {
-  if (!status) return 'Не проверено.'
-  if (status === 'not_checked') return text || 'Не проверено.'
-  if (/legal gate|вердикт|allow|block/i.test(text)) {
-    return escalate
-      ? 'Юрист отправил это в очередь: без вашего «да» действие не выпускаем.'
-      : 'Юрист посмотрел: стоп-факторов нет. Ворованную базу конкурента по-прежнему нельзя.'
-  }
-  if (text.includes('Не моё:')) return 'Посмотрел черновик и своего стоп-фактора не нашёл.'
-  if (/автономной цены|скидка сверх/i.test(text)) {
-    return 'Нельзя самому ставить окончательную цену или скидку больше 5%. Это решает человек.'
-  }
-  return text.replace(/\s+\S+\.md\S*/g, '').trim()
+function pluralQuestions(n: number) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'вопрос'
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return 'вопроса'
+  return 'вопросов'
 }
 
-function approvalDetail(approval: ShiftApproval) {
-  if (approval.kind === 'pricing' || /финансист|цен/i.test(approval.title)) {
-    return 'Финансист не даёт продажнику самому ставить окончательную цену или скидку больше 5%. Пока нет вашего «да» или «нет», цена клиенту не едет.'
+function isChecked(review: ShiftReview) {
+  return review.status === 'checked_ok' || review.status === 'checked_escalate'
+}
+
+// Текст проверки показываем как есть; без статуса (запись до 0084-e) и при
+// not_checked — «Не проверено», а не «стоп-фактора не нашёл».
+function readableReview(review: ShiftReview) {
+  if (!isChecked(review)) {
+    return review.status === 'not_checked' && review.text ? review.text : 'Не проверено.'
   }
-  return approval.detail
+  return review.text.replace(/\s+\S+\.md\S*/g, '').trim()
 }
 
 function formatWhen(iso: string) {
@@ -199,7 +191,10 @@ function ApprovalQueue({ shift, canDecide }: { shift: AgentShift; canDecide: boo
       </div>
       {shift.approvals.length === 0 ? (
         <div className="px-5 py-6 sm:px-6">
-          <EmptyState title="Сейчас от вас ничего не нужно" description="Команда держит смену сама." />
+          <EmptyState
+            title="Согласований нет"
+            description="Это не значит, что всё проверено: статус каждой проверки — в карточках ниже."
+          />
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -229,8 +224,8 @@ function ApprovalRow({
     <li className="px-5 py-4 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-ink">{approvalTitle(approval)}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink">{approvalDetail(approval)}</p>
+          <p className="text-[14px] font-medium text-ink">{approval.title}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-ink">{approval.detail}</p>
         </div>
         <Chip tone={approval.status === 'pending' ? 'warning' : approval.status === 'approved' ? 'info' : 'danger'}>
           {approvalStatusLabel(approval.status)}
@@ -308,6 +303,7 @@ function MiniChart({ chart }: { chart: ShiftChart }) {
 
 function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) {
   const disagreements = item.reviews.filter((review) => review.escalate)
+  const checked = item.reviews.some(isChecked)
   const notes = cardNotes(item, charts)
   const mine = chartsFor(item.agent_id, charts)
   // Позицию написал Claude без живого факта из базы — это не данные системы.
@@ -317,8 +313,8 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
       <div className="border-b border-border px-5 py-3 sm:px-6">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[16px] font-semibold text-ink">{titleOf(item.agent_id)}</h3>
-          <Chip tone={disagreements.length ? 'warning' : 'success'}>
-            {disagreements.length ? 'спросил вас' : 'держит сам'}
+          <Chip tone={disagreements.length ? 'warning' : checked ? 'success' : 'neutral'}>
+            {disagreements.length ? 'спросил вас' : checked ? 'держит сам' : 'не проверено'}
           </Chip>
         </div>
         <p className="mt-1 text-[12px] text-muted">{AGENT_WATCHES[item.agent_id]}</p>
@@ -344,12 +340,10 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
               <li key={`${review.reviewer}-${index}`} className="text-[12px] leading-relaxed">
                 <span className={review.escalate ? 'font-medium text-warning' : 'text-muted'}>
                   {titleOf(review.reviewer as AgentId)}
-                  {review.escalate ? ' не согласен' : ' посмотрел'}
+                  {review.escalate ? ' не согласен' : isChecked(review) ? ' проверил' : ''}
                   {': '}
                 </span>
-                <span className="text-ink">
-                  {twoSentences(readableReview(review.text, review.escalate, review.status))}
-                </span>
+                <span className="text-ink">{readableReview(review)}</span>
               </li>
             ))}
           </ul>

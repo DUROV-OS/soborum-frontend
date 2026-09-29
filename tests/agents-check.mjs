@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
-const baseURL = 'http://127.0.0.1:5173'
+const baseURL = process.env.SMOKE_BASE_URL ?? 'http://127.0.0.1:5173'
 const artifactDir = path.join('test-results')
 await mkdir(artifactDir, { recursive: true })
 
@@ -21,16 +21,17 @@ const latestShift = {
   next_tick_at: '2026-09-07T09:00:00Z',
   items: [
     { id: 1, agent_id: 'coordinator', agent_title: 'координатор', daily_question: 'Что сейчас самое важное для компании?', stance: 'Сводит картину: что сейчас главное. В базе есть: Конституция агента Durov-OS.', citations: ['Конституция агента Durov-OS'], legal_verdict: 'allow', reviews: [] },
-    { id: 2, agent_id: 'sales', agent_title: 'продажник', daily_question: 'Какие сделки зависли?', stance: 'Смотрит, какие сделки зависли и что мешает оплате. Живого среза amoCRM нет.', citations: ['Общий контекст компании'], legal_verdict: 'allow', reviews: [{ reviewer: 'finance', reviewer_title: 'финансист', text: 'Нельзя самому ставить окончательную цену или скидку больше 5%. Это решает человек.', escalate: true, kind: 'pricing' }] },
+    { id: 2, agent_id: 'sales', agent_title: 'продажник', daily_question: 'Какие сделки зависли?', stance: 'Смотрит, какие сделки зависли и что мешает оплате. Живого среза amoCRM нет.', citations: ['Общий контекст компании'], legal_verdict: 'allow', stance_source: 'live', has_live_data: true, reviews: [{ reviewer: 'finance', reviewer_title: 'финансист', text: 'Не проверено: у финансиста нет проверки по этому вопросу.', escalate: false, kind: 'ops', status: 'not_checked' }, { reviewer: 'lawyer', reviewer_title: 'юрист', text: 'В очередь: без вашего «да» не выпускаем. Скидка и окончательная цена — решение человека.', escalate: true, kind: 'legal', status: 'checked_escalate' }] },
     { id: 3, agent_id: 'finance', agent_title: 'финансист', daily_question: 'Где утекает маржа?', stance: 'Скидка больше 5% — не зона продажника.', citations: ['Операционные принципы'], legal_verdict: 'allow', reviews: [] },
     { id: 4, agent_id: 'lawyer', agent_title: 'юрист', daily_question: 'Какое действие создаёт юридический риск?', stance: 'Проверяет, можно ли выпускать без человека.', citations: ['Юрист как фильтр'], legal_verdict: 'allow', reviews: [] },
     { id: 5, agent_id: 'production', agent_title: 'производственник', daily_question: 'Что тормозит ближайший дом?', stance: 'Срок клиенту не обещать.', citations: ['Модуль'], legal_verdict: 'allow', reviews: [] },
-    { id: 6, agent_id: 'warehouse', agent_title: 'кладовщик', daily_question: 'Чего не хватит ближайшему дому?', stance: 'Складская программа ещё не подключена.', citations: ['Остатки'], legal_verdict: 'allow', reviews: [] },
-    { id: 7, agent_id: 'marketer', agent_title: 'маркетолог', daily_question: 'Какой следующий контакт с рынком?', stance: 'Только открытый факт бренда.', citations: ['Общий контекст компании'], legal_verdict: 'allow', reviews: [] },
+    { id: 6, agent_id: 'warehouse', agent_title: 'кладовщик', daily_question: 'Чего не хватит ближайшему дому?', stance: 'Складская программа ещё не подключена.', citations: ['Остатки'], legal_verdict: 'allow', reviews: [{ reviewer: 'production', reviewer_title: 'производственник', text: 'Производственник видел черновик кладовщика и своего стоп-фактора не нашёл.', escalate: false, kind: 'ops' }] },
+    { id: 7, agent_id: 'marketer', agent_title: 'маркетолог', daily_question: 'Какой следующий контакт с рынком?', stance: 'Только открытый факт бренда.', citations: ['Общий контекст компании'], legal_verdict: 'allow', has_live_data: false, stance_source: 'llm_without_facts', reviews: [] },
     { id: 8, agent_id: 'engineer', agent_title: 'инженер', daily_question: 'Какое отклонение от техкарты опасно?', stance: 'Нестандарт не выдавать как типовой узел.', citations: ['Модуль'], legal_verdict: 'allow', reviews: [] },
   ],
   approvals: [
-    { id: 1, shift_id: 1, kind: 'pricing', title: 'Цена и скидка — только вы', detail: 'Нельзя самому ставить окончательную цену или скидку больше 5%.', status: 'pending', created_at: '2026-09-07T08:00:00Z' },
+    { id: 1, shift_id: 1, item_id: 2, kind: 'legal', title: 'Продажник: Скидка и окончательная цена — решение человека.', detail: 'В очередь: без вашего «да» не выпускаем. Скидка и окончательная цена — решение человека.', status: 'pending', subject_hash: 'a'.repeat(64), created_at: '2026-09-07T08:00:00Z' },
+    { id: 2, shift_id: 1, item_id: 3, kind: 'pricing', title: 'Финансист: вопрос, который нельзя выпускать самим', detail: 'Финансист принёс вопрос, который нельзя выпускать самим.', status: 'approved', subject_hash: 'b'.repeat(64), created_at: '2026-09-07T08:00:00Z' },
   ],
   charts: [
     { id: 'sales_stuck', title: 'Зависшие сделки, дни без движения', unit: 'дн', agents: ['sales'], lead: 'Дольше всех без движения: Невзоровы, 12 дн.', tone: 'warning', bars: [{ label: 'Невзоровы', value: 12 }] },
@@ -94,6 +95,11 @@ async function openAs(user, viewport = { width: 1440, height: 1100 }) {
       })
       return
     }
+    if (url.pathname === '/api/agents/approvals/1/decision') {
+      // Сервер видит другой снимок пункта — фронт должен сказать «изменился» и перечитать смену.
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ detail: 'Пункт изменился, обновите страницу' }) })
+      return
+    }
     if (url.pathname === '/api/agents/runs') {
       await route.fulfill({
         status: 200,
@@ -132,8 +138,18 @@ await owner.page.getByRole('button', { name: 'Очистить чат' }).waitFo
 await owner.page.getByRole('tab', { name: 'Смена' }).click()
 await owner.page.getByRole('heading', { name: 'Команда работает сама' }).waitFor()
 await owner.page.getByRole('button', { name: 'Начать смену' }).waitFor()
-await owner.page.getByText('Цена и скидка — только вы').waitFor()
+await owner.page.getByText('Продажник: Скидка и окончательная цена — решение человека.').waitFor()
 await owner.page.getByRole('heading', { name: 'Продажник' }).waitFor()
+await owner.page.getByText('Согласовано · не исполнено').waitFor()
+assert.equal(await owner.page.getByText('вы сказали да').count(), 0)
+assert.equal(await owner.page.getByText('стоп-фактора не нашёл').count(), 0)
+assert((await owner.page.locator('article').filter({ hasText: 'Продажник' }).getByText('Не проверено: у финансиста нет проверки по этому вопросу.').count()) === 1)
+assert((await owner.page.locator('article').filter({ hasText: 'Кладовщик' }).getByText('Не проверено.').count()) === 1)
+assert((await owner.page.locator('article').filter({ hasText: 'Маркетолог' }).getByText('без данных из системы').count()) === 1)
+assert((await owner.page.locator('article').filter({ hasText: 'Продажник' }).getByText('без данных из системы').count()) === 0)
+assert.equal(await owner.page.getByText('amoCRM').count(), 0)
+await owner.page.getByRole('button', { name: 'Да', exact: true }).click()
+await owner.page.getByText('Пункт изменился — смену перечитали, посмотрите ещё раз.').waitFor()
 assert((await owner.page.locator('article').filter({ hasText: 'Продажник' }).getByText('Дольше всех без движения: Невзоровы, 12 дн.').count()) === 1)
 assert((await owner.page.locator('article').filter({ hasText: 'Финансист' }).getByText('Где висят деньги').count()) === 1)
 assert((await owner.page.locator('article').filter({ hasText: 'Кладовщик' }).getByText('Минус на складе').count()) === 1)
@@ -159,7 +175,7 @@ assert.equal(await employee.page.getByRole('tab', { name: 'Консультац�
 assert.equal(await employee.page.getByRole('tab', { name: 'Панель' }).count(), 0)
 await employee.page.getByRole('heading', { name: 'Команда работает сама' }).waitFor()
 assert.equal(await employee.page.getByRole('button', { name: 'Начать смену' }).count(), 0)
-await employee.page.getByText('Цена и скидка — только вы').waitFor()
+await employee.page.getByText('Продажник: Скидка и окончательная цена — решение человека.').waitFor()
 assert.equal(await employee.page.getByRole('button', { name: 'Да' }).count(), 0)
 await employee.page.getByRole('tab', { name: 'Команда' }).click()
 await employee.page.getByRole('heading', { name: 'Прогнать запрос' }).waitFor()
