@@ -91,7 +91,8 @@ export interface DeadlineInsight {
   title: string
   description: string
   impact: string
-  source: 'ai' | 'fallback' | 'none'
+  /** none — сигналов нет (по графику); insufficient_data — прогноз не построен (0084-c). */
+  source: 'ai' | 'fallback' | 'none' | 'insufficient_data'
   /** Когда посчитан ответ (0084-c); null — старая запись кэша. */
   generated_at?: string | null
 }

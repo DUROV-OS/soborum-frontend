@@ -15,9 +15,11 @@ import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { DataTable } from '@/shared/ui/DataTable'
 import { useProductionStore } from '../store'
+import * as productionApi from '../api'
 import { AddMaterialModal } from '../components/AddMaterialModal'
+import { AdmissionChip, FactsTime, ReadinessBadge } from '../components/ReadinessBadge'
 import { RequestMaterialModal } from '../components/RequestMaterialModal'
-import { BlockMaterial } from '../types'
+import { BlockMaterial, BlockReadiness } from '../types'
 
 export function BlockDetailPage() {
   const { id = '' } = useParams()
@@ -27,6 +29,7 @@ export function BlockDetailPage() {
   const loadBlock = useProductionStore((s) => s.loadBlock)
   const loadProduction = useProductionStore((s) => s.loadProduction)
   const deleteBlock = useProductionStore((s) => s.deleteBlock)
+  const updateBlock = useProductionStore((s) => s.updateBlock)
   const canEditProduction = accessLevelAtLeast(useAccessLevel('production'), 'edit')
   const canFullProduction = accessLevelAtLeast(useAccessLevel('production'), 'full')
   const canEditTasks = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
@@ -41,6 +44,9 @@ export function BlockDetailPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [readiness, setReadiness] = useState<BlockReadiness | null>(null)
+  const [savingRequires, setSavingRequires] = useState(false)
+  const [requiresError, setRequiresError] = useState<string | null>(null)
 
   useEffect(() => {
     loadBlock(blockId)
@@ -54,6 +60,23 @@ export function BlockDetailPage() {
     }
   }, [block, blockId, production, loadProduction])
 
+  useEffect(() => {
+    if (!block || block.id !== blockId) return
+    let cancelled = false
+    // Перечитываем вместе с блоком: после правки материалов/флага оценка меняется.
+    productionApi
+      .getProductionReadiness(block.production_id)
+      .then((data) => {
+        if (!cancelled) setReadiness(data.blocks.find((b) => b.block_id === block.id) ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setReadiness(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [block, blockId])
+
   if (!block || block.id !== blockId) {
     return <p className="text-[13px] text-muted">Загрузка…</p>
   }
@@ -63,9 +86,15 @@ export function BlockDetailPage() {
   }
 
   const blockTasks = tasks.filter((t) => t.block_id === blockId)
-  const dependencyNames = block.depends_on_ids.map(
-    (depId) => production?.blocks.find((b) => b.id === depId)?.name ?? `Блок №${depId}`
-  )
+
+  async function handleRequiresMaterials(requiresMaterials: boolean) {
+    if (!block) return
+    setSavingRequires(true)
+    setRequiresError(null)
+    const result = await updateBlock(block.id, { requires_materials: requiresMaterials })
+    setSavingRequires(false)
+    if (!result.ok) setRequiresError(result.reason ?? 'Не удалось сохранить')
+  }
 
   async function handleDelete() {
     if (!block) return
@@ -94,9 +123,17 @@ export function BlockDetailPage() {
         <div>
           <h1 className="text-[18px] font-medium text-ink">{block.name}</h1>
           {block.description && <p className="mt-1 text-[13px] text-muted">{block.description}</p>}
-          {dependencyNames.length > 0 && (
-            <p className="mt-1 text-[12px] text-warning">Ждёт: {dependencyNames.join(', ')}</p>
-          )}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {readiness ? (
+              <>
+                <AdmissionChip readiness={readiness} />
+                <ReadinessBadge state={readiness.materials_state} label={readiness.materials_label} />
+                <FactsTime factsAt={readiness.facts_at} />
+              </>
+            ) : (
+              <span className="text-[11px] text-muted">Оценка готовности не загружена</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <AskAiButton
@@ -123,6 +160,15 @@ export function BlockDetailPage() {
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[14px] font-medium text-ink">Материалы</h2>
+          <label className="flex items-center gap-2 text-[12px] text-muted">
+            <input
+              type="checkbox"
+              checked={!block.requires_materials}
+              disabled={!canEditProduction || savingRequires}
+              onChange={(e) => handleRequiresMaterials(!e.target.checked)}
+            />
+            Материалы не требуются
+          </label>
           {canEditProduction && (
             <Button size="sm" variant="secondary" onClick={() => setAddingMaterial(true)}>
               <Plus size={14} />
@@ -130,6 +176,14 @@ export function BlockDetailPage() {
             </Button>
           )}
         </div>
+        {requiresError && <p className="mb-2 text-[12px] text-danger">{requiresError}</p>}
+        {readiness && readiness.reasons.length > 0 && (
+          <ul className="mb-3 flex flex-col gap-1 text-[12px] text-muted">
+            {readiness.reasons.map((reason, index) => (
+              <li key={`${reason.code}-${reason.material_id ?? reason.task_id ?? index}`}>{reason.text}</li>
+            ))}
+          </ul>
+        )}
         <DataTable
           columns={[
             { header: 'Материал', accessor: (m: BlockMaterial) => materialTitle(m.warehouse_material_id) },

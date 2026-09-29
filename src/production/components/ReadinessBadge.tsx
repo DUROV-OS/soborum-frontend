@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { Chip, ChipTone } from '@/shared/ui/Chip'
-import { ReadinessState } from '../types'
+import { BlockReadiness, ReadinessState } from '../types'
 
 /** Состояние материалов из оценки готовности (0084-b). Сервер уже вычислил
  * состояние и его подпись; здесь только тон и запасная подпись. */
@@ -35,6 +35,19 @@ export function FactsTime({ factsAt }: { factsAt: string | null }) {
   return (
     <span className="text-[11px] text-muted">
       {factsAt ? `время факта: ${format(new Date(factsAt), 'dd.MM HH:mm')}` : 'время факта неизвестно'}
+    </span>
+  )
+}
+
+/** «Допущен» / «Ждёт: <блоки>» — по `admitted` и `waiting_on` из оценки сервера. */
+export function AdmissionChip({ readiness }: { readiness: BlockReadiness }) {
+  return (
+    <span
+      className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-medium ${
+        readiness.admitted ? 'bg-brand/10 text-brand-dark' : 'bg-warning/10 text-warning'
+      }`}
+    >
+      {readiness.admitted ? 'Допущен' : `Ждёт: ${readiness.waiting_on.map((w) => w.name).join(', ')}`}
     </span>
   )
 }
