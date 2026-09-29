@@ -21,11 +21,15 @@ export function getLatestShift(): Promise<AgentShift | null> {
   return apiRequest<AgentShift | null>({ section: 'agents', path: '/shifts/latest' })
 }
 
-export function decideApproval(id: number, status: 'approved' | 'rejected'): Promise<ShiftApproval> {
+export function decideApproval(
+  id: number,
+  status: 'approved' | 'rejected',
+  subjectHash: string,
+): Promise<ShiftApproval> {
   return apiRequest<ShiftApproval>({
     section: 'agents',
     path: `/approvals/${id}/decision`,
     method: 'POST',
-    body: { status },
+    body: { status, subject_hash: subjectHash },
   })
 }

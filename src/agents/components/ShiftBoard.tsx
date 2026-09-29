@@ -6,7 +6,7 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
 import { AGENT_WATCHES, AGENTS } from '../data'
 import { useAgentsStore } from '../store'
-import { AgentId, AgentShift, ShiftApproval, ShiftChart, ShiftItem } from '../types'
+import { AgentId, AgentShift, ShiftApproval, ShiftChart, ShiftItem, ShiftReview } from '../types'
 
 function titleOf(id: AgentId) {
   return AGENTS.find((agent) => agent.id === id)?.title ?? id
@@ -52,12 +52,9 @@ function readableStance(item: ShiftItem, charts: ShiftChart[]) {
 }
 
 function cardNotes(item: ShiftItem, charts: ShiftChart[]) {
-  const tags = new Set<string>()
-  for (const chart of chartsFor(item.agent_id, charts)) {
-    if (/sales|unpriced|coordinator|finance/.test(chart.id)) tags.add('amoCRM')
-    if (/finance_money|warehouse|production/.test(chart.id)) tags.add('МойСклад')
-  }
-  if (tags.size) return [...tags]
+  // Графики смены строит бэкенд из собственной базы DurovOS (connectors.live_charts),
+  // а не из amoCRM/МойСклад — не подписываем чужой источник.
+  if (chartsFor(item.agent_id, charts).length) return ['база DurovOS']
   return item.citations.map(citationTitle).filter(Boolean).slice(0, 2)
 }
 
@@ -75,7 +72,9 @@ function readableSummary(shift: AgentShift) {
   return twoSentences(shift.summary)
 }
 
-function readableReview(text: string, escalate: boolean) {
+function readableReview(text: string, escalate: boolean, status?: ShiftReview['status']) {
+  if (!status) return 'Не проверено.'
+  if (status === 'not_checked') return text || 'Не проверено.'
   if (/legal gate|вердикт|allow|block/i.test(text)) {
     return escalate
       ? 'Юрист отправил это в очередь: без вашего «да» действие не выпускаем.'
@@ -179,8 +178,15 @@ export function ShiftBoard() {
   )
 }
 
+function approvalStatusLabel(status: ShiftApproval['status']) {
+  if (status === 'pending') return 'ждёт вас'
+  if (status === 'approved') return 'Согласовано · не исполнено'
+  return 'Отклонено'
+}
+
 function ApprovalQueue({ shift, canDecide }: { shift: AgentShift; canDecide: boolean }) {
   const decideApproval = useAgentsStore((s) => s.decideApproval)
+  const approvalError = useAgentsStore((s) => s.approvalError)
   const pending = shift.approvals.filter((item) => item.status === 'pending')
   const done = shift.approvals.filter((item) => item.status !== 'pending')
 
@@ -189,6 +195,7 @@ function ApprovalQueue({ shift, canDecide }: { shift: AgentShift; canDecide: boo
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="text-[18px] font-semibold tracking-tight text-ink">Что решить вам</h2>
         <p className="mt-1 text-[12px] text-muted">Нет карточки — ничего нажимать не нужно.</p>
+        {approvalError && <p className="mt-2 text-[12px] text-danger">{approvalError}</p>}
       </div>
       {shift.approvals.length === 0 ? (
         <div className="px-5 py-6 sm:px-6">
@@ -215,8 +222,9 @@ function ApprovalRow({
 }: {
   approval: ShiftApproval
   canDecide: boolean
-  onDecide: (id: number, status: 'approved' | 'rejected') => Promise<void>
+  onDecide: (id: number, status: 'approved' | 'rejected', subjectHash: string) => Promise<void>
 }) {
+  const subjectHash = approval.subject_hash ?? ''
   return (
     <li className="px-5 py-4 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -224,16 +232,29 @@ function ApprovalRow({
           <p className="text-[14px] font-medium text-ink">{approvalTitle(approval)}</p>
           <p className="mt-1 text-[13px] leading-relaxed text-ink">{approvalDetail(approval)}</p>
         </div>
-        <Chip tone={approval.status === 'pending' ? 'warning' : approval.status === 'approved' ? 'success' : 'danger'}>
-          {approval.status === 'pending' ? 'ждёт вас' : approval.status === 'approved' ? 'вы сказали да' : 'вы сказали нет'}
+        <Chip tone={approval.status === 'pending' ? 'warning' : approval.status === 'approved' ? 'info' : 'danger'}>
+          {approvalStatusLabel(approval.status)}
         </Chip>
       </div>
-      {canDecide && approval.status === 'pending' && (
+      {approval.status === 'approved' && (
+        <p className="mt-2 text-[12px] text-muted">Исполнитель согласований появится в P1 — сейчас ничего не выполняется.</p>
+      )}
+      {canDecide && approval.status === 'pending' && !subjectHash && (
+        <p className="mt-3 text-[12px] text-muted">
+          У пункта нет снимка того, что согласуется, — решение примем на следующей смене.
+        </p>
+      )}
+      {canDecide && approval.status === 'pending' && subjectHash && (
         <div className="mt-3 flex gap-2">
-          <Button type="button" size="sm" onClick={() => void onDecide(approval.id, 'approved')}>
+          <Button type="button" size="sm" onClick={() => void onDecide(approval.id, 'approved', subjectHash)}>
             Да
           </Button>
-          <Button type="button" size="sm" variant="secondary" onClick={() => void onDecide(approval.id, 'rejected')}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => void onDecide(approval.id, 'rejected', subjectHash)}
+          >
             Нет
           </Button>
         </div>
@@ -289,6 +310,8 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
   const disagreements = item.reviews.filter((review) => review.escalate)
   const notes = cardNotes(item, charts)
   const mine = chartsFor(item.agent_id, charts)
+  // Позицию написал Claude без живого факта из базы — это не данные системы.
+  const withoutFacts = item.stance_source === 'llm_without_facts' && !liveStance(item.agent_id, mine)
   return (
     <article className="rounded-2xl border border-border bg-surface">
       <div className="border-b border-border px-5 py-3 sm:px-6">
@@ -302,6 +325,11 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
       </div>
       <div className="space-y-3 px-5 py-4 text-[13px] leading-relaxed text-ink sm:px-6">
         <p>{readableStance(item, charts)}</p>
+        {withoutFacts && (
+          <p>
+            <Chip tone="warning">без данных из системы</Chip>
+          </p>
+        )}
         {mine.length > 0 && (
           <div className="space-y-2">
             {mine.map((chart) => (
@@ -319,7 +347,9 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
                   {review.escalate ? ' не согласен' : ' посмотрел'}
                   {': '}
                 </span>
-                <span className="text-ink">{twoSentences(readableReview(review.text, review.escalate))}</span>
+                <span className="text-ink">
+                  {twoSentences(readableReview(review.text, review.escalate, review.status))}
+                </span>
               </li>
             ))}
           </ul>
