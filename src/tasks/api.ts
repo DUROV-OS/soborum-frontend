@@ -11,7 +11,8 @@ export interface TaskFilters {
   reviewer_id?: number
   block_id?: number
   link_type?: TaskLinkType
-  status?: TaskStatus
+  /** `open` — всё, кроме done: тот же набор, что счётчик на Пульсе (0084-h). */
+  status?: TaskStatus | 'open'
   overdue?: boolean
   [key: string]: string | number | boolean | undefined
 }
