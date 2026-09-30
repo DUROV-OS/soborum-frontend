@@ -18,11 +18,30 @@ jobs:
           node-version: 22
 
       - run: npm ci
+      # Выкладка только после lint и smoke (0084-a): красный шаг — rsync не запускается.
+      - run: npm run lint
       - run: npm run build
         env:
           # Тот же относительный /api, что и на проде: nginx стейдж-поддомена
           # проксирует /api на стейдж-бэк и раздаёт эту же статику — один origin.
           VITE_API_BASE: /api
+
+      - name: Браузер для smoke
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke на собранном dist
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          SMOKE_BASE_URL=http://127.0.0.1:4173 npm run test:smoke
+
+      - name: Скриншоты smoke при падении
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-results
+          path: test-results/
+          if-no-files-found: ignore
 
       - name: Deploy over SSH (staging)
         env:
