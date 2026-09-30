@@ -35,6 +35,8 @@ export interface Block {
   description: string | null
   /** Порядок блока внутри производства — узел направленного графа этапов. */
   sequence: number
+  /** false — блоку материалы не нужны (ставится человеком явно, 0084-b). */
+  requires_materials: boolean
   /** id блоков, которые должны быть закрыты раньше этого. */
   depends_on_ids: number[]
   materials: BlockMaterial[]
@@ -89,7 +91,10 @@ export interface DeadlineInsight {
   title: string
   description: string
   impact: string
-  source: 'ai' | 'fallback' | 'none'
+  /** none — сигналов нет (по графику); insufficient_data — прогноз не построен (0084-c). */
+  source: 'ai' | 'fallback' | 'none' | 'insufficient_data'
+  /** Когда посчитан ответ (0084-c); null — старая запись кэша. */
+  generated_at?: string | null
 }
 
 export interface ProductionHomeDocuments {
@@ -104,4 +109,65 @@ export interface ProductionHome {
   aktualnoe: ProductionAktualnoe | null
   deadlines: DeadlineInsight
   documents: ProductionHomeDocuments
+}
+
+// ------------------------------------------------------ оценка готовности --
+// GET /api/production/:id/readiness и GET /api/production/readiness (0084-b).
+// Всё считает сервер (app/production/readiness.py); фронт только показывает.
+
+export type ReadinessState = 'insufficient_data' | 'needs_reconciliation' | 'shortfall' | 'provided' | 'not_required'
+
+export interface ReadinessReason {
+  code: string
+  text: string
+  block_id: number | null
+  material_id: number | null
+  task_id: number | null
+}
+
+export interface ReadinessSources {
+  block_ids: number[]
+  material_ids: number[]
+  task_ids: number[]
+  material_request_ids: number[]
+}
+
+export interface BlockReadiness {
+  block_id: number
+  production_id: number
+  name: string
+  materials_state: ReadinessState
+  materials_label: string
+  /** Допущен: все блоки из depends_on закрыты (все их задачи в DONE). */
+  admitted: boolean
+  /** Незакрытые зависимости — пусто, если допущен. */
+  waiting_on: { block_id: number; name: string }[]
+  reasons: ReadinessReason[]
+  sources: ReadinessSources
+  computed_at: string
+  facts_at: string | null
+  version: string
+}
+
+export interface ProductionReadiness {
+  production_id: number
+  materials_state: ReadinessState
+  materials_label: string
+  reasons: ReadinessReason[]
+  sources: ReadinessSources
+  computed_at: string
+  facts_at: string | null
+  version: string
+  blocks: BlockReadiness[]
+}
+
+export interface ProductionReadinessListItem {
+  production_id: number
+  materials_state: ReadinessState
+  materials_label: string
+  /** Только причины, требующие действия. */
+  reasons_count: number
+  computed_at: string
+  facts_at: string | null
+  version: string
 }

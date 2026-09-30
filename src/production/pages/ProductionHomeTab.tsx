@@ -3,8 +3,10 @@ import { AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { FileLink } from '@/shared/ui/FileLink'
+import { format } from 'date-fns'
 import * as productionApi from '../api'
-import { Production, ProductionHome as ProductionHomeData } from '../types'
+import { FactsTime, isProblemState, ReadinessBadge } from '../components/ReadinessBadge'
+import { Production, ProductionHome as ProductionHomeData, ProductionReadiness } from '../types'
 
 /** Вкладка «Главная» одного производства (0065): те же виджеты, что на
  * «Пульсе» («Требует внимания», «Актуальное»), но пересчитанные по одному
@@ -17,6 +19,25 @@ export function ProductionHomeTab() {
   const [home, setHome] = useState<ProductionHomeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [readiness, setReadiness] = useState<ProductionReadiness | null>(null)
+  const [readinessFailed, setReadinessFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setReadiness(null)
+    setReadinessFailed(false)
+    productionApi
+      .getProductionReadiness(production.id)
+      .then((data) => {
+        if (!cancelled) setReadiness(data)
+      })
+      .catch(() => {
+        if (!cancelled) setReadinessFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [production.id])
 
   useEffect(() => {
     let cancelled = false
@@ -52,7 +73,8 @@ export function ProductionHomeTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      <AttentionSection actions={home.actions} onNavigate={navigate} />
+      <ReadinessSection readiness={readiness} failed={readinessFailed} onNavigate={navigate} />
+      <AttentionSection actions={home.actions} readiness={readiness} onNavigate={navigate} />
       <div className="grid gap-5 sm:grid-cols-2">
         <AktualnoeSection aktualnoe={home.aktualnoe} />
         <DeadlinesSection deadlines={home.deadlines} />
@@ -62,13 +84,74 @@ export function ProductionHomeTab() {
   )
 }
 
+const REASONS_SHOWN = 10
+
+/** Блок «Готовность»: состояние материалов из оценки сервера (0084-b),
+ * причины со ссылками на блок и время факта. */
+function ReadinessSection({
+  readiness,
+  failed,
+  onNavigate,
+}: {
+  readiness: ProductionReadiness | null
+  failed: boolean
+  onNavigate: (href: string) => void
+}) {
+  const reasons = readiness?.reasons ?? []
+  return (
+    <section className="overflow-hidden rounded-md border border-border bg-surface" aria-labelledby="production-readiness-title">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
+        <h2 id="production-readiness-title" className="text-[15px] font-medium text-ink">
+          Готовность
+        </h2>
+        {readiness && (
+          <div className="flex flex-wrap items-center gap-2">
+            <ReadinessBadge state={readiness.materials_state} label={readiness.materials_label} />
+            <FactsTime factsAt={readiness.facts_at} />
+          </div>
+        )}
+      </div>
+      {!readiness ? (
+        <p className="px-5 py-5 text-[13px] text-muted">
+          {failed ? 'Не удалось получить оценку готовности.' : 'Загружаем оценку готовности…'}
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {reasons.slice(0, REASONS_SHOWN).map((reason, index) => (
+            <li key={`${reason.code}-${reason.block_id ?? 'p'}-${reason.material_id ?? reason.task_id ?? index}`}>
+              {reason.block_id !== null ? (
+                <button
+                  type="button"
+                  onClick={() => onNavigate(`/production/blocks/${reason.block_id}`)}
+                  className="w-full px-5 py-3 text-left text-[13px] text-ink transition-colors hover:bg-surface-muted/60"
+                >
+                  {reason.text}
+                </button>
+              ) : (
+                <p className="px-5 py-3 text-[13px] text-ink">{reason.text}</p>
+              )}
+            </li>
+          ))}
+          {reasons.length > REASONS_SHOWN && (
+            <li className="px-5 py-3 text-[12px] text-muted">И ещё причин: {reasons.length - REASONS_SHOWN}</li>
+          )}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 function AttentionSection({
   actions,
+  readiness,
   onNavigate,
 }: {
   actions: ProductionHomeData['actions']
+  readiness: ProductionReadiness | null
   onNavigate: (href: string) => void
 }) {
+  // «Всё чисто» — только когда и сигналов нет, и материалы по оценке в порядке.
+  const readinessClean = readiness !== null && !isProblemState(readiness.materials_state)
   return (
     <section className="overflow-hidden rounded-md border border-border bg-surface" aria-labelledby="production-attention-title">
       <div className="border-b border-border px-5 py-4">
@@ -78,8 +161,14 @@ function AttentionSection({
       </div>
       {actions.length === 0 ? (
         <div className="flex items-center gap-2 px-5 py-5 text-[13px] text-muted">
-          <CheckCircle2 size={16} className="shrink-0 text-success" />
-          Всё чисто — сигналов внимания по этому дому нет.
+          {readinessClean ? (
+            <>
+              <CheckCircle2 size={16} className="shrink-0 text-success" />
+              Всё чисто — сигналов внимания по этому дому нет.
+            </>
+          ) : (
+            'Сигналов внимания нет, но оценка готовности материалов не подтверждена.'
+          )}
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -129,6 +218,7 @@ function AktualnoeSection({ aktualnoe }: { aktualnoe: ProductionHomeData['aktual
 }
 
 function DeadlinesSection({ deadlines }: { deadlines: ProductionHomeData['deadlines'] }) {
+  // source="none" — сигналов нет, по графику; "insufficient_data" — прогноз не построен (0084-c).
   const onSchedule = deadlines.source === 'none'
   return (
     <section className="flex flex-col rounded-md border border-border bg-surface p-5" aria-labelledby="production-deadlines-title">
@@ -141,6 +231,9 @@ function DeadlinesSection({ deadlines }: { deadlines: ProductionHomeData['deadli
       <p className="text-[14px] font-medium text-ink">{deadlines.title}</p>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">{deadlines.description}</p>
       {deadlines.impact && <p className="mt-2 text-[12px] leading-relaxed text-ink">{deadlines.impact}</p>}
+      {deadlines.generated_at && (
+        <p className="mt-3 text-[11px] text-muted">данные на {format(new Date(deadlines.generated_at), 'HH:mm')}</p>
+      )}
     </section>
   )
 }

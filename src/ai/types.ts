@@ -139,13 +139,18 @@ export type AnalyticsSection =
   | 'marketing'
   | 'tasks'
 
-export type SectionAnalyticsStatus = 'red' | 'yellow' | 'green'
+/** unknown — оценка не выполнена (ИИ недоступен, а правил для раздела нет). */
+export type SectionAnalyticsStatus = 'red' | 'yellow' | 'green' | 'unknown'
 
 export interface SectionAnalyticsOut {
   section: string
   generated_at: string
   summary: string
   status: SectionAnalyticsStatus
+  /** rules — ИИ недоступен, ответ собран сервером по правилам (0084-c). */
+  source?: 'ai' | 'rules'
+  /** Модель дала статус лучше фактов — сервер поднял его до пола, вот почему. */
+  status_floor_reason?: string | null
 }
 
 /** GET /api/ai/tasks/priorities — 2-3 открытые задачи сотрудника, к которым ИИ советует присмотреться в первую очередь. */

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { List, Plus, Workflow } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
@@ -7,9 +7,11 @@ import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
-import { Production } from '../types'
+import * as productionApi from '../api'
+import { BlockReadiness, Production } from '../types'
 import { useProductionStore } from '../store'
 import { BlockGraph } from './BlockGraph'
+import { AdmissionChip, ReadinessBadge } from './ReadinessBadge'
 
 type ViewMode = 'list' | 'graph'
 
@@ -25,7 +27,30 @@ export function ProductionBlocksTab() {
   const canEdit = accessLevelAtLeast(useAccessLevel('production'), 'edit')
 
   const blocks = [...production.blocks].sort((a, b) => a.sequence - b.sequence)
-  const blockById = new Map(blocks.map((b) => [b.id, b]))
+  // Допуск и материалы считает сервер (0084-b); без его ответа ничего не
+  // утверждаем — ни «допущен», ни «ждёт».
+  const [readinessById, setReadinessById] = useState<Map<number, BlockReadiness> | null>(null)
+  const [readinessFailed, setReadinessFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setReadinessFailed(false)
+    productionApi
+      .getProductionReadiness(production.id)
+      .then((data) => {
+        if (!cancelled) setReadinessById(new Map(data.blocks.map((b) => [b.block_id, b])))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setReadinessById(null)
+          setReadinessFailed(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+    // production меняется после каждой правки блоков — оценку перечитываем вместе с ним
+  }, [production])
 
   return (
     <div>
@@ -66,11 +91,15 @@ export function ProductionBlocksTab() {
       </div>
 
       {view === 'graph' ? (
-        <BlockGraph blocks={blocks} onSelect={(block) => navigate(`/production/blocks/${block.id}`)} />
+        <BlockGraph
+          blocks={blocks}
+          readinessById={readinessById}
+          onSelect={(block) => navigate(`/production/blocks/${block.id}`)}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {blocks.map((block) => {
-            const waitingFor = block.depends_on_ids.map((id) => blockById.get(id)?.name ?? `Блок №${id}`)
+            const readiness = readinessById?.get(block.id)
             return (
               <button
                 key={block.id}
@@ -78,20 +107,20 @@ export function ProductionBlocksTab() {
                 onClick={() => navigate(`/production/blocks/${block.id}`)}
                 className="rounded-md border border-border bg-surface p-4 text-left transition-colors hover:border-brand/40"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="text-[14px] font-medium text-ink">{block.name}</div>
-                  <span
-                    className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-medium ${
-                      waitingFor.length > 0 ? 'bg-warning/10 text-warning' : 'bg-brand/10 text-brand-dark'
-                    }`}
-                  >
-                    {waitingFor.length > 0 ? 'заблокирован' : 'готов к старту'}
-                  </span>
+                  {readiness ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <AdmissionChip readiness={readiness} />
+                      <ReadinessBadge state={readiness.materials_state} label={readiness.materials_label} />
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted">
+                      {readinessFailed ? 'оценка недоступна' : 'оценка загружается…'}
+                    </span>
+                  )}
                 </div>
                 {block.description && <div className="mt-1 text-[13px] text-muted">{block.description}</div>}
-                {waitingFor.length > 0 && (
-                  <div className="mt-2 text-[12px] text-muted">Ждёт: {waitingFor.join(', ')}</div>
-                )}
                 <div className="mt-2 text-[12px] text-muted">{block.materials.length} материал(ов)</div>
               </button>
             )
