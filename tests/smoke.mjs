@@ -23,7 +23,7 @@ const overview = {
     { id: 'warehouse', section: 'warehouse', title: 'Проверить пополнение склада', description: 'Остатки и текущая потребность требуют внимания.', count: 3, href: '/warehouse', tone: 'warning' },
     { id: 'clients', section: 'clients', title: 'Проверить поступление оплаты', description: 'Клиенты на этапе оплаты без подтверждённого поступления.', count: 1, href: '/clients', tone: 'warning' },
   ],
-  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Блоки ждут материалы', '2', 'warning'), widget('tasks', 'Открытых задач', '8'), widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
+  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Блоки ждут материалы', '2', 'warning'), { ...widget('tasks', 'Открытых задач (все)', '8'), href: '/tasks?scope=all&status=open' }, widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
 }
 const clientFixture = {
   // created_at must fall within the current calendar month — the clients board
@@ -105,6 +105,7 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url())
     requests.push(`${route.request().method()} ${url.pathname}`)
+    if (url.pathname === '/api/tasks/') requests.push(`TASKS-QUERY ${url.search}`)
     let body
     let status = 200
     if (url.pathname === '/api/auth/me') body = user
@@ -212,6 +213,13 @@ try {
   await owner.page.goto(baseURL + '/tasks')
   await owner.page.getByText('Клиент «Иванов И.»: перевести со стадии на следующую', { exact: true }).waitFor()
   checks.push('Client-stage link task (no deadline) is visible on the tasks board by default')
+
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByRole('button', { name: /Открытых задач \(все\)/ }).click()
+  await owner.page.getByText('Показаны только открытые задачи — тот же набор, что в счётчике на Пульсе.').waitFor()
+  assert.match(owner.page.url(), /\/tasks\?scope=all&status=open$/)
+  assert(owner.requests.some(request => request.startsWith('TASKS-QUERY ') && request.includes('scope=all') && request.includes('status=open')))
+  checks.push('Pulse task counter opens the board with the same scope and status=open')
 
   await owner.page.getByRole('button', { name: /Собрать блок №3/ }).click()
   await owner.page.getByRole('button', { name: 'Сдать задачу', exact: true }).waitFor()
