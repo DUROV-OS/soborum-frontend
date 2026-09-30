@@ -8,8 +8,9 @@ import { Button } from '@/shared/ui/Button'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Field, Textarea } from '@/shared/ui/Field'
 import { FileLink } from '@/shared/ui/FileLink'
+import { listReportRevisions } from '../api'
 import { useTasksStore } from '../store'
-import { Task, TaskReport, TASK_REPORT_KIND_LABEL, TASK_STATES, TaskStatus } from '../types'
+import { Task, TaskReport, TaskReportRevision, TASK_REPORT_KIND_LABEL, TASK_STATES, TaskStatus } from '../types'
 import { stateTone } from './stateTone'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
@@ -157,6 +158,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
               {task.reports.map((report) => (
                 <ReportCard
                   key={report.id}
+                  taskId={taskId}
                   report={report}
                   // Свой комментарий автор правит в любой момент, в том числе
                   // после того, как задачу приняли (0077).
@@ -252,10 +254,12 @@ function FormBox({ children }: { children: ReactNode }) {
 }
 
 function ReportCard({
+  taskId,
   report,
   canEditComment,
   onSave,
 }: {
+  taskId: number
   report: TaskReport
   canEditComment: boolean
   onSave: (comment: string) => Promise<{ ok: boolean; reason?: string }>
@@ -286,9 +290,9 @@ function ReportCard({
         </span>
         <span>
           {new Date(report.created_at).toLocaleString('ru-RU')}
-          {report.updated_at && ' · изменён'}
         </span>
       </div>
+      <ReportEditedMark taskId={taskId} report={report} />
       {editing ? (
         <div className="mt-2 flex flex-col gap-2">
           <Textarea rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} />
@@ -332,6 +336,88 @@ function ReportCard({
         <div className="mt-2 flex flex-col gap-1">
           {report.files.map((file) => (
             <FileLink key={file.id} id={file.id} filename={file.filename} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Пометка «изменено» / «изменено после приёмки» у записи журнала и прежние
+ * версии текста по клику (0084-g). Правки, сделанные до того, как начали
+ * хранить историю, помечены, но прежнего текста у них нет — так и пишем.
+ */
+function ReportEditedMark({ taskId, report }: { taskId: number; report: TaskReport }) {
+  const [open, setOpen] = useState(false)
+  const [revisions, setRevisions] = useState<TaskReportRevision[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Новая правка — новая версия в истории: загруженный список устарел.
+  useEffect(() => {
+    setRevisions(null)
+  }, [report.revisions_count])
+
+  useEffect(() => {
+    if (!open || revisions !== null) return
+    let cancelled = false
+    listReportRevisions(taskId, report.id)
+      .then((list) => {
+        if (!cancelled) {
+          setRevisions(list)
+          setLoadError(null)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить прежние версии')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, revisions, taskId, report.id])
+
+  if (!report.updated_at && report.revisions_count === 0) return null
+
+  const label = report.edited_after_acceptance ? 'Изменено после приёмки' : 'Изменено'
+  const tone = report.edited_after_acceptance ? 'warning' : 'info'
+
+  if (report.revisions_count === 0) {
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <Chip tone={tone}>{label}</Chip>
+        <span className="text-[12px] text-muted">прежний текст не сохранился — правка сделана до ведения истории</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="rounded-pill"
+        title="Показать прежние версии"
+      >
+        <Chip tone={tone}>
+          {label} · версий: {report.revisions_count} {open ? '▴' : '▾'}
+        </Chip>
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-3">
+          {loadError && <p className="text-[12px] text-danger">{loadError}</p>}
+          {!loadError && revisions === null && <p className="text-[12px] text-muted">Загружаем…</p>}
+          {revisions?.map((revision) => (
+            <div key={revision.id} className="flex flex-col gap-1">
+              <div className="text-[12px] text-muted">
+                Было до правки {new Date(revision.edited_at).toLocaleString('ru-RU')}
+                {' · '}правил(а) {revision.edited_by?.full_name ?? 'удалённый пользователь'}
+                {revision.after_acceptance && (
+                  <span className="font-medium text-warning"> · после приёмки</span>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-[13px] text-ink">{revision.comment || '—'}</p>
+            </div>
           ))}
         </div>
       )}

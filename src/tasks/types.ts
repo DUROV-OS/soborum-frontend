@@ -43,6 +43,19 @@ export interface TaskReport {
   /** Не null, если автор правил комментарий уже после отправки. */
   updated_at: string | null
   files: FileAsset[]
+  /** Сколько прежних версий текста сохранено (0084-g). */
+  revisions_count: number
+  /** Хоть одна правка сделана, когда задачу уже приняли. */
+  edited_after_acceptance: boolean
+}
+
+/** Прежняя версия текста записи журнала: каким был комментарий до правки (0084-g). */
+export interface TaskReportRevision {
+  id: number
+  comment: string
+  edited_by: Account | null
+  edited_at: string
+  after_acceptance: boolean
 }
 
 export interface Task {

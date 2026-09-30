@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Task, TaskLinkType, TaskStatus } from './types'
+import { Task, TaskLinkType, TaskReportRevision, TaskStatus } from './types'
 
 const SECTION = 'tasks'
 
@@ -79,6 +79,11 @@ export function editReportComment(taskId: number, reportId: number, comment: str
     method: 'PATCH',
     body: { comment },
   })
+}
+
+/** GET /api/tasks/:id/reports/:reportId/revisions — прежние версии текста записи, от старой к новой. */
+export function listReportRevisions(taskId: number, reportId: number): Promise<TaskReportRevision[]> {
+  return apiRequest<TaskReportRevision[]>({ section: SECTION, path: `/${taskId}/reports/${reportId}/revisions` })
 }
 
 /** DELETE /api/tasks/:id */
