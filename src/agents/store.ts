@@ -17,10 +17,11 @@ interface AgentsState {
   shift: AgentShift | null
   shiftLoading: boolean
   shiftError: string | null
+  approvalError: string | null
   loadStats: () => Promise<void>
   loadShift: () => Promise<void>
   startShift: () => Promise<AgentShift | null>
-  decideApproval: (id: number, status: 'approved' | 'rejected') => Promise<void>
+  decideApproval: (id: number, status: 'approved' | 'rejected', subjectHash: string) => Promise<void>
   submit: (text: string) => Promise<AgentRun | null>
 }
 
@@ -34,6 +35,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
   shift: null,
   shiftLoading: false,
   shiftError: null,
+  approvalError: null,
 
   loadStats: async () => {
     set({ statsLoading: true, statsError: null })
@@ -69,8 +71,22 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
     }
   },
 
-  decideApproval: async (id, status) => {
-    const updated = await agentsApi.decideApproval(id, status)
+  decideApproval: async (id, status, subjectHash) => {
+    set({ approvalError: null })
+    let updated
+    try {
+      updated = await agentsApi.decideApproval(id, status, subjectHash)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        // Пункт на сервере не тот, что видел человек (или решение уже есть) —
+        // не решаем вслепую, перечитываем смену.
+        set({ approvalError: 'Пункт изменился — смену перечитали, посмотрите ещё раз.' })
+        await get().loadShift()
+        return
+      }
+      set({ approvalError: reasonOf(error) })
+      return
+    }
     const shift = get().shift
     if (!shift) return
     set({
