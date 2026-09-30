@@ -51,6 +51,19 @@ export function planHasBalance(plan: PaymentPlan | null): boolean {
   return plan === 'advance_then_balance' || plan === 'post_payment'
 }
 
+/** Состояние остатка «после получения» (0084-j) — вычисляет бэк из плана,
+ * отметки приёма и срока. `pending` — срок не наступил, это не нарушение;
+ * `no_due_date` — срок не указан, просрочку не определить. */
+export type BalanceState = 'not_applicable' | 'no_due_date' | 'pending' | 'overdue' | 'paid'
+
+export const BALANCE_STATE_LABEL: Record<BalanceState, string> = {
+  not_applicable: 'Остатка нет',
+  no_due_date: 'Срок оплаты не указан',
+  pending: 'Остаток в срок',
+  overdue: 'Остаток просрочен',
+  paid: 'Остаток принят',
+}
+
 export const CLIENT_STAGES: { key: ClientStage; label: string }[] = [
   { key: 'lead', label: 'Лид' },
   { key: 'discussion', label: 'Обсуждение' },
@@ -227,6 +240,9 @@ export interface Client {
   /** Приём остатка после получения дома — стадия «Постоплата», планы advance/postpay. */
   balance_paid: boolean | null
   balance_paid_at: string | null
+  /** Срок оплаты остатка по договору (0084-j), `YYYY-MM-DD`; вводится вручную. */
+  balance_due_date: string | null
+  balance_state: BalanceState
   notes: ClientNote[]
   /** Задачи по клиенту (0079-d), свежие сверху — и открытые, и закрытые. */
   tasks: ClientTask[]
