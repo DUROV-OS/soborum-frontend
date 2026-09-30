@@ -132,6 +132,18 @@ export interface FileAsset {
   created_at: string
 }
 
+/** Откуда файл договора/приложения (0084-i): загружен человеком или написан
+ * Мариной. Сгенерированный — черновик, гейт стадии его не пропускает. */
+export type ContractSource = 'uploaded' | 'generated'
+
+/** Договор и приложение — два документа с одинаковыми правилами проверки. */
+export type ContractDocument = 'contract' | 'contract_appendix'
+
+export interface ContractVerifier {
+  id: number
+  full_name: string
+}
+
 export interface ClientNote {
   id: number
   client_id: number
@@ -189,6 +201,20 @@ export interface Client {
   advance_amount: number | null
   contract_file: FileAsset | null
   contract_appendix_file: FileAsset | null
+  /** Источник и проверка договора/приложения (0084-i). Загрузка ≠ проверка:
+   * `*_verified_at` ставит отдельное действие «Отметить проверенным». Флаг
+   * `*_verification_required` false — файл приложен до ввода проверки: гейт
+   * стадии только предупреждает, переход не блокирует. */
+  contract_source: ContractSource | null
+  contract_verification_required: boolean
+  contract_verified_by: ContractVerifier | null
+  contract_verified_at: string | null
+  contract_verification_note: string | null
+  contract_appendix_source: ContractSource | null
+  contract_appendix_verification_required: boolean
+  contract_appendix_verified_by: ContractVerifier | null
+  contract_appendix_verified_at: string | null
+  contract_appendix_verification_note: string | null
   /** Необязателен с 0061 — не у каждого клиента есть проект дома в системе. */
   house_project_file: FileAsset | null
   ar_file: FileAsset | null
