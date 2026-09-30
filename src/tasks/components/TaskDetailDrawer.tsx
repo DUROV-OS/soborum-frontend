@@ -71,6 +71,10 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   }
 
   const stateLabel = TASK_STATES.find((s) => s.key === task.status)?.label ?? task.status
+  const reviewRequired = task.review_policy === 'review_required'
+  // Задачу блока производства исполнитель не принимает сам (0084-f) — сервер
+  // ответит 403, поэтому кнопку «Принять» ему не показываем.
+  const ownAcceptBlocked = reviewRequired && task.assignees.some((a) => a.id === currentUserId)
   const attachments = (
     <>
       <input
@@ -120,7 +124,18 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
 
         <Row label="Исполнители" value={task.assignees.map((a) => a.full_name).join(', ') || '—'} />
         <Row label="Ответственный" value={task.responsible?.full_name ?? '—'} />
-        <Row label="Проверяющие" value={task.reviewers.map((a) => a.full_name).join(', ') || 'нет — проверка не требуется'} />
+        <Row
+          label="Проверяющие"
+          value={
+            task.reviewers.map((a) => a.full_name).join(', ') ||
+            (reviewRequired ? 'нет — нужен проверяющий' : 'нет — проверка не требуется')
+          }
+        />
+        {task.review_blocked_reason === 'no_reviewer' && (
+          <p className="rounded-md border border-danger/30 bg-danger-bg/40 px-3 py-2 text-[13px] font-medium text-danger">
+            Нет проверяющего — задача не закроется, пока его не назначат.
+          </p>
+        )}
 
         {task.depends_on_ids.length > 0 && <Row label="Зависит от" value={`${task.depends_on_ids.length} задач(и)`} />}
 
@@ -145,7 +160,8 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
                   report={report}
                   // Свой комментарий автор правит в любой момент, в том числе
                   // после того, как задачу приняли (0077).
-                  canEditComment={canEdit && report.author.id === currentUserId}
+                  // Служебная запись о назначении проверяющего не правится.
+                  canEditComment={canEdit && report.author.id === currentUserId && report.kind !== 'reviewer_assigned'}
                   onSave={(text) => editReportComment(taskId, report.id, text)}
                 />
               ))}
@@ -175,13 +191,22 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
             </Field>
             {attachments}
             {task.status === 'in_review' ? (
-              <div className="flex gap-2">
-                <Button size="sm" disabled={busy} onClick={() => decide(true)}>
-                  {busy ? 'Отправляем…' : 'Принять — выполнена'}
-                </Button>
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => decide(false)}>
-                  Вернуть в работу
-                </Button>
+              <div className="flex flex-col gap-2">
+                {ownAcceptBlocked && (
+                  <p className="text-[13px] font-medium text-danger">
+                    Свою сдачу принять нельзя — задачу блока производства принимает другой сотрудник.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  {!ownAcceptBlocked && (
+                    <Button size="sm" disabled={busy} onClick={() => decide(true)}>
+                      {busy ? 'Отправляем…' : 'Принять — выполнена'}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => decide(false)}>
+                    Вернуть в работу
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex gap-2">
@@ -207,7 +232,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
           )}
           {canEdit && task.status === 'in_progress' && !reporting && (
             <Button size="sm" disabled={busy} onClick={() => setReporting(true)}>
-              {task.reviewers.length > 0 ? 'Отправить на проверку' : 'Сдать задачу'}
+              {task.reviewers.length > 0 || reviewRequired ? 'Отправить на проверку' : 'Сдать задачу'}
             </Button>
           )}
           {task.status === 'not_ready' && (
