@@ -11,7 +11,7 @@ import { KanbanBoard } from '@/shared/ui/KanbanBoard'
 import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
-import { DateFilter, DEFAULT_DATE_FILTER, dateFilterRange, matchesDateFilter } from '@/shared/lib/dateFilter'
+import { DateFilter, dateFilterRange, matchesDateFilter } from '@/shared/lib/dateFilter'
 import { useClientsStore } from '../store'
 import { deadlineLabel, nearestOpenTask } from '../taskDeadline'
 import { Client, CLIENT_STAGES } from '../types'
@@ -70,8 +70,9 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Фильтр по периоду',
     body: (
       <p>
-        Фильтр в правом верхнем углу показывает клиентов, обратившихся за выбранный период (день, неделя, месяц,
-        год и другие). По умолчанию показывается этот месяц.
+        По умолчанию доска показывает всех клиентов — путь клиента идёт месяцами, и обрезать его по дате
+        обращения незачем. Фильтр в правом верхнем углу оставляет только обратившихся за выбранный период
+        (день, неделя, месяц, год и другие).
       </p>
     ),
   },
@@ -89,7 +90,11 @@ export function ClientsBoardPage() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
-  const [dateFilter, setDateFilter] = useState<DateFilter>(DEFAULT_DATE_FILTER)
+  // Не DEFAULT_DATE_FILTER («этот месяц»): клиент живёт месяцами — лид из
+  // августа всё ещё лид, а дом в производстве идёт полгода. С месячным
+  // фильтром по умолчанию доска обнулялась первого числа, пока в новом месяце
+  // не появится первое обращение (0085). Фильтр остаётся как инструмент.
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const onboarding = useSectionOnboarding('clients')
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
 
