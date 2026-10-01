@@ -10,6 +10,7 @@ import { FileLink } from '@/shared/ui/FileLink'
 import { useClientsStore } from '../store'
 import { isGroupEditable, isGroupVisible } from '../rules'
 import { Client, FileAsset, ORDER_TYPES, OrderType, orderTypeLabel, PAYMENT_PLANS, PaymentPlan, paymentPlanLabel } from '../types'
+import { ContractVerificationList } from './ContractVerification'
 import { HousesCountControl } from './HousesCountControl'
 import { ReadRow, Section } from './PanelPrimitives'
 
@@ -158,6 +159,7 @@ export function DocumentPanel({ client }: { client: Client }) {
               )
             }
           />
+          <ContractVerificationList client={client} />
           <ReadRow
             label="Проект дома (необязательно)"
             value={client.house_project_file && <FileLink id={client.house_project_file.id} filename={client.house_project_file.filename} />}
@@ -238,6 +240,7 @@ export function DocumentPanel({ client }: { client: Client }) {
                 appendix={client.contract_appendix_file}
                 onUpload={(contract, appendix) => useClientsStore.getState().uploadContractFiles(client.id, contract, appendix)}
               />
+              <ContractVerificationList client={client} />
             </Field>
           </div>
           <Field label="Проект дома" hint="Необязательно — не у каждого клиента есть в системе.">

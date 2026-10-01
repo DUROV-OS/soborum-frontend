@@ -1,4 +1,4 @@
-import { Block } from '../types'
+import { Block, BlockReadiness } from '../types'
 
 /** Направленный граф блоков одного производства: узлы расставлены по столбцам
  * `sequence` (порядок), стрелки — зависимости `depends_on_ids`. Вручную на
@@ -6,7 +6,7 @@ import { Block } from '../types'
  * `frontend/src/agents/components/AgentConstellation.tsx`. */
 
 const NODE_WIDTH = 168
-const NODE_HEIGHT = 56
+const NODE_HEIGHT = 72
 const COLUMN_GAP = 96
 const ROW_GAP = 24
 const PADDING = 32
@@ -23,7 +23,20 @@ function columnsOf(blocks: Block[]): Block[][] {
     .map((seq) => bySequence.get(seq)!)
 }
 
-export function BlockGraph({ blocks, onSelect }: { blocks: Block[]; onSelect?: (block: Block) => void }) {
+function short(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+export function BlockGraph({
+  blocks,
+  readinessById,
+  onSelect,
+}: {
+  blocks: Block[]
+  /** Оценка сервера (0084-b); null — не загружена, признаки не показываем. */
+  readinessById: Map<number, BlockReadiness> | null
+  onSelect?: (block: Block) => void
+}) {
   const columns = columnsOf(blocks)
   const maxRows = Math.max(1, ...columns.map((c) => c.length))
   const width = PADDING * 2 + columns.length * NODE_WIDTH + Math.max(0, columns.length - 1) * COLUMN_GAP
@@ -83,7 +96,13 @@ export function BlockGraph({ blocks, onSelect }: { blocks: Block[]; onSelect?: (
         {blocks.map((block) => {
           const point = positionById.get(block.id)
           if (!point) return null
-          const blocked = block.depends_on_ids.length > 0
+          const readiness = readinessById?.get(block.id)
+          const waiting = readiness !== undefined && !readiness.admitted
+          const admissionText = readiness
+            ? readiness.admitted
+              ? 'допущен'
+              : short(`ждёт: ${readiness.waiting_on.map((w) => w.name).join(', ')}`, 26)
+            : 'оценка не загружена'
           return (
             <g
               key={block.id}
@@ -96,7 +115,7 @@ export function BlockGraph({ blocks, onSelect }: { blocks: Block[]; onSelect?: (
                 height={NODE_HEIGHT}
                 rx={10}
                 fill="white"
-                stroke={blocked ? 'rgb(181 138 63)' : 'rgb(43 105 80)'}
+                stroke={!readiness ? 'rgb(100 115 117)' : waiting ? 'rgb(181 138 63)' : 'rgb(43 105 80)'}
                 strokeWidth={1.5}
               />
               <text
@@ -110,8 +129,13 @@ export function BlockGraph({ blocks, onSelect }: { blocks: Block[]; onSelect?: (
                 {block.name.length > 18 ? `${block.name.slice(0, 17)}…` : block.name}
               </text>
               <text x={12} y={40} fontSize={11} fill="rgb(100 115 117)" fontFamily="Rubik, Arial, sans-serif">
-                {blocked ? 'ждёт зависимостей' : 'готов к старту'}
+                {admissionText}
               </text>
+              {readiness && (
+                <text x={12} y={57} fontSize={11} fill="rgb(100 115 117)" fontFamily="Rubik, Arial, sans-serif">
+                  {short(readiness.materials_label, 26)}
+                </text>
+              )}
             </g>
           )
         })}

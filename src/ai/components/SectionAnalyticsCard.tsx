@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { Chip, ChipTone } from '@/shared/ui/Chip'
@@ -21,12 +22,16 @@ const STATUS_TONE: Record<SectionAnalyticsStatus, ChipTone> = {
   green: 'success',
   yellow: 'warning',
   red: 'danger',
+  unknown: 'neutral',
 }
 
+// green — «по переданным данным отклонений не найдено», а не гарантия
+// благополучия (0084-c).
 const STATUS_LABEL: Record<SectionAnalyticsStatus, string> = {
-  green: 'Всё в порядке',
+  green: 'Отклонений не найдено',
   yellow: 'Нужно внимание',
   red: 'Критично',
+  unknown: 'Не оценено',
 }
 
 export function SectionAnalyticsCard({ section }: { section: AnalyticsSection }) {
@@ -37,11 +42,11 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
+  async function load(reload = false) {
     setLoading(true)
     setError(null)
     try {
-      setData(await getSectionAnalytics(section))
+      setData(await getSectionAnalytics(section, reload))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить ИИ-резюме')
     } finally {
@@ -67,7 +72,7 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
           {data && <Chip tone={STATUS_TONE[data.status]}>{STATUS_LABEL[data.status]}</Chip>}
           <button
             type="button"
-            onClick={load}
+            onClick={() => load(true)}
             disabled={loading}
             aria-label="Обновить ИИ-резюме"
             className="rounded-pill p-1 text-muted transition-colors hover:bg-surface-muted hover:text-ink"
@@ -87,6 +92,17 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
         )}
         {!loading && !error && data && <Markdown text={data.summary} />}
       </div>
+      {data && !error && (
+        <div className="mt-2 flex flex-col gap-1 text-[11px] text-muted">
+          {data.status_floor_reason && (
+            <span className="text-warning">Статус скорректирован по фактам: {data.status_floor_reason}</span>
+          )}
+          <span>
+            {data.source === 'rules' && 'оценка по правилам, ИИ недоступен · '}
+            данные на {format(new Date(data.generated_at), 'HH:mm')}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,9 +8,11 @@ import { Button } from '@/shared/ui/Button'
 import { Stepper } from '@/shared/ui/Stepper'
 import { useClientsStore } from '../store'
 import { CLIENT_STAGES } from '../types'
-import { nextStageOf, stageLabel } from '../rules'
+import { isStageManual, nextStageOf, stageLabel } from '../rules'
 import { ReadRow, Section } from '../components/PanelPrimitives'
 import { DocumentPanel } from '../components/DocumentPanel'
+import { SourcePanel } from '../components/SourcePanel'
+import { TasksPanel } from '../components/TasksPanel'
 import { PaymentPanel } from '../components/PaymentPanel'
 import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { NotesPanel } from '../components/NotesPanel'
@@ -42,6 +44,9 @@ export function ClientDetailPage() {
   }
 
   const next = nextStageOf(client.stage)
+  // После старта производства клиента двигает не человек, а раздел «Монтаж»
+  // (0079): бэкенд такой ручной перевод всё равно отклоняет.
+  const manualStage = isStageManual(client.stage)
 
   async function handleAdvance() {
     setAdvancing(true)
@@ -84,10 +89,15 @@ export function ClientDetailPage() {
               contextLabel={`Клиент: ${client.full_name}`}
               contextNote={`[client_id=${client.id}, ${client.full_name}] `}
             />
-            {next && canEdit && (
+            {next && canEdit && manualStage && (
               <Button size="sm" onClick={handleAdvance} disabled={advancing}>
                 {advancing ? 'Переход…' : `Перевести на «${stageLabel(next)}»`}
               </Button>
+            )}
+            {!manualStage && (
+              <p className="max-w-[260px] text-[12px] text-muted sm:text-right">
+                Стадия «{stageLabel(client.stage)}» двигается сама — по ходу работ в разделе «Монтаж».
+              </p>
             )}
             {canFull && (
               <button
@@ -117,6 +127,10 @@ export function ClientDetailPage() {
               ))
             : <ReadRow label="Способы связи" value={undefined} />}
         </Section>
+
+        <TasksPanel client={client} />
+
+        <SourcePanel client={client} />
 
         <DocumentPanel client={client} />
         <PaymentPanel client={client} />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { FileText, Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -121,7 +122,12 @@ export function TasksPage() {
   const [creating, setCreating] = useState(false)
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [selected, setSelected] = useState<Task | null>(null)
-  const [subTab, setSubTab] = useState<SubTab>('mine')
+  // Вход со счётчика Пульса: /tasks?scope=all|mine&status=open (0084-h) —
+  // вкладка из scope, на доске только открытые задачи, клиентские фильтры
+  // сброшены, чтобы карточек было ровно столько, сколько в счётчике.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openOnly = searchParams.get('status') === 'open'
+  const [subTab, setSubTab] = useState<SubTab>(searchParams.get('scope') === 'all' ? 'all' : 'mine')
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
@@ -142,8 +148,22 @@ export function TasksPage() {
   }, [subTab])
 
   useEffect(() => {
-    load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine' })
-  }, [load, subTab, canSeeAll])
+    if (!openOnly) return
+    setSubTab(searchParams.get('scope') === 'all' ? 'all' : 'mine')
+    setSourceFilter('all')
+    setEmployeeFilter(EMPLOYEE_ALL)
+    setDateFilter('all')
+    setQuery('')
+  }, [openOnly, searchParams])
+
+  useEffect(() => {
+    load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine', ...(openOnly ? { status: 'open' as const } : {}) })
+  }, [load, subTab, canSeeAll, openOnly])
+
+  function changeTab(tab: SubTab) {
+    setSubTab(tab)
+    if (openOnly) setSearchParams({ scope: tab, status: 'open' }, { replace: true })
+  }
 
   async function handleClaim(taskId: number) {
     setClaimingId(taskId)
@@ -195,8 +215,17 @@ export function TasksPage() {
               { key: 'all' as SubTab, label: 'Все задачи' },
             ]}
             activeKey={subTab}
-            onChange={setSubTab}
+            onChange={changeTab}
           />
+        </div>
+      )}
+
+      {openOnly && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-muted">
+          Показаны только открытые задачи — тот же набор, что в счётчике на Пульсе.
+          <Button variant="secondary" size="sm" onClick={() => setSearchParams({}, { replace: true })}>
+            Показать все, включая done
+          </Button>
         </div>
       )}
 
@@ -244,6 +273,13 @@ export function TasksPage() {
             <div className="text-[13px] font-medium text-ink">{task.title}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>
+              {task.review_blocked_reason === 'no_reviewer' && <Chip tone="danger">Нет проверяющего</Chip>}
+              {task.reports.length > 0 && (
+                <span className="flex items-center gap-1 text-[11px] text-muted" title="Исполнитель приложил отчёт">
+                  <FileText size={11} />
+                  отчёт
+                </span>
+              )}
               {task.deadline && (
                 <span className="text-[11px] text-muted">{new Date(task.deadline).toLocaleDateString('ru-RU')}</span>
               )}

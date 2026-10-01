@@ -98,13 +98,21 @@ export interface AgentsStats {
   pending_approvals?: number
 }
 
+// Статус кросс-проверки (0084-e). null/нет поля — запись смены до 0084-e:
+// показываем «Не проверено», а не благополучный текст.
+export type ShiftReviewStatus = 'checked_ok' | 'checked_escalate' | 'not_checked'
+
 export interface ShiftReview {
   reviewer: string
   reviewer_title: string
   text: string
   escalate: boolean
   kind: string
+  status?: ShiftReviewStatus | null
 }
+
+// Откуда позиция роли: живой срез базы, Claude без фактов из системы или ничего.
+export type ShiftStanceSource = 'live' | 'llm_without_facts' | 'none'
 
 export interface ShiftItem {
   id: number
@@ -114,16 +122,23 @@ export interface ShiftItem {
   stance: string
   citations: string[]
   legal_verdict: LegalVerdict
+  has_live_data?: boolean
+  stance_source?: ShiftStanceSource | null
   reviews: ShiftReview[]
 }
 
 export interface ShiftApproval {
   id: number
   shift_id: number
+  item_id?: number | null
   kind: string
   title: string
   detail: string
+  // approved = согласовано, но не исполнено: исполнителя согласований в P0 нет.
   status: 'pending' | 'approved' | 'rejected'
+  // Хэш снимка пункта, который видит человек; решение без него сервер не примет (409).
+  subject_hash?: string | null
+  subject_snapshot?: Record<string, unknown> | null
   created_at: string
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { MeetingPanel } from '@/meeting/components/MeetingPanel'
+import { logClientEvent } from '@/shared/lib/clientLog'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -10,7 +11,9 @@ export function AppShell() {
 
   useEffect(() => {
     setSidebarOpen(false)
-  }, [location.pathname])
+    // Переходы по экранам — в клиентский лог сессии (0075-b).
+    logClientEvent('nav', location.pathname + location.search)
+  }, [location.pathname, location.search])
 
   return (
     <div className="flex h-dvh w-full">

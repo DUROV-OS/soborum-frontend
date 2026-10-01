@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { FileAsset } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useAccountingStore } from '../store'
+import { CounterpartyPicker } from './CounterpartyPicker'
+import { MovementDocumentsField } from './MovementDocumentsField'
 import {
   ASSESSMENT_LABEL,
   CLIENT_SOURCE_SUBKINDS,
@@ -14,6 +17,8 @@ import {
 
 const EMPTY = {
   subkind: 'sale_income' as MoneySubkind,
+  account_id: '' as number | '',
+  counterparty_id: null as number | null,
   amount: '',
   tax: '',
   assessment: 'actual' as MoneyAssessment,
@@ -21,16 +26,31 @@ const EMPTY = {
   client_id: '' as number | '',
   payment_purpose: '',
   comment: '',
+  link: '',
+  documents: [] as FileAsset[],
 }
 
 export function CreateMovementModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const clients = useAccountingStore((s) => s.clients)
   const create = useAccountingStore((s) => s.create)
+  const organizations = useAccountingStore((s) => s.organizations)
+  const selectedAccountId = useAccountingStore((s) => s.selectedAccountId)
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const needsClient = CLIENT_SOURCE_SUBKINDS.includes(form.subkind)
+
+  // Счета всех организаций одним списком: проводку заводят с той вкладки, где
+  // открыт раздел, но переложить её на счёт другого юрлица прямо в форме —
+  // нормальный случай, ради него не надо закрывать окно.
+  const accountOptions = organizations.flatMap((org) =>
+    org.accounts
+      .filter((a) => a.is_active)
+      .map((a) => ({ id: a.id, label: `${org.short_name} — ${a.name}` })),
+  )
+  // Предзаполнение счётом текущей вкладки; пока справочник не загружен — пусто.
+  const accountId = form.account_id === '' ? selectedAccountId : form.account_id
 
   function reset() {
     setForm(EMPTY)
@@ -53,16 +73,24 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
       setError('Выберите клиента')
       return
     }
+    if (accountId === null) {
+      setError('Выберите счёт, по которому прошёл платёж')
+      return
+    }
     setBusy(true)
     const result = await create({
       subkind: form.subkind,
       amount,
+      account_id: accountId,
+      counterparty_id: form.counterparty_id ?? undefined,
       tax: form.tax === '' ? undefined : Number(form.tax),
       assessment: form.assessment,
       affects_profit: form.affects_profit,
       client_id: needsClient ? Number(form.client_id) : undefined,
       payment_purpose: form.payment_purpose.trim() || undefined,
       comment: form.comment.trim() || undefined,
+      document_ids: form.documents.length ? form.documents.map((d) => d.id) : undefined,
+      link: form.link.trim() || undefined,
     })
     setBusy(false)
     if (result.ok) close()
@@ -79,13 +107,36 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
           <Button variant="ghost" onClick={close} disabled={busy}>
             Отмена
           </Button>
-          <Button onClick={submit} disabled={busy}>
+          <Button onClick={submit} disabled={busy || accountId === null}>
             {busy ? '…' : 'Создать черновик'}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
+        <Field label="Счёт" required hint="Организация и счёт, по которому прошёл платёж.">
+          <Select
+            value={accountId ?? ''}
+            onChange={(e) =>
+              setForm({ ...form, account_id: e.target.value === '' ? '' : Number(e.target.value) })
+            }
+          >
+            <option value="">— выберите счёт —</option>
+            {accountOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Контрагент" hint="Необязательно. Нужен, чтобы видеть историю платежей по нему.">
+          <CounterpartyPicker
+            value={form.counterparty_id}
+            onChange={(counterparty_id) => setForm({ ...form, counterparty_id })}
+          />
+        </Field>
+
         <Field label="Вид проводки" required hint="Зарплата и оплата поставки заводятся из своих разделов.">
           <Select
             value={form.subkind}
@@ -172,6 +223,22 @@ export function CreateMovementModal({ open, onClose }: { open: boolean; onClose:
             value={form.comment}
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
             placeholder="необязательно"
+          />
+        </Field>
+
+        <Field label="Ссылка" hint="Необязательно — на договор, чат, счёт и т.п.">
+          <Input
+            type="url"
+            value={form.link}
+            onChange={(e) => setForm({ ...form, link: e.target.value })}
+            placeholder="https://…"
+          />
+        </Field>
+
+        <Field label="Документ">
+          <MovementDocumentsField
+            documents={form.documents}
+            onChange={(documents) => setForm({ ...form, documents })}
           />
         </Field>
 

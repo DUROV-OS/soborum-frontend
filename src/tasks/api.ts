@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Task, TaskLinkType, TaskStatus } from './types'
+import { Task, TaskLinkType, TaskReportRevision, TaskStatus } from './types'
 
 const SECTION = 'tasks'
 
@@ -11,7 +11,8 @@ export interface TaskFilters {
   reviewer_id?: number
   block_id?: number
   link_type?: TaskLinkType
-  status?: TaskStatus
+  /** `open` — всё, кроме done: тот же набор, что счётчик на Пульсе (0084-h). */
+  status?: TaskStatus | 'open'
   overdue?: boolean
   [key: string]: string | number | boolean | undefined
 }
@@ -46,6 +47,44 @@ export function createTask(input: CreateTaskInput): Promise<Task> {
 /** PATCH /api/tasks/:id/status */
 export function setStatus(id: number, status: TaskStatus): Promise<Task> {
   return apiRequest<Task>({ section: SECTION, path: `/${id}/status`, method: 'PATCH', body: { status } })
+}
+
+/**
+ * POST /api/tasks/:id/report (multipart) — сдать задачу с отчётом:
+ * «в работе» → «на проверке» вместе с комментарием и файлами.
+ */
+export function submitReport(id: number, comment: string, files: File[]): Promise<Task> {
+  const form = new FormData()
+  form.append('comment', comment)
+  for (const file of files) form.append('files', file)
+  return apiRequest<Task>({ section: SECTION, path: `/${id}/report`, method: 'POST', form })
+}
+
+/**
+ * POST /api/tasks/:id/review (multipart) — решение проверяющего с отчётом:
+ * принять задачу или вернуть в работу, приложив комментарий и файлы.
+ */
+export function reviewTask(id: number, accept: boolean, comment: string, files: File[]): Promise<Task> {
+  const form = new FormData()
+  form.append('accept', String(accept))
+  form.append('comment', comment)
+  for (const file of files) form.append('files', file)
+  return apiRequest<Task>({ section: SECTION, path: `/${id}/review`, method: 'POST', form })
+}
+
+/** PATCH /api/tasks/:id/reports/:reportId — правка своего комментария, в том числе после приёмки. */
+export function editReportComment(taskId: number, reportId: number, comment: string): Promise<Task> {
+  return apiRequest<Task>({
+    section: SECTION,
+    path: `/${taskId}/reports/${reportId}`,
+    method: 'PATCH',
+    body: { comment },
+  })
+}
+
+/** GET /api/tasks/:id/reports/:reportId/revisions — прежние версии текста записи, от старой к новой. */
+export function listReportRevisions(taskId: number, reportId: number): Promise<TaskReportRevision[]> {
+  return apiRequest<TaskReportRevision[]>({ section: SECTION, path: `/${taskId}/reports/${reportId}/revisions` })
 }
 
 /** DELETE /api/tasks/:id */

@@ -1,6 +1,18 @@
 import { HouseModelBrief } from '@/house_models/types'
 
-export type ClientStage = 'lead' | 'discussion' | 'approval' | 'payment' | 'postpayment'
+/** Путь клиента из восьми стадий (0079). Значения первых пяти остались от
+ * прежнего пятиколоночного пути — поменялись только подписи: `approval` —
+ * «Ипотека/Одобрение в банке», `payment` — «Договор подписан/Аванс внесён»,
+ * `postpayment` — «Дом в производстве». */
+export type ClientStage =
+  | 'lead'
+  | 'discussion'
+  | 'site_visit'
+  | 'approval'
+  | 'payment'
+  | 'postpayment'
+  | 'acceptance'
+  | 'completed'
 
 /** Одиночный заказ — один дом в производстве. Множественный — несколько домов
  * у одного клиента, под каждый на стадии производства заводится отдельный проект. */
@@ -39,13 +51,35 @@ export function planHasBalance(plan: PaymentPlan | null): boolean {
   return plan === 'advance_then_balance' || plan === 'post_payment'
 }
 
+/** Состояние остатка «после получения» (0084-j) — вычисляет бэк из плана,
+ * отметки приёма и срока. `pending` — срок не наступил, это не нарушение;
+ * `no_due_date` — срок не указан, просрочку не определить. */
+export type BalanceState = 'not_applicable' | 'no_due_date' | 'pending' | 'overdue' | 'paid'
+
+export const BALANCE_STATE_LABEL: Record<BalanceState, string> = {
+  not_applicable: 'Остатка нет',
+  no_due_date: 'Срок оплаты не указан',
+  pending: 'Остаток в срок',
+  overdue: 'Остаток просрочен',
+  paid: 'Остаток принят',
+}
+
 export const CLIENT_STAGES: { key: ClientStage; label: string }[] = [
   { key: 'lead', label: 'Лид' },
   { key: 'discussion', label: 'Обсуждение' },
-  { key: 'approval', label: 'Согласование' },
-  { key: 'payment', label: 'Оплата' },
-  { key: 'postpayment', label: 'Постоплата' },
+  { key: 'site_visit', label: 'Гость на объекте' },
+  { key: 'approval', label: 'Ипотека/Одобрение в банке' },
+  { key: 'payment', label: 'Договор подписан/Аванс внесён' },
+  { key: 'postpayment', label: 'Дом в производстве' },
+  { key: 'acceptance', label: 'Приёмка' },
+  { key: 'completed', label: 'Успешно реализовано' },
 ]
+
+/** Стадии, которые двигает не человек, а ход работ: «Дом в производстве» и
+ * дальше переводит сам бэкенд по разделу «Монтаж» (0079). Кнопки перевода на
+ * них нет — попытка всё равно вернулась бы отказом с бэка. Список держим
+ * здесь одной константой, чтобы он не разъезжался по компонентам. */
+export const AUTOMATIC_STAGES: ClientStage[] = ['postpayment', 'acceptance', 'completed']
 
 export type ClientChatState = 'agreement' | 'waiting' | 'analysis'
 
@@ -59,6 +93,49 @@ export function chatStateLabel(state: ClientChatState | null): string {
   return CLIENT_CHAT_STATES.find((s) => s.key === state)?.label ?? '—'
 }
 
+/** Задача менеджера по клиенту (0079-d): «связаться», «выслать каталог»,
+ * «уточнить по ипотеке». Обычная задача системы — она же видна в «Моих
+ * задачах». Пока открыта задача с `blocking`, клиента нельзя перевести на
+ * следующую стадию. */
+export interface ClientTask {
+  id: number
+  title: string
+  description: string | null
+  deadline: string | null
+  status: 'not_ready' | 'ready' | 'in_progress' | 'in_review' | 'done'
+  blocking: boolean
+  /** Стадия клиента на момент постановки — видно, на каком шаге он застрял. */
+  stage: ClientStage | null
+  assignee_ids: number[]
+  reports: ClientTaskReport[]
+}
+
+/** Строка журнала задачи: решение по задаче или перенос срока с причиной. */
+export interface ClientTaskReport {
+  id: number
+  kind: 'submission' | 'review_accepted' | 'review_returned' | 'deadline_shift'
+  comment: string
+  author_id: number
+  created_at: string
+}
+
+export interface ClientTaskInput {
+  title: string
+  description?: string | null
+  /** ISO-строка. Срок обязателен — задача без срока теряется. */
+  deadline: string
+  assignee_ids?: number[]
+  blocking?: boolean
+}
+
+/** Частые формулировки задач — подсказки, а не ограничение: текст произвольный. */
+export const CLIENT_TASK_SUGGESTIONS = [
+  'Связаться',
+  'Напомнить о себе',
+  'Выслать каталог',
+  'Уточнить по ипотеке',
+]
+
 export interface FileAsset {
   id: number
   filename: string
@@ -66,6 +143,18 @@ export interface FileAsset {
   purpose: string
   uploaded_by_id: number
   created_at: string
+}
+
+/** Откуда файл договора/приложения (0084-i): загружен человеком или написан
+ * Мариной. Сгенерированный — черновик, гейт стадии его не пропускает. */
+export type ContractSource = 'uploaded' | 'generated'
+
+/** Договор и приложение — два документа с одинаковыми правилами проверки. */
+export type ContractDocument = 'contract' | 'contract_appendix'
+
+export interface ContractVerifier {
+  id: number
+  full_name: string
 }
 
 export interface ClientNote {
@@ -106,6 +195,10 @@ export interface Client {
   phone: string
   email: string
   contacts: ClientContact[]
+  /** Источник клиента (0079-c): у прямого клиента via_agency = false и пустые agency_*. */
+  via_agency: boolean
+  agency_name: string | null
+  agency_contact: string | null
   /** Чаты MAX, привязанные к клиенту (0053) — 1:N, редактируется в любой момент. */
   chat_links: ClientChatLink[]
   order_type: OrderType | null
@@ -121,6 +214,20 @@ export interface Client {
   advance_amount: number | null
   contract_file: FileAsset | null
   contract_appendix_file: FileAsset | null
+  /** Источник и проверка договора/приложения (0084-i). Загрузка ≠ проверка:
+   * `*_verified_at` ставит отдельное действие «Отметить проверенным». Флаг
+   * `*_verification_required` false — файл приложен до ввода проверки: гейт
+   * стадии только предупреждает, переход не блокирует. */
+  contract_source: ContractSource | null
+  contract_verification_required: boolean
+  contract_verified_by: ContractVerifier | null
+  contract_verified_at: string | null
+  contract_verification_note: string | null
+  contract_appendix_source: ContractSource | null
+  contract_appendix_verification_required: boolean
+  contract_appendix_verified_by: ContractVerifier | null
+  contract_appendix_verified_at: string | null
+  contract_appendix_verification_note: string | null
   /** Необязателен с 0061 — не у каждого клиента есть проект дома в системе. */
   house_project_file: FileAsset | null
   ar_file: FileAsset | null
@@ -133,10 +240,24 @@ export interface Client {
   /** Приём остатка после получения дома — стадия «Постоплата», планы advance/postpay. */
   balance_paid: boolean | null
   balance_paid_at: string | null
+  /** Срок оплаты остатка по договору (0084-j), `YYYY-MM-DD`; вводится вручную. */
+  balance_due_date: string | null
+  balance_state: BalanceState
   notes: ClientNote[]
+  /** Задачи по клиенту (0079-d), свежие сверху — и открытые, и закрытые. */
+  tasks: ClientTask[]
 }
 
-export interface ClientCreateInput {
+/** Источник клиента (0079-c): пришёл сам или его привело агентство-партнёр.
+ * `agency_name` обязательно при `via_agency = true`; при снятии отметки бэк
+ * чистит оба поля агентства. */
+export interface ClientSourceInput {
+  via_agency: boolean
+  agency_name?: string | null
+  agency_contact?: string | null
+}
+
+export interface ClientCreateInput extends ClientSourceInput {
   full_name: string
   phone: string
   email: string

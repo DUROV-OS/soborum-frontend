@@ -90,6 +90,10 @@ export function WarehousePage() {
     load()
   }, [load])
 
+  // `selected` — снимок на момент клика; после правки материала в карточке
+  // (0078) берём свежую версию из стора, иначе drawer показывал бы старое
+  const selectedMaterial = selected ? materials.find((m) => m.id === selected.id) ?? selected : null
+
   const categories = Array.from(
     new Set(materials.map((m) => (m.category ?? '').trim()).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'ru'))
@@ -223,7 +227,7 @@ export function WarehousePage() {
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
-      <MaterialDetailDrawer material={selected} onClose={() => setSelected(null)} />
+      <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
 
       <OnboardingDialog
         open={onboarding.open}
