@@ -19,6 +19,12 @@ interface WarehouseState {
   importSupply: (file: File) => Promise<ActionResult>
   approveRequest: (requestId: number) => Promise<ActionResult>
   rejectRequest: (requestId: number) => Promise<ActionResult>
+  /** Счётчик проведённых документов (0088) — журнал перечитывается при его смене. */
+  operationsVersion: number
+  createInventoryOperation: (
+    kind: 'receipt' | 'write_off',
+    input: warehouseApi.InventoryOperationInput,
+  ) => Promise<ActionResult>
 }
 
 function reasonOf(error: unknown): string {
@@ -57,7 +63,10 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
   writeOffMaterial: async (id, quantity, reason) => {
     try {
       const updated = await warehouseApi.writeOffMaterial(id, quantity, reason)
-      set({ materials: get().materials.map((m) => (m.id === id ? updated : m)) })
+      set({
+        materials: get().materials.map((m) => (m.id === id ? updated : m)),
+        operationsVersion: get().operationsVersion + 1,
+      })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
@@ -68,6 +77,7 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
     try {
       await warehouseApi.createSupply(supplierName, lines)
       await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
@@ -78,6 +88,7 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
     try {
       await warehouseApi.importSupply(file)
       await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
@@ -88,6 +99,7 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
     try {
       await warehouseApi.approveRequest(requestId)
       await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
@@ -98,6 +110,19 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
     try {
       await warehouseApi.rejectRequest(requestId)
       await get().load()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  operationsVersion: 0,
+
+  createInventoryOperation: async (kind, input) => {
+    try {
+      await warehouseApi.createInventoryOperation(kind, input)
+      await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
