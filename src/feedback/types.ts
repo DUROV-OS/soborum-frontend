@@ -55,6 +55,15 @@ export interface FeedbackEvent {
   created_at: string
 }
 
+/**
+ * Последняя запись ленты — комментарий автора: он ждёт ответа администратора
+ * (метка в «Заявках» и счётчик у пункта меню).
+ */
+export function awaitsReply(request: FeedbackRequest): boolean {
+  const last = request.events[request.events.length - 1]
+  return last?.kind === 'comment' && last.author.id === request.author.id
+}
+
 export interface FeedbackRequest {
   id: number
   /** Слаг раздела фронта; для незнакомого значения показываем сам слаг. */

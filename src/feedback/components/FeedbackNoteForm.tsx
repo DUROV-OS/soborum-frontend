@@ -7,10 +7,11 @@ import { FEEDBACK_NOTE_LABEL, FeedbackNoteKind } from '../types'
 const MAX_CHARS = 5000
 
 /**
- * Запись администратора в ленту заявки (0090): комментарий сотруднику или
- * «изменение в системе» — что именно поменяли по этой заявке.
+ * Запись в ленту заявки (0090). Администратор (`asAdmin`) пишет комментарий
+ * сотруднику или «изменение в системе» — что поменяли по заявке; автор в
+ * «Моих заявках» — только комментарий под своей заявкой.
  */
-export function FeedbackNoteForm({ requestId }: { requestId: number }) {
+export function FeedbackNoteForm({ requestId, asAdmin = false }: { requestId: number; asAdmin?: boolean }) {
   const addEvent = useFeedbackStore((s) => s.addEvent)
   const [kind, setKind] = useState<FeedbackNoteKind>('comment')
   const [text, setText] = useState('')
@@ -33,38 +34,42 @@ export function FeedbackNoteForm({ requestId }: { requestId: number }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div role="radiogroup" aria-label="Вид записи" className="flex flex-wrap gap-2">
-        {(Object.keys(FEEDBACK_NOTE_LABEL) as FeedbackNoteKind[]).map((value) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={kind === value}
-            onClick={() => setKind(value)}
-            className={`rounded-pill border px-3 py-1 text-[12px] font-medium transition-colors ${
-              kind === value ? 'border-brand bg-brand/10 text-brand-dark' : 'border-border text-muted hover:border-brand/40'
-            }`}
-          >
-            {FEEDBACK_NOTE_LABEL[value]}
-          </button>
-        ))}
-      </div>
+      {asAdmin && (
+        <div role="radiogroup" aria-label="Вид записи" className="flex flex-wrap gap-2">
+          {(Object.keys(FEEDBACK_NOTE_LABEL) as FeedbackNoteKind[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={kind === value}
+              onClick={() => setKind(value)}
+              className={`rounded-pill border px-3 py-1 text-[12px] font-medium transition-colors ${
+                kind === value ? 'border-brand bg-brand/10 text-brand-dark' : 'border-border text-muted hover:border-brand/40'
+              }`}
+            >
+              {FEEDBACK_NOTE_LABEL[value]}
+            </button>
+          ))}
+        </div>
+      )}
       <Textarea
         rows={3}
         maxLength={MAX_CHARS}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        aria-label="Текст записи"
+        aria-label={asAdmin ? 'Текст записи' : 'Ваш комментарий'}
         placeholder={
-          kind === 'change'
-            ? 'Что изменили в системе по этой заявке — сотрудник увидит это в «Моих заявках»'
-            : 'Комментарий сотруднику — он увидит его в «Моих заявках»'
+          !asAdmin
+            ? 'Уточнение или ответ администратору — он увидит комментарий в «Заявках»'
+            : kind === 'change'
+              ? 'Что изменили в системе по этой заявке — сотрудник увидит это в «Моих заявках»'
+              : 'Комментарий сотруднику — он увидит его в «Моих заявках»'
         }
       />
       {error && <p className="text-[13px] text-danger">{error}</p>}
       <div className="flex justify-end">
         <Button size="sm" onClick={handleSend} disabled={!text.trim() || sending}>
-          {sending ? 'Отправка…' : 'Добавить в ленту'}
+          {sending ? 'Отправка…' : asAdmin ? 'Добавить в ленту' : 'Отправить комментарий'}
         </Button>
       </div>
     </div>
