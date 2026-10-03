@@ -76,6 +76,20 @@ export function confirmStageTemplate(id: number): Promise<ProductionStageTemplat
   })
 }
 
+export interface FillQuantitiesResult {
+  filled: number
+  remaining: number
+  template: ProductionStageTemplate
+}
+
+/** POST /api/production/stage-templates/:id/fill-quantities — ИИ дозаполняет
+ * пустые нормативы по КР; доступно и для подтверждённого шаблона (0088-e). */
+export function fillStageTemplateQuantities(id: number): Promise<FillQuantitiesResult> {
+  return apiRequest<FillQuantitiesResult>({
+    section: SECTION, path: `/stage-templates/${id}/fill-quantities`, method: 'POST',
+  })
+}
+
 /** GET /api/production/kr-extraction/:clientId — постраничные изображения для «чертежа». */
 export function getKrExtraction(clientId: number): Promise<KrExtraction> {
   return apiRequest<KrExtraction>({ section: SECTION, path: `/kr-extraction/${clientId}` })

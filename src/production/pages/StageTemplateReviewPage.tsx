@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, FileText, Lock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Lock, Sparkles } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -38,6 +38,8 @@ export function StageTemplateReviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [filling, setFilling] = useState(false)
+  const [fillMessage, setFillMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +97,25 @@ export function StageTemplateReviewPage() {
     }
   }
 
+  async function handleFillQuantities() {
+    if (!template) return
+    setFilling(true)
+    setFillMessage(null)
+    try {
+      const result = await stageTemplateApi.fillStageTemplateQuantities(template.id)
+      refresh(result.template)
+      setFillMessage(
+        result.remaining > 0
+          ? `Заполнено нормативов: ${result.filled}. В КР не найдено: ${result.remaining} — заполните вручную.`
+          : `Заполнено нормативов: ${result.filled}.`,
+      )
+    } catch (e) {
+      setFillMessage(e instanceof Error ? e.message : 'Не удалось заполнить нормативы из КР')
+    } finally {
+      setFilling(false)
+    }
+  }
+
   if (loading) return <LoadingState label="Загружаем предложенный план…" />
   if (error || !template) {
     return <EmptyState icon={<FileText size={24} />} title="Шаблон не найден" description={error ?? undefined} />
@@ -149,6 +170,15 @@ export function StageTemplateReviewPage() {
               ? 'у остальных количество в КР не найдено — без норматива отпуск по техкарте их не выдаст'
               : 'все заполнены'}
           </span>
+          {/* Доступно и у подтверждённого шаблона: заполняет только пустые нормативы,
+              остальное не трогает. Уже развёрнутые дома не меняются. */}
+          {canEdit && missingQuantities > 0 && (
+            <Button size="sm" variant="secondary" className="ml-3" onClick={handleFillQuantities} disabled={filling}>
+              <Sparkles size={14} />
+              {filling ? 'Ищем в КР…' : 'Заполнить нормативы из КР'}
+            </Button>
+          )}
+          {fillMessage && <p className="mt-2 text-[12px] text-muted">{fillMessage}</p>}
         </div>
       )}
 
