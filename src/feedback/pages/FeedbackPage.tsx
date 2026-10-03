@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ImagePlus, Paperclip, X } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { ImagePlus, MessageSquareText, X } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Field, Select, Textarea } from '@/shared/ui/Field'
 import { SECTIONS, SectionId } from '@/shared/sections'
 import { useFeedbackStore } from '../store'
-import { FEEDBACK_STATUS_LABEL } from '../types'
 
 const MAX_SCREENSHOTS = 5
 
-/** Разделы на выбор в заявке — все пункты меню, кроме администраторских. */
-const SELECTABLE_SECTIONS = SECTIONS.filter((s) => !s.adminOnly)
+/** Разделы на выбор в заявке — все пункты меню, кроме администраторских и самих «Моих заявок». */
+const SELECTABLE_SECTIONS = SECTIONS.filter((s) => !s.adminOnly && s.id !== 'feedback_my')
 
 /**
  * Страница «Пожелания и предложения» (0075-b). Доступна любому вошедшему:
@@ -20,8 +19,6 @@ const SELECTABLE_SECTIONS = SECTIONS.filter((s) => !s.adminOnly)
 export function FeedbackPage() {
   const location = useLocation()
   const fromSection = (location.state as { section?: SectionId } | null)?.section
-  const requests = useFeedbackStore((s) => s.requests)
-  const load = useFeedbackStore((s) => s.load)
   const submit = useFeedbackStore((s) => s.submit)
 
   const [text, setText] = useState('')
@@ -35,10 +32,6 @@ export function FeedbackPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    load().catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки'))
-  }, [load])
 
   const previews = useMemo(() => files.map((file) => ({ file, url: URL.createObjectURL(file) })), [files])
   useEffect(() => () => previews.forEach((p) => URL.revokeObjectURL(p.url)), [previews])
@@ -72,7 +65,7 @@ export function FeedbackPage() {
       await submit({ text: text.trim(), section, screenshots: files })
       setText('')
       setFiles([])
-      setNotice('Заявка отправлена. Администратор увидит её в разделе «Заявки».')
+      setNotice('Заявка отправлена. Статус, ответы администратора и изменения по ней — в разделе «Мои заявки».')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить заявку')
     } finally {
@@ -154,7 +147,14 @@ export function FeedbackPage() {
         </Field>
 
         {error && <p className="text-[13px] text-danger">{error}</p>}
-        {notice && <p className="rounded-md bg-success-bg p-2.5 text-[13px] text-success">{notice}</p>}
+        {notice && (
+          <p className="rounded-md bg-success-bg p-2.5 text-[13px] text-success">
+            {notice}{' '}
+            <Link to="/feedback/my" className="font-medium underline">
+              Открыть «Мои заявки»
+            </Link>
+          </p>
+        )}
 
         <div className="flex justify-end">
           <Button onClick={handleSubmit} disabled={!text.trim() || sending}>
@@ -163,33 +163,13 @@ export function FeedbackPage() {
         </div>
       </div>
 
-      <h2 className="mb-3 mt-8 text-[15px] font-medium text-ink">Мои заявки</h2>
-      {requests.length === 0 ? (
-        <p className="rounded-2xl border border-border bg-surface p-5 text-[13px] text-muted">
-          Заявок пока нет.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {requests.map((request) => (
-            <li key={request.id} className="rounded-2xl border border-border bg-surface p-4">
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
-                <span>{new Date(request.created_at).toLocaleString('ru-RU')}</span>
-                <span>·</span>
-                <span>{SECTIONS.find((s) => s.id === request.section)?.label ?? request.section}</span>
-                <span>·</span>
-                <span className="text-ink">{FEEDBACK_STATUS_LABEL[request.status]}</span>
-                {request.attachments.length > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <Paperclip size={12} />
-                    {request.attachments.length}
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 whitespace-pre-wrap text-[13px] text-ink">{request.text}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Link
+        to="/feedback/my"
+        className="mt-6 inline-flex items-center gap-1.5 text-[13px] font-medium text-brand hover:underline"
+      >
+        <MessageSquareText size={14} />
+        Мои заявки — статус и ответы по отправленным
+      </Link>
     </div>
   )
 }

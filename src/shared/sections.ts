@@ -13,6 +13,7 @@ import {
   Network,
   Megaphone,
   MessagesSquare,
+  MessageSquareText,
   Mic,
   Repeat,
   Inbox,
@@ -33,6 +34,9 @@ import {
  * 'feedback_admin' — тоже фронтовое: раздел «Заявки» (пожелания и предложения
  * сотрудников, 0075). Гейтится ролью так же, как «Доступ»; на бэкенде это
  * /api/feedback, у которого нет своего Module.
+ * 'feedback_my' — фронтовое: раздел «Мои заявки» (0090) — свои заявки со
+ * статусом, комментариями администратора и изменениями в системе. Доступен
+ * каждому вошедшему, как подача заявки.
  * 'agents' — тоже фронтовое: операционная команда из восьми ролей, не Module
  * на бэкенде. Доступен каждому вошедшему, как «Пульс».
  * 'chats' — фронтовое: чаты мессенджера MAX, где состоит бот. Данные MAX общие
@@ -74,6 +78,7 @@ export type SectionId =
   | 'accounting'
   | 'suppliers'
   | 'feedback_admin'
+  | 'feedback_my'
 
 export interface SectionMeta {
   id: SectionId
@@ -106,6 +111,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
   { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },
+  { id: 'feedback_my', label: 'Мои заявки', path: '/feedback/my', icon: MessageSquareText, notAssignable: true },
   { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },
   { id: 'admin', label: 'Доступ', path: '/admin', icon: ShieldCheck, adminOnly: true },
 ]
