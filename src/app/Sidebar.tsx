@@ -6,7 +6,7 @@ import { useFeedbackStore } from '@/feedback/store'
 import { SECTIONS, SectionId, WORK_SECTION_IDS } from '@/shared/sections'
 
 /** Верхнеуровневое меню — единым списком, без подгрупп. */
-const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'feedback_admin', 'admin']
+const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'feedback_my', 'feedback_admin', 'admin']
 
 /** Пути разделов из хаба «Работа» — по ним «Работа» тоже считается активной. */
 const WORK_PATHS = ['/work', ...WORK_SECTION_IDS.map((id) => SECTIONS.find((s) => s.id === id)!.path)]
@@ -16,6 +16,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const loadFeedback = useFeedbackStore((s) => s.load)
   const newFeedbackCount = useFeedbackStore((s) => s.requests.filter((r) => r.status === 'new').length)
+  const loadMyFeedback = useFeedbackStore((s) => s.loadMine)
+  const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
   const { pathname } = useLocation()
 
   // Счётчик новых заявок в пункте «Заявки» (0075-c) — только администратору,
@@ -23,6 +25,15 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   useEffect(() => {
     if (isAdmin) loadFeedback().catch(() => {})
   }, [isAdmin, loadFeedback])
+
+  // Счётчик непрочитанных обновлений по своим заявкам в «Моих заявках»
+  // (0090) — всем. Ответ администратора приходит без пуша, поэтому
+  // перечитываем раз в минуту.
+  useEffect(() => {
+    loadMyFeedback().catch(() => {})
+    const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
+    return () => window.clearInterval(timer)
+  }, [loadMyFeedback])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   // (MAX доступен всем вошедшим — значит хаб виден всегда).
@@ -52,7 +63,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           {items.map((section) => {
             const Icon = section.icon
             return (
-              <li key={section.id} className={section.id === 'feedback_admin' ? 'mt-3 border-t border-white/10 pt-3' : undefined}>
+              <li key={section.id} className={section.id === 'feedback_my' ? 'mt-3 border-t border-white/10 pt-3' : undefined}>
                 <NavLink
                   to={section.path}
                   onClick={onClose}
@@ -69,6 +80,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   {section.id === 'feedback_admin' && newFeedbackCount > 0 && (
                     <span className="rounded-pill bg-brand px-2 py-0.5 text-[12px] font-medium text-white">
                       {newFeedbackCount}
+                    </span>
+                  )}
+                  {section.id === 'feedback_my' && unseenFeedbackCount > 0 && (
+                    <span
+                      className="rounded-pill bg-brand px-2 py-0.5 text-[12px] font-medium text-white"
+                      title="Новые обновления по вашим заявкам"
+                    >
+                      {unseenFeedbackCount}
                     </span>
                   )}
                   {section.id === 'ai' && <ArrowUpRight size={15} className="opacity-50" />}
