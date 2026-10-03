@@ -8,13 +8,14 @@ import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
 import * as maxApi from '@/max/api'
+import { useMaxEvents } from '@/max/realtime'
 import { MaxChatSummary, MaxMessage } from '@/max/types'
 import { useClientsStore } from '../store'
 import { CLIENT_CHAT_STATES, Client, ClientChatLink, ClientChatState } from '../types'
 import { MaxAttachList } from './MaxAttachments'
 import { Section } from './PanelPrimitives'
 
-/** Как часто подтягивать новые сообщения открытого чата, мс. */
+/** Запасной опрос ленты, пока WebSocket событий MAX не подключён, мс (0092). */
 const POLL_MS = 20000
 
 function reasonOf(error: unknown): string {
@@ -129,9 +130,17 @@ function ChatThread({
   useEffect(() => {
     setMessages(null)
     refresh()
+  }, [refresh])
+
+  const online = useMaxEvents(({ chatIds, resync }) => {
+    if (resync || chatIds.has(chatId)) refresh()
+  })
+
+  useEffect(() => {
+    if (online) return
     const timer = window.setInterval(refresh, POLL_MS)
     return () => window.clearInterval(timer)
-  }, [refresh])
+  }, [online, refresh])
 
   useEffect(() => {
     const el = scrollRef.current
