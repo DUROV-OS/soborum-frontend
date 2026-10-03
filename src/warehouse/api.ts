@@ -1,5 +1,12 @@
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
-import { Material, MovementReason, StockMovement, Supply } from './types'
+import {
+  JournalEntry,
+  JournalFilters,
+  Material,
+  StockMovement,
+  Supply,
+  WarehouseOperation,
+} from './types'
 
 const SECTION = 'warehouse'
 
@@ -86,11 +93,6 @@ export function materialHistory(id: number): Promise<StockMovement[]> {
   return apiRequest<StockMovement[]>({ section: SECTION, path: `/materials/${id}/history` })
 }
 
-/** GET /api/warehouse/history */
-export function history(filters: { material_id?: number; reason?: MovementReason } = {}): Promise<StockMovement[]> {
-  return apiRequest<StockMovement[]>({ section: SECTION, path: '/history', query: filters })
-}
-
 /** GET /api/warehouse/supplies/template */
 export function downloadSupplyTemplate(): Promise<void> {
   return downloadFile(SECTION, '/supplies/template', 'soborbum_shablon_postavki.xlsx')
@@ -126,4 +128,37 @@ export function approveRequest(requestId: number): Promise<unknown> {
 /** POST /api/warehouse/requests/:id/reject */
 export function rejectRequest(requestId: number): Promise<unknown> {
   return apiRequest({ section: SECTION, path: `/requests/${requestId}/reject`, method: 'POST' })
+}
+
+// --- Документы операций склада и журнал (0088) ---
+
+export interface OperationLineInput {
+  warehouse_material_id: number
+  quantity: number
+}
+
+export interface InventoryOperationInput {
+  /** ISO-строка; не передана — «сейчас» на сервере. */
+  occurred_at?: string
+  note: string
+  lines: OperationLineInput[]
+}
+
+/** POST /api/warehouse/operations/receipt | /operations/write-off */
+export function createInventoryOperation(
+  kind: 'receipt' | 'write_off',
+  input: InventoryOperationInput,
+): Promise<WarehouseOperation> {
+  const path = kind === 'receipt' ? '/operations/receipt' : '/operations/write-off'
+  return apiRequest<WarehouseOperation>({ section: SECTION, path, method: 'POST', body: input })
+}
+
+/** GET /api/warehouse/operations/:id */
+export function getOperation(id: number): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({ section: SECTION, path: `/operations/${id}` })
+}
+
+/** GET /api/warehouse/journal */
+export function journal(filters: JournalFilters = {}): Promise<JournalEntry[]> {
+  return apiRequest<JournalEntry[]>({ section: SECTION, path: '/journal', query: { ...filters } })
 }
