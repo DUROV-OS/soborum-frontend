@@ -1,14 +1,19 @@
 import { API_BASE, apiRequest, ApiError, getToken } from '@/shared/lib/httpClient'
-import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult } from './types'
+import { MaxBotProfile, MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult } from './types'
 
 const SECTION = 'max'
 
 /**
- * GET /api/max/chats — все чаты организации с последним сообщением в каждом,
+ * GET /api/max/chats — чаты, где состоит бот, с последним сообщением в каждом,
  * самые свежие сверху. `limit` — сколько первых вернуть (по умолчанию все).
  */
 export function listChats(limit?: number): Promise<MaxChatList> {
   return apiRequest<MaxChatList>({ section: SECTION, path: '/chats', query: { limit } })
+}
+
+/** GET /api/max/bot — имя и ссылка на бота для подсказки «напишите боту». */
+export function getBot(): Promise<MaxBotProfile> {
+  return apiRequest<MaxBotProfile>({ section: SECTION, path: '/bot' })
 }
 
 export interface GetChatParams {
