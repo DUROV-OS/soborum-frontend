@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PackageMinus, PackagePlus, Plus, Truck } from 'lucide-react'
+import { ClipboardList, PackageMinus, PackagePlus, Plus, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -20,6 +20,7 @@ import { MaterialDetailDrawer } from '../components/MaterialDetailDrawer'
 import { RequestApprovalQueue } from '../components/RequestApprovalQueue'
 import { JournalPanel } from '../components/JournalPanel'
 import { InventoryOperationModal } from '../components/InventoryOperationModal'
+import { TechcardIssueModal } from '../components/TechcardIssueModal'
 
 type Tab = 'materials' | 'requests' | 'history'
 
@@ -92,6 +93,7 @@ export function WarehousePage() {
   // списание из карточки (0030-e), только с полным доступом.
   const canFull = accessLevelAtLeast(accessLevel, 'full')
   const [inventoryKind, setInventoryKind] = useState<'receipt' | 'write_off' | null>(null)
+  const [issuingByTechcard, setIssuingByTechcard] = useState(false)
 
   useEffect(() => {
     load()
@@ -143,6 +145,10 @@ export function WarehousePage() {
               <Button onClick={() => setSupplying(true)}>
                 <Truck size={16} />
                 Оформить поставку
+              </Button>
+              <Button variant="secondary" onClick={() => setIssuingByTechcard(true)}>
+                <ClipboardList size={16} />
+                Отпуск по техкарте
               </Button>
             </>
           )}
@@ -247,6 +253,7 @@ export function WarehousePage() {
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
       <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
+      <TechcardIssueModal open={issuingByTechcard} onClose={() => setIssuingByTechcard(false)} />
       <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
 
       <OnboardingDialog
