@@ -53,6 +53,8 @@ export interface MaterialPatch {
   name?: string
   unit?: string
   warehouse_material_id?: number
+  /** null — очистить норматив («в КР не найдено»). */
+  quantity?: number | null
 }
 
 /** PATCH /api/production/stage-templates/:id/blocks/:blockId/materials/:materialId */

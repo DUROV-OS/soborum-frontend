@@ -102,6 +102,8 @@ export function StageTemplateReviewPage() {
 
   const blocks = [...template.blocks].sort((a, b) => a.sequence - b.sequence)
   const blockNameById = new Map(blocks.map((b) => [b.id, b.name]))
+  const allMaterials = blocks.flatMap((b) => b.materials)
+  const missingQuantities = allMaterials.filter((m) => m.quantity === null).length
   const selectedImageId = selectedPage != null ? imageByPage.get(selectedPage) : undefined
 
   return (
@@ -136,6 +138,19 @@ export function StageTemplateReviewPage() {
           )}
         </div>
       </div>
+
+      {allMaterials.length > 0 && (
+        <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-[13px]">
+          <span className="font-medium text-ink">
+            Нормативы на дом: {allMaterials.length - missingQuantities} из {allMaterials.length}
+          </span>
+          <span className="ml-2 text-muted">
+            {missingQuantities > 0
+              ? 'у остальных количество в КР не найдено — без норматива отпуск по техкарте их не выдаст'
+              : 'все заполнены'}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="lg:sticky lg:top-4 lg:self-start">
@@ -237,6 +252,58 @@ function EditableField({
   )
 }
 
+/** Норматив на дом (0088-e): пусто — «нет в КР», вводится числом (запятая допустима). */
+function QuantityField({
+  value,
+  locked,
+  onSave,
+}: {
+  value: number | null
+  locked: boolean
+  onSave: (next: number | null) => void
+}) {
+  const shown = value === null ? '' : String(value)
+  const [draft, setDraft] = useState(shown)
+  useEffect(() => setDraft(shown), [shown])
+
+  if (locked) {
+    return value === null ? (
+      <span className="shrink-0 text-[12px] text-muted">норматив не указан</span>
+    ) : (
+      <span className="tabular shrink-0 text-ink">{value}</span>
+    )
+  }
+
+  const commit = () => {
+    const text = draft.trim().replace(',', '.')
+    if (!text) {
+      if (value !== null) onSave(null)
+      return
+    }
+    const next = Number(text)
+    if (!Number.isFinite(next) || next < 0) {
+      setDraft(shown)
+      return
+    }
+    if (next !== value) onSave(next)
+  }
+
+  return (
+    <input
+      value={draft}
+      inputMode="decimal"
+      placeholder="нет в КР"
+      aria-label="Норматив на дом"
+      title="Норматив на один дом из спецификации КР"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      className={`tabular w-20 shrink-0 rounded border px-1 text-right focus:border-brand focus:bg-white focus:outline-none ${
+        value === null ? 'border-warning/60 bg-warning-bg placeholder:text-warning' : 'border-transparent bg-transparent hover:border-border'
+      }`}
+    />
+  )
+}
+
 function BlockCard({
   block,
   template,
@@ -262,7 +329,7 @@ function BlockCard({
     onUpdated(updated)
   }
 
-  async function saveMaterial(material: TemplateBlockMaterial, patch: { name?: string; unit?: string }) {
+  async function saveMaterial(material: TemplateBlockMaterial, patch: stageTemplateApi.MaterialPatch) {
     const updated = await stageTemplateApi.updateStageTemplateMaterial(template.id, block.id, material.id, patch)
     onUpdated(updated)
   }
@@ -339,6 +406,11 @@ function BlockCard({
                     className="min-w-0 flex-1 text-ink"
                   />
                   <span className="text-muted">·</span>
+                  <QuantityField
+                    value={material.quantity}
+                    locked={locked}
+                    onSave={(quantity) => saveMaterial(material, { quantity })}
+                  />
                   <EditableField
                     value={material.unit}
                     locked={locked}

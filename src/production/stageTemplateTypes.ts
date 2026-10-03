@@ -18,6 +18,8 @@ export interface TemplateBlockMaterial {
   unit: string
   kr_page_ref: KrPageRef | null
   warehouse_material_id: number | null
+  /** Норматив на один дом из спецификации КР (0088-e); null — в КР не найден. */
+  quantity: number | null
 }
 
 export interface StageTemplateBlock {
