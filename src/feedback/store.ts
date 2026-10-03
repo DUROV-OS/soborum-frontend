@@ -2,18 +2,30 @@ import { create } from 'zustand'
 import { renderClientLog } from '@/shared/lib/clientLog'
 import { useAuthStore } from '@/auth/store'
 import * as feedbackApi from './api'
-import { FeedbackRequest, FeedbackStatus } from './types'
+import { FeedbackNoteKind, FeedbackRequest, FeedbackStatus } from './types'
 
 interface FeedbackState {
+  /** Все заявки у админа (раздел «Заявки»), свои — у сотрудника */
   requests: FeedbackRequest[]
+  /** Только свои заявки — раздел «Мои заявки» и счётчик в меню (0090) */
+  mine: FeedbackRequest[]
   loading: boolean
   load: () => Promise<void>
+  loadMine: () => Promise<void>
   submit: (input: { text: string; section: string; screenshots: File[] }) => Promise<FeedbackRequest>
   setStatus: (id: number, status: FeedbackStatus) => Promise<void>
+  addEvent: (id: number, kind: FeedbackNoteKind, text: string) => Promise<void>
+  markSeen: (id: number) => Promise<void>
+}
+
+/** Ответ сервера по одной заявке подменяет её в обоих списках. */
+function replaceIn(list: FeedbackRequest[], updated: FeedbackRequest): FeedbackRequest[] {
+  return list.map((r) => (r.id === updated.id ? updated : r))
 }
 
 export const useFeedbackStore = create<FeedbackState>((set) => ({
   requests: [],
+  mine: [],
   loading: false,
 
   load: async () => {
@@ -25,6 +37,10 @@ export const useFeedbackStore = create<FeedbackState>((set) => ({
     }
   },
 
+  loadMine: async () => {
+    set({ mine: await feedbackApi.listMyRequests() })
+  },
+
   /** Лог сессии собирается здесь же, в момент отправки (0075-b). */
   submit: async ({ text, section, screenshots }) => {
     const created = await feedbackApi.createRequest({
@@ -33,12 +49,30 @@ export const useFeedbackStore = create<FeedbackState>((set) => ({
       screenshots,
       clientLog: renderClientLog(useAuthStore.getState().current),
     })
-    set((state) => ({ requests: [created, ...state.requests] }))
+    set((state) => ({ requests: [created, ...state.requests], mine: [created, ...state.mine] }))
     return created
   },
 
   setStatus: async (id, status) => {
     const updated = await feedbackApi.updateStatus(id, status)
-    set((state) => ({ requests: state.requests.map((r) => (r.id === id ? updated : r)) }))
+    // Ответ админского эндпоинта считает непрочитанное для админа (0), а не
+    // для автора — в «Моих заявках» счётчик своей заявки не трогаем.
+    set((state) => ({
+      requests: replaceIn(state.requests, updated),
+      mine: state.mine.map((r) => (r.id === id ? { ...updated, unseen_updates: r.unseen_updates } : r)),
+    }))
+  },
+
+  addEvent: async (id, kind, text) => {
+    const updated = await feedbackApi.addEvent(id, kind, text)
+    set((state) => ({
+      requests: replaceIn(state.requests, updated),
+      mine: state.mine.map((r) => (r.id === id ? { ...updated, unseen_updates: r.unseen_updates } : r)),
+    }))
+  },
+
+  markSeen: async (id) => {
+    const updated = await feedbackApi.markSeen(id)
+    set((state) => ({ requests: replaceIn(state.requests, updated), mine: replaceIn(state.mine, updated) }))
   },
 }))
