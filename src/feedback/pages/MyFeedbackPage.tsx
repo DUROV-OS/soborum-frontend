@@ -6,6 +6,7 @@ import { Chip } from '@/shared/ui/Chip'
 import { Modal } from '@/shared/ui/Modal'
 import { SECTIONS } from '@/shared/sections'
 import { AttachmentImage } from '../components/AttachmentImage'
+import { FeedbackNoteForm } from '../components/FeedbackNoteForm'
 import { FeedbackTimeline } from '../components/FeedbackTimeline'
 import { useFeedbackStore } from '../store'
 import { FEEDBACK_STATUS_LABEL, FEEDBACK_STATUS_TONE, FeedbackRequest } from '../types'
@@ -142,6 +143,9 @@ export function MyFeedbackPage() {
                       </div>
                     )}
                     <FeedbackTimeline request={request} highlightNew={open[request.id]} />
+                    <div className="mt-4">
+                      <FeedbackNoteForm requestId={request.id} />
+                    </div>
                   </div>
                 )}
               </li>

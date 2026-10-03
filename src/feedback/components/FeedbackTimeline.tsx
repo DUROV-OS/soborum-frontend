@@ -22,13 +22,18 @@ export function FeedbackTimeline({ request, highlightNew = 0 }: { request: Feedb
         <span className="text-ink">Заявка отправлена</span>
       </TimelineRow>
       {request.events.map((event) => (
-        <EventRow key={event.id} event={event} fresh={fresh.has(event.id)} />
+        <EventRow
+          key={event.id}
+          event={event}
+          fresh={fresh.has(event.id)}
+          byAuthor={event.author.id === request.author.id}
+        />
       ))}
     </ol>
   )
 }
 
-function EventRow({ event, fresh }: { event: FeedbackEvent; fresh: boolean }) {
+function EventRow({ event, fresh, byAuthor }: { event: FeedbackEvent; fresh: boolean; byAuthor: boolean }) {
   if (event.kind === 'status' && event.old_status && event.new_status) {
     return (
       <TimelineRow icon={<ArrowRight size={13} />} date={event.created_at} who={event.author.full_name} fresh={fresh}>
@@ -50,7 +55,13 @@ function EventRow({ event, fresh }: { event: FeedbackEvent; fresh: boolean }) {
       fresh={fresh}
     >
       <div
-        className={`mt-1 rounded-xl p-3 text-[13px] ${isChange ? 'border border-success/30 bg-success-bg' : 'bg-surface-muted'}`}
+        className={`mt-1 rounded-xl p-3 text-[13px] ${
+          isChange
+            ? 'border border-success/30 bg-success-bg'
+            : byAuthor
+              ? 'border border-brand/20 bg-brand/5'
+              : 'bg-surface-muted'
+        }`}
       >
         {isChange && <p className="mb-1 text-[12px] font-medium text-success">Изменение в системе</p>}
         <p className="whitespace-pre-wrap text-ink">{event.text}</p>

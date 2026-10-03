@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { ArrowUpRight, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { useFeedbackStore } from '@/feedback/store'
+import { awaitsReply } from '@/feedback/types'
 import { SECTIONS, SectionId, WORK_SECTION_IDS } from '@/shared/sections'
 
 /** Верхнеуровневое меню — единым списком, без подгрупп. */
@@ -15,7 +16,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const loadFeedback = useFeedbackStore((s) => s.load)
-  const newFeedbackCount = useFeedbackStore((s) => s.requests.filter((r) => r.status === 'new').length)
+  // Новые заявки и те, где сотрудник ответил и ждёт ответа (0090).
+  const newFeedbackCount = useFeedbackStore(
+    (s) => s.requests.filter((r) => r.status === 'new' || awaitsReply(r)).length,
+  )
   const loadMyFeedback = useFeedbackStore((s) => s.loadMine)
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
   const { pathname } = useLocation()

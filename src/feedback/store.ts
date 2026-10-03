@@ -55,20 +55,14 @@ export const useFeedbackStore = create<FeedbackState>((set) => ({
 
   setStatus: async (id, status) => {
     const updated = await feedbackApi.updateStatus(id, status)
-    // Ответ админского эндпоинта считает непрочитанное для админа (0), а не
-    // для автора — в «Моих заявках» счётчик своей заявки не трогаем.
-    set((state) => ({
-      requests: replaceIn(state.requests, updated),
-      mine: state.mine.map((r) => (r.id === id ? { ...updated, unseen_updates: r.unseen_updates } : r)),
-    }))
+    // Непрочитанное сервер считает для того, кто запрашивает; в «Моих
+    // заявках» лежат только свои — там это и есть автор.
+    set((state) => ({ requests: replaceIn(state.requests, updated), mine: replaceIn(state.mine, updated) }))
   },
 
   addEvent: async (id, kind, text) => {
     const updated = await feedbackApi.addEvent(id, kind, text)
-    set((state) => ({
-      requests: replaceIn(state.requests, updated),
-      mine: state.mine.map((r) => (r.id === id ? { ...updated, unseen_updates: r.unseen_updates } : r)),
-    }))
+    set((state) => ({ requests: replaceIn(state.requests, updated), mine: replaceIn(state.mine, updated) }))
   },
 
   markSeen: async (id) => {

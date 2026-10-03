@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Download, FileClock, Paperclip } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { Chip } from '@/shared/ui/Chip'
 import { Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { SECTIONS } from '@/shared/sections'
@@ -9,7 +10,7 @@ import { FeedbackNoteForm } from '../components/FeedbackNoteForm'
 import { FeedbackTimeline } from '../components/FeedbackTimeline'
 import { fetchAttachment } from '../api'
 import { useFeedbackStore } from '../store'
-import { FEEDBACK_STATUS_LABEL, FeedbackRequest, FeedbackStatus } from '../types'
+import { FEEDBACK_STATUS_LABEL, FeedbackRequest, FeedbackStatus, awaitsReply } from '../types'
 
 type Filter = FeedbackStatus | 'open' | 'all'
 
@@ -30,8 +31,8 @@ export function FeedbackAdminPage() {
   const [filter, setFilter] = useState<Filter>('open')
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
-  // Раскрытые ленты разбора (0090); новые заявки без записей в ленте —
-  // раскрыты сразу, чтобы форма комментария была под рукой.
+  // Раскрытые ленты разбора (0090); новые заявки без записей в ленте и те,
+  // где сотрудник ждёт ответа, — раскрыты сразу, чтобы форма была под рукой.
   const [feedOpen, setFeedOpen] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
@@ -42,12 +43,14 @@ export function FeedbackAdminPage() {
     () =>
       requests.filter((r) => {
         if (filter === 'all') return true
-        if (filter === 'open') return r.status === 'new' || r.status === 'in_progress'
+        // Открытые — ещё не закрытые и те, где сотрудник ждёт ответа (0090).
+        if (filter === 'open') return r.status === 'new' || r.status === 'in_progress' || awaitsReply(r)
         return r.status === filter
       }),
     [requests, filter],
   )
   const newCount = requests.filter((r) => r.status === 'new').length
+  const awaitingCount = requests.filter(awaitsReply).length
 
   async function download(request: FeedbackRequest, fileId: number, filename: string) {
     setError(null)
@@ -70,7 +73,8 @@ export function FeedbackAdminPage() {
         <div>
           <h1 className="text-[20px] font-medium text-ink">Заявки</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Пожелания и предложения сотрудников по работе системы. Новых: {newCount}.
+            Пожелания и предложения сотрудников по работе системы. Новых: {newCount}. Ждут ответа:{' '}
+            {awaitingCount}.
           </p>
         </div>
         <Select
@@ -98,12 +102,17 @@ export function FeedbackAdminPage() {
           {visible.map((request) => {
             const screenshots = request.attachments.filter((a) => a.kind === 'screenshot')
             const log = request.attachments.find((a) => a.kind === 'log')
-            const feedExpanded = feedOpen[request.id] ?? (request.events.length === 0 && request.status === 'new')
+            const awaiting = awaitsReply(request)
+            const feedExpanded =
+              feedOpen[request.id] ?? ((request.events.length === 0 && request.status === 'new') || awaiting)
             return (
               <li key={request.id} className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[14px] font-medium text-ink">{request.author.full_name}</p>
+                    <p className="flex flex-wrap items-center gap-2 text-[14px] font-medium text-ink">
+                      {request.author.full_name}
+                      {awaiting && <Chip tone="warning">Ждёт ответа</Chip>}
+                    </p>
                     <p className="text-[12px] text-muted">
                       {request.author.email} · {new Date(request.created_at).toLocaleString('ru-RU')} ·{' '}
                       {SECTIONS.find((s) => s.id === request.section)?.label ?? request.section}
@@ -187,7 +196,7 @@ export function FeedbackAdminPage() {
                   {feedExpanded && (
                     <div className="mt-3 flex flex-col gap-4">
                       <FeedbackTimeline request={request} />
-                      <FeedbackNoteForm requestId={request.id} />
+                      <FeedbackNoteForm requestId={request.id} asAdmin />
                     </div>
                   )}
                 </div>
