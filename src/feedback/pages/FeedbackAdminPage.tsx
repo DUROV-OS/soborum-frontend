@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, FileClock, Paperclip } from 'lucide-react'
+import { ChevronDown, ChevronRight, Download, FileClock, Paperclip } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { SECTIONS } from '@/shared/sections'
 import { AttachmentImage } from '../components/AttachmentImage'
+import { FeedbackNoteForm } from '../components/FeedbackNoteForm'
+import { FeedbackTimeline } from '../components/FeedbackTimeline'
 import { fetchAttachment } from '../api'
 import { useFeedbackStore } from '../store'
 import { FEEDBACK_STATUS_LABEL, FeedbackRequest, FeedbackStatus } from '../types'
@@ -28,6 +30,9 @@ export function FeedbackAdminPage() {
   const [filter, setFilter] = useState<Filter>('open')
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState<string | null>(null)
+  // Раскрытые ленты разбора (0090); новые заявки без записей в ленте —
+  // раскрыты сразу, чтобы форма комментария была под рукой.
+  const [feedOpen, setFeedOpen] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     load().catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки'))
@@ -93,6 +98,7 @@ export function FeedbackAdminPage() {
           {visible.map((request) => {
             const screenshots = request.attachments.filter((a) => a.kind === 'screenshot')
             const log = request.attachments.find((a) => a.kind === 'log')
+            const feedExpanded = feedOpen[request.id] ?? (request.events.length === 0 && request.status === 'new')
             return (
               <li key={request.id} className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -162,6 +168,27 @@ export function FeedbackAdminPage() {
                       <Paperclip size={12} />
                       Скриншотов: {screenshots.length}
                     </span>
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-border pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setFeedOpen((prev) => ({ ...prev, [request.id]: !feedExpanded }))}
+                    aria-expanded={feedExpanded}
+                    className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink"
+                  >
+                    {feedExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    Лента и ответ сотруднику
+                    {request.events.length > 0 && (
+                      <span className="text-[12px] font-normal text-muted">· записей: {request.events.length}</span>
+                    )}
+                  </button>
+                  {feedExpanded && (
+                    <div className="mt-3 flex flex-col gap-4">
+                      <FeedbackTimeline request={request} />
+                      <FeedbackNoteForm requestId={request.id} />
+                    </div>
                   )}
                 </div>
               </li>
