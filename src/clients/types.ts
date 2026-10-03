@@ -174,6 +174,9 @@ export interface ClientChatLink {
   max_chat_id: number
   label: string
   state: ClientChatState | null
+  /** false — чат со старого аккаунта MAX (до перехода на бота): бот его не
+   * видит, ленты по нему нет. */
+  bot_chat_known: boolean
   created_at: string
 }
 

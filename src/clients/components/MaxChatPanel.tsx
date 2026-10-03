@@ -80,9 +80,12 @@ export function MaxChatPanel({ client }: { client: Client }) {
           {links.length > 0 ? 'Привязать ещё чат' : 'Привязать чат'}
         </Button>
       )}
-      {selected && (
-        <ChatThread key={selected.id} client={client} link={selected} onUnlink={() => deleteChatLink(client.id, selected.id)} />
-      )}
+      {selected &&
+        (selected.bot_chat_known ? (
+          <ChatThread key={selected.id} client={client} link={selected} onUnlink={() => deleteChatLink(client.id, selected.id)} />
+        ) : (
+          <LegacyChatNotice link={selected} canEdit={canEdit} onUnlink={() => deleteChatLink(client.id, selected.id)} />
+        ))}
       <ChatPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -91,6 +94,37 @@ export function MaxChatPanel({ client }: { client: Client }) {
         requireLabel
       />
     </Section>
+  )
+}
+
+/** Привязка к чату старого пользовательского аккаунта MAX (до перехода на
+ * бота): бот этот чат не видит, поэтому ленту не грузим, а предлагаем
+ * привязать чат бота. */
+function LegacyChatNotice({
+  link,
+  canEdit,
+  onUnlink,
+}: {
+  link: ClientChatLink
+  canEdit: boolean
+  onUnlink: () => Promise<{ ok: boolean; reason?: string }>
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-warning-bg px-3 py-2.5 text-[13px] text-ink">
+      <p className="min-w-0">
+        <span className="font-medium">{link.label}</span> — чат со старого аккаунта, бот его не видит. Привяжите
+        чат бота.
+      </p>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onUnlink}
+          className="shrink-0 text-[12px] text-muted underline-offset-2 hover:text-danger hover:underline"
+        >
+          Отвязать
+        </button>
+      )}
+    </div>
   )
 }
 
