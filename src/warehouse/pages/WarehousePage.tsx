@@ -18,7 +18,7 @@ import { CreateMaterialModal } from '../components/CreateMaterialModal'
 import { SupplyIntakeModal } from '../components/SupplyIntakeModal'
 import { MaterialDetailDrawer } from '../components/MaterialDetailDrawer'
 import { RequestApprovalQueue } from '../components/RequestApprovalQueue'
-import { MovementHistoryPanel } from '../components/MovementHistoryPanel'
+import { JournalPanel } from '../components/JournalPanel'
 import { InventoryOperationModal } from '../components/InventoryOperationModal'
 
 type Tab = 'materials' | 'requests' | 'history'
@@ -38,8 +38,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         «Материалы» — остатки на складе, «Заявки на проверку» — запросы от производства, ожидающие вашего
-        решения, «История движения» — журнал прихода и расхода. Переключайтесь между ними вкладками под
-        заголовком.
+        решения, «Журнал операций» — все приходы и расходы: когда, куда, кто получил и сколько осталось на
+        складе после операции. Переключайтесь между ними вкладками под заголовком.
       </p>
     ),
   },
@@ -48,7 +48,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         Кнопка «Материал» создаёт новую позицию на складе. Кнопка «Оформить поставку» фиксирует приход
-        материала — остатки на складе обновятся автоматически.
+        материала — остатки на складе обновятся автоматически. «Оприходование» и «Списание» — для контроля
+        остатков: излишки и недостачи, найденные при пересчёте.
       </p>
     ),
   },
@@ -129,7 +130,7 @@ export function WarehousePage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[20px] font-medium text-ink">Склад</h1>
-          <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и история движения</p>
+          <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и журнал операций</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <AskAiButton domain="warehouse" />
@@ -166,7 +167,7 @@ export function WarehousePage() {
           tabs={[
             { key: 'materials', label: 'Материалы' },
             { key: 'requests', label: 'Заявки на проверку' },
-            { key: 'history', label: 'История движения' },
+            { key: 'history', label: 'Журнал операций' },
           ]}
           activeKey={tab}
           onChange={setTab}
@@ -241,7 +242,7 @@ export function WarehousePage() {
       )}
 
       {tab === 'requests' && <RequestApprovalQueue />}
-      {tab === 'history' && <MovementHistoryPanel />}
+      {tab === 'history' && <JournalPanel />}
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />

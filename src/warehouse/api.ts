@@ -3,7 +3,6 @@ import {
   JournalEntry,
   JournalFilters,
   Material,
-  MovementReason,
   StockMovement,
   Supply,
   WarehouseOperation,
@@ -92,11 +91,6 @@ export function writeOffMaterial(id: number, quantity: number, reason: string): 
 /** GET /api/warehouse/materials/:id/history */
 export function materialHistory(id: number): Promise<StockMovement[]> {
   return apiRequest<StockMovement[]>({ section: SECTION, path: `/materials/${id}/history` })
-}
-
-/** GET /api/warehouse/history */
-export function history(filters: { material_id?: number; reason?: MovementReason } = {}): Promise<StockMovement[]> {
-  return apiRequest<StockMovement[]>({ section: SECTION, path: '/history', query: filters })
 }
 
 /** GET /api/warehouse/supplies/template */
