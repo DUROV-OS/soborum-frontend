@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Truck } from 'lucide-react'
+import { PackageMinus, PackagePlus, Plus, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -19,6 +19,7 @@ import { SupplyIntakeModal } from '../components/SupplyIntakeModal'
 import { MaterialDetailDrawer } from '../components/MaterialDetailDrawer'
 import { RequestApprovalQueue } from '../components/RequestApprovalQueue'
 import { MovementHistoryPanel } from '../components/MovementHistoryPanel'
+import { InventoryOperationModal } from '../components/InventoryOperationModal'
 
 type Tab = 'materials' | 'requests' | 'history'
 
@@ -84,7 +85,12 @@ export function WarehousePage() {
   const [onlyNeedsSupply, setOnlyNeedsSupply] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const onboarding = useSectionOnboarding('warehouse')
-  const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
+  const accessLevel = useAccessLevel('warehouse')
+  const canEdit = accessLevelAtLeast(accessLevel, 'edit')
+  // Оприходование/списание меняют остаток без поставки и отпуска — как и
+  // списание из карточки (0030-e), только с полным доступом.
+  const canFull = accessLevelAtLeast(accessLevel, 'full')
+  const [inventoryKind, setInventoryKind] = useState<'receipt' | 'write_off' | null>(null)
 
   useEffect(() => {
     load()
@@ -136,6 +142,18 @@ export function WarehousePage() {
               <Button onClick={() => setSupplying(true)}>
                 <Truck size={16} />
                 Оформить поставку
+              </Button>
+            </>
+          )}
+          {canFull && (
+            <>
+              <Button variant="secondary" onClick={() => setInventoryKind('receipt')}>
+                <PackagePlus size={16} />
+                Оприходование
+              </Button>
+              <Button variant="secondary" onClick={() => setInventoryKind('write_off')}>
+                <PackageMinus size={16} />
+                Списание
               </Button>
             </>
           )}
@@ -227,6 +245,7 @@ export function WarehousePage() {
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
+      <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
       <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
 
       <OnboardingDialog
