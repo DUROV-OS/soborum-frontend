@@ -43,8 +43,8 @@ export function sendMessage(chatId: number, text: string, notify = true): Promis
 }
 
 /**
- * GET /api/max/attachment — одноразовая ссылка на скачивание вложения типа
- * FILE. Домен `fd.oneme.ru`, без CORS: годится только для навигации
+ * GET /api/max/attachment — ссылка на скачивание вложения типа FILE. Домен
+ * MAX, без CORS: годится только для навигации
  * (`window.open` / `<a download>`), не для `fetch`.
  */
 export async function getAttachmentUrl(

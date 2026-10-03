@@ -90,7 +90,7 @@ function FileAttach({
     setError(null)
     try {
       const url = await maxApi.getAttachmentUrl(chatId, messageId, attach.fileId)
-      // Ссылка одноразовая, домен fd.oneme.ru без CORS — только навигация,
+      // Ссылка на домен MAX без CORS — только навигация,
       // не fetch. download-атрибут для cross-origin игнорируется, файл
       // сохранится по Content-Disposition сервера MAX.
       const a = document.createElement('a')
@@ -150,7 +150,7 @@ function FileAttach({
 }
 
 /** Предпросмотр файла (pdf/jpg/png/webp/txt) через прокси-эндпоинт бэка —
- * без него одноразовая ссылка MAX (без CORS) не грузится в `fetch`/`<embed>`. */
+ * без него ссылка MAX (без CORS) не грузится в `fetch`/`<embed>`. */
 function FilePreviewModal({
   name,
   chatId,
