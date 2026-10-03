@@ -9,7 +9,7 @@ export interface MaxAttach {
   videoId?: string
   audioId?: string
   size?: number
-  /** PHOTO: готовый URL картинки (i.oneme.ru), грузится прямо в <img>. */
+  /** PHOTO: готовый URL картинки от MAX, грузится прямо в <img>. */
   baseUrl?: string
   /** SHARE: внешняя ссылка. */
   url?: string
@@ -19,17 +19,16 @@ export interface MaxAttach {
   duration?: number
   /** VIDEO: кадр-постер, data:image/webp;base64. */
   previewData?: string
-  /** VIDEO: URL превью-кадра (iv.okcdn.ru). */
+  /** VIDEO: URL превью-кадра. */
   thumbnail?: string
   /** AUDIO (голосовое): картинка-волна, data:image/webp;base64. */
   wave?: string
 }
 
 /** Одно сообщение чата MAX (см. `_fmt_msg`). `time` — Unix-время в
- * миллисекундах. `isOutgoing` бэк считает по совпадению `senderId` с
- * текущим пользователем (не по типу чата). Служебные события чата
- * (кто-то вступил / вышел / переименовал) приходят с `isSystem: true`
- * и текстом в `systemText`. */
+ * миллисекундах. `isOutgoing` — сообщение отправлено ботом Durov OS (не
+ * зависит от типа чата). `isSystem`/`systemText` остались в контракте, но
+ * через бота служебных сообщений в ленте нет. */
 export interface MaxMessage {
   id: string
   time: number
@@ -88,9 +87,9 @@ export interface MaxSendResult {
 
 /** Ответ GET /api/max/media — воспроизводимая ссылка на видео/аудио. */
 export interface MaxMediaUrl {
-  /** Прямой MP4 (okcdn для видео, v.oneme.ru для голосовых). */
+  /** Прямой MP4 для видео или файл голосового. */
   url: string | null
-  /** Запасной веб-плеер (m.ok.ru) — если прямой ссылки нет. */
+  /** Запасная ссылка на видео — если прямой нет. */
   external: string | null
 }
 
