@@ -25,6 +25,8 @@ interface WarehouseState {
     kind: 'receipt' | 'write_off',
     input: warehouseApi.InventoryOperationInput,
   ) => Promise<ActionResult>
+  createManualIssue: (input: warehouseApi.ManualIssueInput) => Promise<ActionResult>
+  issueByTechcard: (productionId: number, input: warehouseApi.TechcardIssueInput) => Promise<ActionResult>
 }
 
 function reasonOf(error: unknown): string {
@@ -121,6 +123,28 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
   createInventoryOperation: async (kind, input) => {
     try {
       await warehouseApi.createInventoryOperation(kind, input)
+      await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  createManualIssue: async (input) => {
+    try {
+      await warehouseApi.createManualIssue(input)
+      await get().load()
+      set({ operationsVersion: get().operationsVersion + 1 })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  issueByTechcard: async (productionId, input) => {
+    try {
+      await warehouseApi.issueByTechcard(productionId, input)
       await get().load()
       set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }
