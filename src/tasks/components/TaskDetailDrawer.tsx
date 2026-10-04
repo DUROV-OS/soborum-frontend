@@ -121,7 +121,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   return (
     <Drawer open={!!task} onClose={onClose} title={task.title} subtitle={<Chip tone={stateTone(task.status)}>{stateLabel}</Chip>}>
       <div className="flex flex-col gap-5">
-        {task.description && <p className="text-[13px] text-ink">{task.description}</p>}
+        {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
 
         {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
         {task.link_type === 'client_stage' && task.link_id !== null && (
