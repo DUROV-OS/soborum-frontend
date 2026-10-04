@@ -1,10 +1,14 @@
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import {
+  DestinationKind,
+  IssueSuggestions,
   JournalEntry,
   JournalFilters,
   Material,
   StockMovement,
   Supply,
+  TechcardHouse,
+  TechcardPreview,
   WarehouseOperation,
 } from './types'
 
@@ -161,4 +165,55 @@ export function getOperation(id: number): Promise<WarehouseOperation> {
 /** GET /api/warehouse/journal */
 export function journal(filters: JournalFilters = {}): Promise<JournalEntry[]> {
   return apiRequest<JournalEntry[]>({ section: SECTION, path: '/journal', query: { ...filters } })
+}
+
+// --- Отпуск со склада (0088-d) ---
+
+export interface ManualIssueInput {
+  occurred_at?: string
+  destination_kind: DestinationKind
+  /** Для объекта / цеха / доработок — обязательно; для дома — подставит сервер. */
+  destination?: string
+  production_id?: number
+  received_by: string
+  note?: string
+  lines: OperationLineInput[]
+}
+
+/** POST /api/warehouse/operations/issue */
+export function createManualIssue(input: ManualIssueInput): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({ section: SECTION, path: '/operations/issue', method: 'POST', body: input })
+}
+
+/** GET /api/warehouse/operations/destinations — подсказки «куда» и «кто получил». */
+export function issueSuggestions(kind?: DestinationKind): Promise<IssueSuggestions> {
+  return apiRequest<IssueSuggestions>({ section: SECTION, path: '/operations/destinations', query: { kind } })
+}
+
+/** GET /api/warehouse/techcard-issue/houses — `all` — все дома, иначе только с невыданным нормативом. */
+export function techcardHouses(all = false): Promise<TechcardHouse[]> {
+  return apiRequest<TechcardHouse[]>({ section: SECTION, path: '/techcard-issue/houses', query: { all: all || undefined } })
+}
+
+/** GET /api/warehouse/techcard-issue/:productionId/preview */
+export function techcardPreview(productionId: number): Promise<TechcardPreview> {
+  return apiRequest<TechcardPreview>({ section: SECTION, path: `/techcard-issue/${productionId}/preview` })
+}
+
+export interface TechcardIssueInput {
+  occurred_at?: string
+  received_by: string
+  note?: string
+  /** Не передано — весь остаток норматива дома. */
+  lines?: OperationLineInput[]
+}
+
+/** POST /api/warehouse/techcard-issue/:productionId */
+export function issueByTechcard(productionId: number, input: TechcardIssueInput): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({
+    section: SECTION,
+    path: `/techcard-issue/${productionId}`,
+    method: 'POST',
+    body: input,
+  })
 }

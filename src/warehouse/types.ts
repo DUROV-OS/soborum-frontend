@@ -161,3 +161,45 @@ export interface JournalFilters {
   limit?: number
   offset?: number
 }
+
+// --- Отпуск со склада (0088-d) ---
+
+export interface IssueSuggestions {
+  destinations: string[]
+  received_by: string[]
+}
+
+export interface TechcardHouse {
+  production_id: number
+  house_name: string
+  client_name: string | null
+  house_model_title: string | null
+  positions_to_issue: number
+}
+
+export interface TechcardPreviewLine {
+  warehouse_material_id: number
+  material_title: string
+  material_code: string
+  unit: string
+  is_fractional: boolean
+  norm_total: number
+  provided: number
+  requested: number
+  to_issue: number
+  in_stock: number
+  balance_after: number
+  shortage: boolean
+  blocks: { block_id: number; block_name: string; to_issue: number }[]
+}
+
+export interface TechcardPreview {
+  production_id: number
+  house_label: string
+  house_model_title: string | null
+  /** Материалы техкарты с нулевым нормативом (количество не перенесено из КР). */
+  zero_norm_count: number
+  /** Открытые задачи «сопоставить материал КР со складом» по этому дому. */
+  unmatched_materials_count: number
+  lines: TechcardPreviewLine[]
+}

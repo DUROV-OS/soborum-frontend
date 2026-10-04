@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PackageMinus, PackagePlus, Plus, Truck } from 'lucide-react'
+import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -20,6 +20,8 @@ import { MaterialDetailDrawer } from '../components/MaterialDetailDrawer'
 import { RequestApprovalQueue } from '../components/RequestApprovalQueue'
 import { JournalPanel } from '../components/JournalPanel'
 import { InventoryOperationModal } from '../components/InventoryOperationModal'
+import { TechcardIssueModal } from '../components/TechcardIssueModal'
+import { ManualIssueModal } from '../components/ManualIssueModal'
 
 type Tab = 'materials' | 'requests' | 'history'
 
@@ -44,12 +46,13 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     ),
   },
   {
-    title: 'Добавить материал или поставку',
+    title: 'Приход и расход материала',
     body: (
       <p>
         Кнопка «Материал» создаёт новую позицию на складе. Кнопка «Оформить поставку» фиксирует приход
-        материала — остатки на складе обновятся автоматически. «Оприходование» и «Списание» — для контроля
-        остатков: излишки и недостачи, найденные при пересчёте.
+        материала — остатки на складе обновятся автоматически. «Отпуск по техкарте» выдаёт материалы дома по
+        нормативам КР, «Отпуск на объект / в цех» — вручную, без техкарты. «Оприходование» и «Списание» — для
+        контроля остатков: излишки и недостачи, найденные при пересчёте.
       </p>
     ),
   },
@@ -92,6 +95,8 @@ export function WarehousePage() {
   // списание из карточки (0030-e), только с полным доступом.
   const canFull = accessLevelAtLeast(accessLevel, 'full')
   const [inventoryKind, setInventoryKind] = useState<'receipt' | 'write_off' | null>(null)
+  const [issuingByTechcard, setIssuingByTechcard] = useState(false)
+  const [issuingManually, setIssuingManually] = useState(false)
 
   useEffect(() => {
     load()
@@ -143,6 +148,14 @@ export function WarehousePage() {
               <Button onClick={() => setSupplying(true)}>
                 <Truck size={16} />
                 Оформить поставку
+              </Button>
+              <Button variant="secondary" onClick={() => setIssuingByTechcard(true)}>
+                <ClipboardList size={16} />
+                Отпуск по техкарте
+              </Button>
+              <Button variant="secondary" onClick={() => setIssuingManually(true)}>
+                <Send size={16} />
+                Отпуск на объект / в цех
               </Button>
             </>
           )}
@@ -247,6 +260,8 @@ export function WarehousePage() {
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
       <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
+      <TechcardIssueModal open={issuingByTechcard} onClose={() => setIssuingByTechcard(false)} />
+      <ManualIssueModal open={issuingManually} onClose={() => setIssuingManually(false)} />
       <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
 
       <OnboardingDialog
