@@ -53,6 +53,8 @@ export interface MaterialPatch {
   name?: string
   unit?: string
   warehouse_material_id?: number
+  /** null — очистить норматив («в КР не найдено»). */
+  quantity?: number | null
 }
 
 /** PATCH /api/production/stage-templates/:id/blocks/:blockId/materials/:materialId */
@@ -71,6 +73,20 @@ export function updateStageTemplateMaterial(
 export function confirmStageTemplate(id: number): Promise<ProductionStageTemplate> {
   return apiRequest<ProductionStageTemplate>({
     section: SECTION, path: `/stage-templates/${id}/confirm`, method: 'POST',
+  })
+}
+
+export interface FillQuantitiesResult {
+  filled: number
+  remaining: number
+  template: ProductionStageTemplate
+}
+
+/** POST /api/production/stage-templates/:id/fill-quantities — ИИ дозаполняет
+ * пустые нормативы по КР; доступно и для подтверждённого шаблона (0088-e). */
+export function fillStageTemplateQuantities(id: number): Promise<FillQuantitiesResult> {
+  return apiRequest<FillQuantitiesResult>({
+    section: SECTION, path: `/stage-templates/${id}/fill-quantities`, method: 'POST',
   })
 }
 
