@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -15,7 +15,6 @@ import { MaxChatHistory, MaxChatSummary } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { BotEmptyHint } from '../components/BotEmptyHint'
-import { useMaxEvents } from '../realtime'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -71,52 +70,25 @@ export function AllChatsPage() {
   const [sending, setSending] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Пользователь внизу ленты — новые сообщения докручиваем; листает историю
-  // выше — позицию не трогаем (0091).
-  const pinnedToBottomRef = useRef(true)
-  const activeIdRef = useRef(activeId)
-  activeIdRef.current = activeId
 
-  /** `silent` — фоновое обновление по событию WebSocket: без спиннера, а
-   * при сбое остаётся прежний список. */
-  const loadChats = useCallback(async (silent = false) => {
-    if (!silent) {
-      setChatsLoading(true)
-      setChatsError(null)
-    }
+  async function loadChats() {
+    setChatsLoading(true)
+    setChatsError(null)
     try {
       const res = await listChats()
       setChats(res.chats)
-      setChatsError(null)
     } catch (err) {
-      if (!silent) setChatsError(err instanceof ApiError ? err.message : 'Не удалось загрузить чаты')
+      setChatsError(err instanceof ApiError ? err.message : 'Не удалось загрузить чаты')
     } finally {
-      if (!silent) setChatsLoading(false)
+      setChatsLoading(false)
     }
-  }, [])
+  }
 
   useEffect(() => {
     loadChats()
-  }, [loadChats])
-
-  /** Тихо перечитать открытую ленту (новое сообщение пришло по WebSocket). */
-  const refreshHistory = useCallback(async (id: number) => {
-    try {
-      const res = await getChat(id, { limit: 80 })
-      if (activeIdRef.current === id) setHistory(res)
-    } catch {
-      /* фоновое обновление — оставляем то, что уже показано */
-    }
   }, [])
 
-  const online = useMaxEvents(({ chatIds, resync }) => {
-    loadChats(true)
-    const id = activeIdRef.current
-    if (id != null && !Number.isNaN(id) && (resync || chatIds.has(id))) refreshHistory(id)
-  })
-
   useEffect(() => {
-    pinnedToBottomRef.current = true
     if (activeId == null || Number.isNaN(activeId)) {
       setHistory(null)
       return
@@ -140,15 +112,8 @@ export function AllChatsPage() {
   }, [activeId])
 
   useEffect(() => {
-    const el = scrollRef.current
-    if (el && pinnedToBottomRef.current) el.scrollTo({ top: el.scrollHeight })
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [history])
-
-  function onThreadScroll() {
-    const el = scrollRef.current
-    if (!el) return
-    pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
-  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -167,7 +132,6 @@ export function AllChatsPage() {
     try {
       await sendMessage(activeId, draft.trim())
       setDraft('')
-      pinnedToBottomRef.current = true
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
     } catch (err) {
@@ -200,24 +164,13 @@ export function AllChatsPage() {
             </div>
             <button
               type="button"
-              onClick={() => loadChats()}
+              onClick={loadChats}
               aria-label="Обновить список"
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border text-muted transition-colors hover:border-brand/40 hover:text-brand-dark"
             >
               <RefreshCw size={14} className={chatsLoading ? 'animate-spin' : ''} />
             </button>
             <HelpButton onClick={onboarding.show} />
-          </div>
-          <div
-            className="flex items-center gap-1.5 px-0.5 text-[11px] text-muted"
-            title={
-              online
-                ? 'Новые сообщения появляются сами, без обновления страницы'
-                : 'Нет связи с сервером — переподключаемся, новые сообщения подтянутся после'
-            }
-          >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${online ? 'bg-success' : 'bg-muted'}`} />
-            {online ? 'Онлайн' : 'Переподключение…'}
           </div>
         </div>
 
@@ -285,10 +238,10 @@ export function AllChatsPage() {
                 </div>
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
               </div>
-              <ChatClientSwitcher chat={chats.find((c) => c.id === activeId)} onLinked={() => loadChats()} />
+              <ChatClientSwitcher chat={chats.find((c) => c.id === activeId)} onLinked={loadChats} />
             </div>
 
-            <div ref={scrollRef} onScroll={onThreadScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+            <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
               {historyLoading && !history && <LoadingState label="Загрузка переписки…" />}
               {historyError && <p className="text-[12px] text-danger">{historyError}</p>}
               {history && history.messages.length === 0 && !historyLoading && (
