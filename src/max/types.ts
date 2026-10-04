@@ -86,6 +86,18 @@ export interface MaxSendResult {
   message: MaxMessage | null
 }
 
+/** Ответ POST /api/max/contacts (0093) — личный диалог с человеком,
+ * найденным в MAX по номеру. */
+export interface MaxStartDialogResult {
+  /** id диалога — открывается как обычный чат `/chats/:chatId`, даже если в
+   * нём ещё нет сообщений и его нет в списке чатов. */
+  chatId: number
+  contactId: string
+  name: string | null
+  /** Человек уже был в контактах аккаунта — имя в MAX не меняли. */
+  alreadyContact: boolean
+}
+
 /** Ответ GET /api/max/media — воспроизводимая ссылка на видео/аудио. */
 export interface MaxMediaUrl {
   /** Прямой MP4 (okcdn для видео, v.oneme.ru для голосовых). */
