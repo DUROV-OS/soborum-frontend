@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Building2, CalendarClock, Plus, Search, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { AlertTriangle, Building2, CalendarClock, Contact, Plus, Search, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -33,8 +33,9 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         Кнопка «Новый клиент» в правом верхнем углу открывает форму создания карточки — заполните имя, телефон и
-        другие данные. Если клиента привело агентство-партнёр, отметьте это в форме: на карточке появится метка с
-        названием агентства, и связь с партнёром не потеряется.
+        другие данные. Если клиента привёл риэлтор, агентство или другой партнёр, выберите его в поле «Кто
+        рекомендовал» — из базы партнёров. На карточке появится метка, а у партнёра — этот клиент в списке
+        приведённых.
       </p>
     ),
   },
@@ -151,6 +152,13 @@ export function ClientsBoardPage() {
             )}
           </div>
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
+          <Link
+            to="/partners"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md border border-brand/40 px-4 text-sm text-brand hover:border-brand hover:bg-brand/5"
+          >
+            <Contact size={16} />
+            База партнёров
+          </Link>
           {canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
@@ -202,6 +210,12 @@ function ClientCard({ client }: { client: Client }) {
     <div>
       <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
       <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
+      {client.referrer && (
+        <div className="mt-2 flex max-w-full items-center gap-1 text-[11px] text-muted">
+          <Contact size={11} className="shrink-0" />
+          <span className="truncate">Рекомендовал: {client.referrer.name}</span>
+        </div>
+      )}
       {client.via_agency && (
         <div className="mt-2 inline-flex max-w-full items-center gap-1 rounded-pill bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
           <Building2 size={11} className="shrink-0" />

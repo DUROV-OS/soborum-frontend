@@ -1,11 +1,31 @@
 import { API_BASE, ApiError, apiRequest, getToken } from '@/shared/lib/httpClient'
-import { FeedbackRequest, FeedbackStatus } from './types'
+import { FeedbackNoteKind, FeedbackRequest, FeedbackStatus } from './types'
 
 const SECTION = 'feedback'
 
 /** GET /api/feedback/requests — свои заявки, администратору все. */
 export function listRequests(): Promise<FeedbackRequest[]> {
   return apiRequest<FeedbackRequest[]>({ section: SECTION, path: '/requests' })
+}
+
+/** GET /api/feedback/requests?mine=true — только свои, в том числе у админа («Мои заявки»). */
+export function listMyRequests(): Promise<FeedbackRequest[]> {
+  return apiRequest<FeedbackRequest[]>({ section: SECTION, path: '/requests?mine=true' })
+}
+
+/** POST /api/feedback/requests/:id/events — комментарий или изменение в системе, только админ. */
+export function addEvent(id: number, kind: FeedbackNoteKind, text: string): Promise<FeedbackRequest> {
+  return apiRequest<FeedbackRequest>({
+    section: SECTION,
+    path: `/requests/${id}/events`,
+    method: 'POST',
+    body: { kind, text },
+  })
+}
+
+/** POST /api/feedback/requests/:id/seen — автор прочитал обновления заявки. */
+export function markSeen(id: number): Promise<FeedbackRequest> {
+  return apiRequest<FeedbackRequest>({ section: SECTION, path: `/requests/${id}/seen`, method: 'POST' })
 }
 
 /** POST /api/feedback/requests (multipart). */

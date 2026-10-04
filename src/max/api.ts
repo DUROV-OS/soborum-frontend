@@ -1,5 +1,5 @@
 import { API_BASE, apiRequest, ApiError, getToken } from '@/shared/lib/httpClient'
-import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult } from './types'
+import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult, MaxStartDialogResult } from './types'
 
 const SECTION = 'max'
 
@@ -34,6 +34,27 @@ export function sendMessage(chatId: number, text: string, notify = true): Promis
     path: '/messages',
     method: 'POST',
     body: { chat_id: chatId, text, notify },
+  })
+}
+
+export interface StartDialogParams {
+  /** Номер в любом виде: +7 900…, 8 900…, 900… — бэк нормализует. */
+  phone: string
+  firstName: string
+  lastName?: string
+}
+
+/**
+ * POST /api/max/contacts (0093) — найти человека в MAX по номеру, добавить в
+ * контакты аккаунта (если его там нет) и вернуть его личный диалог.
+ * 404 — номер не зарегистрирован в MAX, 422 — некорректный номер.
+ */
+export function startDialog(params: StartDialogParams): Promise<MaxStartDialogResult> {
+  return apiRequest<MaxStartDialogResult>({
+    section: SECTION,
+    path: '/contacts',
+    method: 'POST',
+    body: { phone: params.phone, first_name: params.firstName, last_name: params.lastName || null },
   })
 }
 
