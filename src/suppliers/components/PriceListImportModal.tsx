@@ -160,13 +160,6 @@ function ImportReport({
       })
       return
     }
-    if (!supplier.max_chat_bot_known) {
-      set('lead_time', {
-        kind: 'error',
-        text: 'Привязан чат со старого аккаунта MAX — бот его не видит. Привяжите чат бота',
-      })
-      return
-    }
     set('lead_time', { kind: 'busy' })
     const res = await draftLeadTimeQuestion(supplierId)
     if (!res.ok || !res.draft) return set('lead_time', { kind: 'error', text: res.reason ?? 'Не удалось' })
@@ -246,7 +239,7 @@ function ImportReport({
                 {st.kind === 'error' && (
                   <div className="flex items-center justify-between gap-2 rounded-md bg-danger-bg px-2.5 py-1.5 text-[12px] text-danger">
                     <span>{st.text}</span>
-                    {field === 'lead_time' && (!supplier || supplier.max_chat_id == null || !supplier.max_chat_bot_known) && (
+                    {field === 'lead_time' && (!supplier || supplier.max_chat_id == null) && (
                       <Button size="sm" variant="secondary" onClick={onRequestLinkChat}>
                         Привязать чат
                       </Button>

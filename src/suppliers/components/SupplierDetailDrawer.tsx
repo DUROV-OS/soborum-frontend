@@ -290,21 +290,7 @@ export function SupplierDetailDrawer({
           {/* Чат MAX */}
           <section className="rounded-md border border-border p-4">
             <div className="mb-2 text-[13px] font-medium text-ink">Чат в MAX</div>
-            {supplier.max_chat_id != null && !supplier.max_chat_bot_known ? (
-              <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                <span className="text-ink">Чат со старого аккаунта — бот его не видит. Привяжите чат бота.</span>
-                {canEdit && (
-                  <>
-                    <Button size="sm" variant="secondary" onClick={() => setLinkOpen(true)}>
-                      Привязать чат бота
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={unlinkChat}>
-                      Открепить
-                    </Button>
-                  </>
-                )}
-              </div>
-            ) : supplier.max_chat_id != null ? (
+            {supplier.max_chat_id != null ? (
               <div className="flex flex-wrap items-center gap-2 text-[13px]">
                 <Chip tone="info">Чат #{supplier.max_chat_id}</Chip>
                 <Button size="sm" variant="secondary" onClick={() => navigate(`/chats/${supplier.max_chat_id}`)}>

@@ -49,9 +49,6 @@ export interface Supplier {
   contacts: SupplierContact[]
   /** ID привязанного чата MAX (app/max). null — чат не привязан. */
   max_chat_id: number | null
-  /** false при привязанном чате — чат со старого аккаунта MAX, бот его не
-   * видит: написать поставщику через него нельзя. */
-  max_chat_bot_known: boolean
   created_at: string
   price_items: PriceItem[]
   price_items_count: number

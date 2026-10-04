@@ -106,9 +106,7 @@ export function SuppliersPage() {
               {
                 header: 'Чат MAX',
                 accessor: (s) =>
-                  s.max_chat_id != null && !s.max_chat_bot_known ? (
-                    <Chip tone="warning">старый аккаунт</Chip>
-                  ) : s.max_chat_id != null ? (
+                  s.max_chat_id != null ? (
                     <Chip tone="info">привязан</Chip>
                   ) : (
                     <span className="text-[12px] text-muted">—</span>
