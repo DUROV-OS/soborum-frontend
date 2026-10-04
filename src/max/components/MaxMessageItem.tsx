@@ -20,7 +20,7 @@ function humanDuration(ms?: number): string | null {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** Кнопка вложения, которая по клику запрашивает у бэка ссылку и открывает её. */
+/** Кнопка вложения, которая по клику запрашивает у бэка одноразовую ссылку и открывает её. */
 function AttachAction({
   label,
   hint,
