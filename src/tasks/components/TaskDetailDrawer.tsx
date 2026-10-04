@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import { Paperclip, X } from 'lucide-react'
+import { ExternalLink, Paperclip, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -19,6 +20,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   const review = useTasksStore((s) => s.review)
   const editReportComment = useTasksStore((s) => s.editReportComment)
   const currentUserId = useAuthStore((s) => s.current?.id ?? null)
+  const navigate = useNavigate()
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -120,6 +122,23 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
     <Drawer open={!!task} onClose={onClose} title={task.title} subtitle={<Chip tone={stateTone(task.status)}>{stateLabel}</Chip>}>
       <div className="flex flex-col gap-5">
         {task.description && <p className="text-[13px] text-ink">{task.description}</p>}
+
+        {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
+        {task.link_type === 'client_stage' && task.link_id !== null && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              onClose()
+              navigate(`/clients/${task.link_id}`)
+            }}
+          >
+            <ExternalLink size={14} />
+            Открыть карточку клиента
+          </Button>
+        )}
 
         {task.deadline && <Row label="Дедлайн" value={new Date(task.deadline).toLocaleDateString('ru-RU')} />}
 
