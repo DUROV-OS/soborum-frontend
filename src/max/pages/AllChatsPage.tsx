@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck } from 'lucide-react'
+import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -14,6 +14,7 @@ import { getChat, listChats, sendMessage } from '../api'
 import { MaxChatHistory, MaxChatSummary } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
+import { AddContactModal } from '../components/AddContactModal'
 import { useMaxEvents } from '../realtime'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -32,6 +33,16 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
       <p>
         В открытом чате можно написать сообщение — оно уйдёт от общего аккаунта организации. Фото
         показываются сразу, файлы, видео и голосовые открываются по клику по одноразовой ссылке.
+      </p>
+    ),
+  },
+  {
+    title: 'Новый контакт',
+    body: (
+      <p>
+        Кнопка с человечком над списком — начать переписку с тем, кого ещё нет в чатах. Введите номер и
+        имя: найдём человека в MAX, добавим в контакты аккаунта и откроем диалог. В списке чатов он
+        появится после первого сообщения.
       </p>
     ),
   },
@@ -60,6 +71,7 @@ export function AllChatsPage() {
   const [chatsLoading, setChatsLoading] = useState(true)
   const [chatsError, setChatsError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [addContactOpen, setAddContactOpen] = useState(false)
 
   const [history, setHistory] = useState<MaxChatHistory | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -204,6 +216,15 @@ export function AllChatsPage() {
             >
               <RefreshCw size={14} className={chatsLoading ? 'animate-spin' : ''} />
             </button>
+            <button
+              type="button"
+              onClick={() => setAddContactOpen(true)}
+              aria-label="Новый контакт"
+              title="Новый контакт — написать по номеру телефона"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border text-muted transition-colors hover:border-brand/40 hover:text-brand-dark"
+            >
+              <UserPlus size={14} />
+            </button>
             <HelpButton onClick={onboarding.show} />
           </div>
           <div
@@ -328,6 +349,12 @@ export function AllChatsPage() {
           </>
         )}
       </div>
+
+      <AddContactModal
+        open={addContactOpen}
+        onClose={() => setAddContactOpen(false)}
+        onStarted={(res) => navigate(`/chats/${res.chatId}`)}
+      />
 
       <OnboardingDialog
         open={onboarding.open}
