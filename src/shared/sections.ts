@@ -3,6 +3,7 @@ import {
   Boxes,
   Briefcase,
   Calculator,
+  Contact,
   ClipboardList,
   Factory,
   Handshake,
@@ -12,6 +13,7 @@ import {
   Network,
   Megaphone,
   MessagesSquare,
+  MessageSquareText,
   Mic,
   Repeat,
   Inbox,
@@ -32,6 +34,9 @@ import {
  * 'feedback_admin' — тоже фронтовое: раздел «Заявки» (пожелания и предложения
  * сотрудников, 0075). Гейтится ролью так же, как «Доступ»; на бэкенде это
  * /api/feedback, у которого нет своего Module.
+ * 'feedback_my' — фронтовое: раздел «Мои заявки» (0090) — свои заявки со
+ * статусом, комментариями администратора и изменениями в системе. Доступен
+ * каждому вошедшему, как подача заявки.
  * 'agents' — тоже фронтовое: операционная команда из восьми ролей, не Module
  * на бэкенде. Доступен каждому вошедшему, как «Пульс».
  * 'chats' — фронтовое: все чаты мессенджера MAX (oneme). Данные MAX общие
@@ -44,12 +49,16 @@ import {
  * отдельного гранта нет — пункт виден тем, у кого есть доступ к «Марине».
  * 'today' (в меню «Пульс») доступен каждому вошедшему сотруднику; сервер
  * отдаёт только показатели разрешённых ему разделов. AI-доступ не требуется.
+ * 'partners' — фронтовое: «База партнёров» (0083). На бэкенде это
+ * /api/partners под правом Module.CLIENTS — отдельного гранта нет, уровень
+ * доступа берётся из «Клиентов».
  * 'tasks_all' — псевдо-раздел: не открывает свою страницу и не появляется в
  * меню, это только флаг доступа к под-вкладке «Все задачи» внутри «Задачи»
  * (см. TasksPage) — назначается в матрице доступа наравне с разделами.
  */
 export type SectionId =
   | 'clients'
+  | 'partners'
   | 'production'
   | 'installation'
   | 'cycle'
@@ -69,6 +78,7 @@ export type SectionId =
   | 'accounting'
   | 'suppliers'
   | 'feedback_admin'
+  | 'feedback_my'
 
 export interface SectionMeta {
   id: SectionId
@@ -86,6 +96,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
   { id: 'clients', label: 'Клиенты', path: '/clients', icon: Users },
+  { id: 'partners', label: 'База партнёров', path: '/partners', icon: Contact, notAssignable: true },
   { id: 'production', label: 'Производство', path: '/production', icon: Factory },
   { id: 'installation', label: 'Монтаж', path: '/montage', icon: Truck },
   { id: 'warehouse', label: 'Склад', path: '/warehouse', icon: Boxes },
@@ -100,6 +111,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
   { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },
+  { id: 'feedback_my', label: 'Мои заявки', path: '/feedback/my', icon: MessageSquareText, notAssignable: true },
   { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },
   { id: 'admin', label: 'Доступ', path: '/admin', icon: ShieldCheck, adminOnly: true },
 ]
@@ -112,6 +124,7 @@ export const SECTIONS: SectionMeta[] = [
 export const WORK_SECTION_IDS: SectionId[] = [
   'cycle',
   'clients',
+  'partners',
   'production',
   'warehouse',
   'installation',

@@ -25,6 +25,45 @@ export interface FeedbackAuthor {
   email: string
 }
 
+export type FeedbackEventKind = 'status' | 'comment' | 'change'
+
+/** Записи, которые администратор добавляет в ленту руками (0090). */
+export type FeedbackNoteKind = Exclude<FeedbackEventKind, 'status'>
+
+export const FEEDBACK_NOTE_LABEL: Record<FeedbackNoteKind, string> = {
+  comment: 'Комментарий',
+  change: 'Изменение в системе',
+}
+
+/** Цвет бейджа статуса — тон из `Chip`. */
+export const FEEDBACK_STATUS_TONE: Record<FeedbackStatus, 'brand' | 'warning' | 'success' | 'neutral'> = {
+  new: 'brand',
+  in_progress: 'warning',
+  done: 'success',
+  rejected: 'neutral',
+}
+
+/** Запись ленты разбора заявки (0090): смена статуса, комментарий или изменение в системе. */
+export interface FeedbackEvent {
+  id: number
+  kind: FeedbackEventKind
+  /** `null` у смены статуса */
+  text: string | null
+  old_status: FeedbackStatus | null
+  new_status: FeedbackStatus | null
+  author: FeedbackAuthor
+  created_at: string
+}
+
+/**
+ * Последняя запись ленты — комментарий автора: он ждёт ответа администратора
+ * (метка в «Заявках» и счётчик у пункта меню).
+ */
+export function awaitsReply(request: FeedbackRequest): boolean {
+  const last = request.events[request.events.length - 1]
+  return last?.kind === 'comment' && last.author.id === request.author.id
+}
+
 export interface FeedbackRequest {
   id: number
   /** Слаг раздела фронта; для незнакомого значения показываем сам слаг. */
@@ -35,4 +74,8 @@ export interface FeedbackRequest {
   updated_at: string
   author: FeedbackAuthor
   attachments: FeedbackAttachment[]
+  /** Лента по возрастанию времени */
+  events: FeedbackEvent[]
+  /** Сколько записей ленты автор ещё не видел; не-автору всегда 0 */
+  unseen_updates: number
 }
