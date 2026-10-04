@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': { target: devProxy, changeOrigin: true, ws: true },
+      '/api': { target: devProxy, changeOrigin: true },
       '/files': { target: devProxy, changeOrigin: true },
     },
   },
