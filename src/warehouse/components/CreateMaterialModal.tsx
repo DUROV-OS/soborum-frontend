@@ -140,7 +140,7 @@ export function CreateMaterialModal({ open, onClose }: { open: boolean; onClose:
       title="Новый материал"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={close}>
             Отмена
           </Button>
           <Button onClick={handleSubmit} disabled={!valid || saving}>
