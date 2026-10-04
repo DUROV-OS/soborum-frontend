@@ -34,6 +34,17 @@ export function listCategories(): Promise<string[]> {
   return apiRequest<string[]>({ section: SECTION, path: '/categories' })
 }
 
+/** GET /api/warehouse/materials/suggest-code — код по умолчанию для нового
+ * материала: «первое слово названия-номер позиции на складе» (0096) */
+export async function suggestMaterialCode(warehouse: string, title: string): Promise<string> {
+  const { code } = await apiRequest<{ code: string }>({
+    section: SECTION,
+    path: '/materials/suggest-code',
+    query: { warehouse, title },
+  })
+  return code
+}
+
 /** GET /api/warehouse/materials/:id */
 export function getMaterial(id: number): Promise<Material> {
   return apiRequest<Material>({ section: SECTION, path: `/materials/${id}` })
