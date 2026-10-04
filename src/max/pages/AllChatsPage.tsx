@@ -14,7 +14,6 @@ import { getChat, listChats, sendMessage } from '../api'
 import { MaxChatHistory, MaxChatSummary } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
-import { BotEmptyHint } from '../components/BotEmptyHint'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -176,12 +175,11 @@ export function AllChatsPage() {
         <div className="flex-1 overflow-y-auto p-2">
           {chatsLoading && chats.length === 0 && <p className="px-2 py-2 text-[12px] text-muted">Загрузка…</p>}
           {chatsError && <p className="px-2 py-2 text-[12px] text-danger">{chatsError}</p>}
-          {!chatsLoading && !chatsError && filtered.length === 0 &&
-            (query ? (
-              <p className="px-2 py-2 text-[12px] text-muted">Ничего не найдено</p>
-            ) : (
-              <BotEmptyHint className="px-2 py-2" />
-            ))}
+          {!chatsLoading && !chatsError && filtered.length === 0 && (
+            <p className="px-2 py-2 text-[12px] text-muted">
+              {query ? 'Ничего не найдено' : 'Чатов пока нет'}
+            </p>
+          )}
           <div className="flex flex-col gap-0.5">
             {filtered.map((c) => (
               <button

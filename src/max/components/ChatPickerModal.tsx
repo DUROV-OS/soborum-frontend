@@ -5,7 +5,6 @@ import { MaxChatSummary } from '@/max/types'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
-import { BotEmptyHint } from './BotEmptyHint'
 
 /**
  * Диалог выбора чата MAX с поиском по названию/участнику. Общий для всех
@@ -128,8 +127,7 @@ export function ChatPickerModal({
           {error && <p className="text-[12px] text-danger">{error}</p>}
           <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
             {loading && <p className="py-6 text-center text-[13px] text-muted">Загрузка чатов…</p>}
-            {!loading && !error && chats.length === 0 && <BotEmptyHint className="py-6 text-center" />}
-            {!loading && chats.length > 0 && visible.length === 0 && (
+            {!loading && visible.length === 0 && (
               <p className="py-6 text-center text-[13px] text-muted">Чаты не найдены</p>
             )}
             {visible.map((chat) => (

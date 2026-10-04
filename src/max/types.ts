@@ -93,11 +93,3 @@ export interface MaxMediaUrl {
   /** Запасной веб-плеер (m.ok.ru) — если прямой ссылки нет. */
   external: string | null
 }
-
-/** Ответ GET /api/max/bot — бот, от имени которого Durov OS пишет в MAX. */
-export interface MaxBotProfile {
-  name: string | null
-  username: string | null
-  /** Ссылка, открывающая бота в MAX (https://max.ru/<username>). */
-  link: string | null
-}
