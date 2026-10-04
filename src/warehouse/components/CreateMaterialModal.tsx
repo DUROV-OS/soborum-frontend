@@ -26,6 +26,8 @@ export function CreateMaterialModal({ open, onClose }: { open: boolean; onClose:
   const [category, setCategory] = useState('')
   const [title, setTitle] = useState('')
   const [code, setCode] = useState('')
+  // пока код не правили руками, он подставляется по шаблону (0096)
+  const [codeTouched, setCodeTouched] = useState(false)
   const [unit, setUnit] = useState('')
   const [inStock, setInStock] = useState<number | ''>('')
   const [purchasePrice, setPurchasePrice] = useState<number | ''>('')
@@ -53,6 +55,29 @@ export function CreateMaterialModal({ open, onClose }: { open: boolean; onClose:
     suppliersApi.listSuppliers().then(setSuppliers)
   }, [open])
 
+  useEffect(() => {
+    if (!open || codeTouched || !warehouse) return
+    if (!title.trim()) {
+      setCode('')
+      return
+    }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      warehouseApi
+        .suggestMaterialCode(warehouse, title)
+        .then((suggested) => {
+          if (!cancelled) setCode(suggested)
+        })
+        .catch(() => {
+          // без подсказки код просто вводится руками
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [open, codeTouched, warehouse, title])
+
   // обязательные поля живут на вкладке «Основное» — характеристики
   // необязательны целиком, материал можно завести, не открывая вкладку
   const valid = warehouse && title && code && unit && (packQuantity === '' || packQuantity > 0)
@@ -62,6 +87,7 @@ export function CreateMaterialModal({ open, onClose }: { open: boolean; onClose:
     setCategory('')
     setTitle('')
     setCode('')
+    setCodeTouched(false)
     setInStock('')
     setPurchasePrice('')
     setThreshold('')
@@ -151,8 +177,14 @@ export function CreateMaterialModal({ open, onClose }: { open: boolean; onClose:
                   ))}
                 </Select>
               </Field>
-              <Field label="Код" required>
-                <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="BRUS-150-50" />
+              <Field label="Код" required hint="Подставляется автоматически, можно изменить">
+                <Input
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value)
+                    setCodeTouched(e.target.value.trim() !== '')
+                  }}
+                />
               </Field>
               <Field label="Единица измерения" required>
                 <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
