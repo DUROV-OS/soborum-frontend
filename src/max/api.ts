@@ -37,6 +37,34 @@ export function sendMessage(chatId: number, text: string, notify = true): Promis
   })
 }
 
+/** Предел размера файла — как MAX_UPLOAD_SIZE в app/max/client.py. */
+export const MAX_FILE_SIZE = 20 * 1024 * 1024
+
+/**
+ * POST /api/max/messages/attachment — сообщение с файлом (multipart). Бэк
+ * сначала загружает файл в MAX и ждёт его обработки, потом отправляет
+ * сообщение; текст необязателен. 502 — MAX не принял файл.
+ */
+export function sendMessageWithFile(
+  chatId: number,
+  file: File,
+  text = '',
+  notify = true,
+): Promise<MaxSendResult> {
+  const form = new FormData()
+  form.append('chat_id', String(chatId))
+  form.append('text', text)
+  form.append('notify', String(notify))
+  form.append('file', file, file.name)
+  return apiRequest<MaxSendResult>({
+    section: SECTION,
+    path: '/messages/attachment',
+    method: 'POST',
+    form,
+    timeoutMs: 120000,
+  })
+}
+
 export interface StartDialogParams {
   /** Номер в любом виде: +7 900…, 8 900…, 900… — бэк нормализует. */
   phone: string

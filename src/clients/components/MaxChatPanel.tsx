@@ -7,6 +7,7 @@ import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
+import { MaxAttachButton, MaxPendingFile } from '@/max/components/MaxFilePicker'
 import * as maxApi from '@/max/api'
 import { useMaxEvents } from '@/max/realtime'
 import { MaxChatSummary, MaxMessage } from '@/max/types'
@@ -110,6 +111,7 @@ function ChatThread({
   const [isGroup, setIsGroup] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [file, setFile] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -155,14 +157,17 @@ function ChatThread({
 
   async function send() {
     const text = draft.trim()
-    if (text === '' || sending) return
+    if ((text === '' && !file) || sending) return
     setSending(true)
     try {
-      const result = await maxApi.sendMessage(chatId, text)
+      const result = file
+        ? await maxApi.sendMessageWithFile(chatId, file, text)
+        : await maxApi.sendMessage(chatId, text)
       if (result.message) {
         setMessages((prev) => [...(prev ?? []), result.message as MaxMessage])
       }
       setDraft('')
+      setFile(null)
       pinnedToBottomRef.current = true
       setError(null)
       refresh()
@@ -254,7 +259,16 @@ function ChatThread({
 
       {error && <p className="mb-2 text-[12px] text-danger">{error}</p>}
 
+      {file && <MaxPendingFile file={file} onRemove={() => setFile(null)} disabled={sending} />}
       <div className="flex items-end gap-2">
+        <MaxAttachButton
+          onPick={(picked) => {
+            setFile(picked)
+            setError(null)
+          }}
+          onError={setError}
+          disabled={sending}
+        />
         <Textarea
           rows={2}
           value={draft}
@@ -267,7 +281,7 @@ function ChatThread({
           }}
           placeholder={`Написать ${client.full_name}…`}
         />
-        <Button size="sm" onClick={send} disabled={!draft.trim() || sending} className="shrink-0">
+        <Button size="sm" onClick={send} disabled={(!draft.trim() && !file) || sending} className="shrink-0">
           <Send size={14} />
           {sending ? 'Отправка…' : 'Отправить'}
         </Button>

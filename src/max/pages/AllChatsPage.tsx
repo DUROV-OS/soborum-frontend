@@ -10,11 +10,12 @@ import { HelpButton } from '@/shared/ui/HelpButton'
 import { LoadingState } from '@/shared/ui/LoadingState'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
-import { getChat, listChats, sendMessage } from '../api'
+import { getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
 import { MaxChatHistory, MaxChatSummary } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
+import { MaxAttachButton, MaxPendingFile } from '../components/MaxFilePicker'
 import { useMaxEvents } from '../realtime'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -78,6 +79,8 @@ export function AllChatsPage() {
   const [historyError, setHistoryError] = useState<string | null>(null)
 
   const [draft, setDraft] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [sendError, setSendError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -127,6 +130,8 @@ export function AllChatsPage() {
 
   useEffect(() => {
     pinnedToBottomRef.current = true
+    setFile(null)
+    setSendError(null)
     if (activeId == null || Number.isNaN(activeId)) {
       setHistory(null)
       return
@@ -172,16 +177,19 @@ export function AllChatsPage() {
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
-    if (activeId == null || !draft.trim() || sending) return
+    if (activeId == null || (!draft.trim() && !file) || sending) return
     setSending(true)
     try {
-      await sendMessage(activeId, draft.trim())
+      if (file) await sendMessageWithFile(activeId, file, draft.trim())
+      else await sendMessage(activeId, draft.trim())
       setDraft('')
+      setFile(null)
+      setSendError(null)
       pinnedToBottomRef.current = true
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
     } catch (err) {
-      setHistoryError(err instanceof ApiError ? err.message : 'Не удалось отправить сообщение')
+      setSendError(err instanceof ApiError ? err.message : 'Не удалось отправить сообщение')
     } finally {
       setSending(false)
     }
@@ -327,24 +335,36 @@ export function AllChatsPage() {
               })}
             </div>
 
-            <form onSubmit={handleSend} className="flex items-end gap-2 border-t border-border p-3">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend(e)
-                  }
-                }}
-                rows={1}
-                placeholder="Сообщение…"
-                className="max-h-32 min-h-[2.25rem] flex-1 resize-none rounded-sm border border-border bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-brand/50"
-              />
-              <Button type="submit" size="sm" disabled={!draft.trim() || sending}>
-                <Send size={14} />
-                {sending ? 'Отправка…' : 'Отправить'}
-              </Button>
+            <form onSubmit={handleSend} className="border-t border-border p-3">
+              {sendError && <p className="mb-2 text-[12px] text-danger">{sendError}</p>}
+              {file && <MaxPendingFile file={file} onRemove={() => setFile(null)} disabled={sending} />}
+              <div className="flex items-end gap-2">
+                <MaxAttachButton
+                  onPick={(picked) => {
+                    setFile(picked)
+                    setSendError(null)
+                  }}
+                  onError={setSendError}
+                  disabled={sending}
+                />
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSend(e)
+                    }
+                  }}
+                  rows={1}
+                  placeholder="Сообщение…"
+                  className="max-h-32 min-h-[2.25rem] flex-1 resize-none rounded-sm border border-border bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-brand/50"
+                />
+                <Button type="submit" size="sm" disabled={(!draft.trim() && !file) || sending}>
+                  <Send size={14} />
+                  {sending ? 'Отправка…' : 'Отправить'}
+                </Button>
+              </div>
             </form>
           </>
         )}
