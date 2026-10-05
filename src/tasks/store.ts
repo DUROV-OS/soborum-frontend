@@ -13,6 +13,7 @@ interface TasksState {
   loading: boolean
   load: (filters?: tasksApi.TaskFilters) => Promise<void>
   create: (input: tasksApi.CreateTaskInput) => Promise<ActionResult>
+  update: (id: number, patch: tasksApi.UpdateTaskInput) => Promise<ActionResult>
   setStatus: (id: number, status: TaskStatus) => Promise<ActionResult>
   submitReport: (id: number, comment: string, files: File[]) => Promise<ActionResult>
   review: (id: number, accept: boolean, comment: string, files: File[]) => Promise<ActionResult>
@@ -37,6 +38,16 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     try {
       const task = await tasksApi.createTask(input)
       set({ tasks: [task, ...get().tasks] })
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: reasonOf(error) }
+    }
+  },
+
+  update: async (id, patch) => {
+    try {
+      const updated = await tasksApi.updateTask(id, patch)
+      set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
       return { ok: true }
     } catch (error) {
       return { ok: false, reason: reasonOf(error) }
