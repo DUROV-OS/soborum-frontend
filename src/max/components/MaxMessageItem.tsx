@@ -160,6 +160,10 @@ function Attachment({ attach, chatId, messageId }: { attach: MaxAttach; chatId: 
   )
 }
 
+function statusLabel(status: string): string {
+  return status === 'EDITED' ? 'изменено' : status.toLowerCase()
+}
+
 export function MaxMessageItem({
   message,
   chatId,
@@ -187,7 +191,8 @@ export function MaxMessageItem({
 
   const hasText = message.text.trim().length > 0
   const attaches = message.attaches ?? []
-  if (!hasText && attaches.length === 0) return null
+  const forwarded = message.forwarded ?? null
+  if (!hasText && attaches.length === 0 && !forwarded) return null
 
   const outgoing = message.isOutgoing
   // Автор виден только у входящих в групповом чате и только на первом
@@ -205,6 +210,17 @@ export function MaxMessageItem({
           outgoing ? 'bg-brand text-white' : 'bg-surface-muted text-ink'
         }`}
       >
+        {forwarded && (
+          <div className="flex flex-col gap-2 border-l-2 border-current pl-2">
+            <span className="text-[11px] font-medium opacity-80">
+              {forwarded.senderName ? `Переслано от ${forwarded.senderName}` : 'Пересланное сообщение'}
+            </span>
+            {forwarded.attaches.map((a, i) => (
+              <Attachment key={i} attach={a} chatId={chatId} messageId={message.id} />
+            ))}
+            {forwarded.text.trim() && <p className="whitespace-pre-wrap break-words">{forwarded.text}</p>}
+          </div>
+        )}
         {attaches.map((a, i) => (
           <Attachment key={i} attach={a} chatId={chatId} messageId={message.id} />
         ))}
@@ -212,7 +228,7 @@ export function MaxMessageItem({
       </div>
       <span className="px-1 text-[10px] text-muted">
         {message.time ? format(new Date(message.time), 'dd.MM HH:mm') : ''}
-        {message.status ? ` · ${message.status.toLowerCase()}` : ''}
+        {message.status ? ` · ${statusLabel(message.status)}` : ''}
       </span>
     </div>
   )

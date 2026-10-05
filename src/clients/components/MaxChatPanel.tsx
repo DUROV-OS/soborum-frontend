@@ -311,7 +311,8 @@ function MessageBubble({
     )
   }
 
-  if (!msg.text && msg.attaches.length === 0) return null
+  const forwarded = msg.forwarded ?? null
+  if (!msg.text && msg.attaches.length === 0 && !forwarded) return null
 
   const time = msg.time ? new Date(msg.time).toLocaleString('ru-RU') : ''
   const outgoing = msg.isOutgoing
@@ -327,10 +328,24 @@ function MessageBubble({
           outgoing ? 'bg-brand text-white' : 'bg-surface text-ink'
         }`}
       >
+        {forwarded && (
+          <div className="border-l-2 border-current pl-2">
+            <span className="block text-[11px] font-medium opacity-80">
+              {forwarded.senderName ? `Переслано от ${forwarded.senderName}` : 'Пересланное сообщение'}
+            </span>
+            {forwarded.text && <p className="whitespace-pre-wrap break-words">{forwarded.text}</p>}
+            <MaxAttachList attaches={forwarded.attaches} chatId={chatId} messageId={msg.id} />
+          </div>
+        )}
         {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
         <MaxAttachList attaches={msg.attaches} chatId={chatId} messageId={msg.id} />
       </div>
-      {time && <span className="mt-0.5 text-[11px] text-muted">{time}</span>}
+      {time && (
+        <span className="mt-0.5 text-[11px] text-muted">
+          {time}
+          {msg.status === 'EDITED' ? ' · изменено' : ''}
+        </span>
+      )}
     </div>
   )
 }
