@@ -14,6 +14,9 @@ import { Modal } from '@/shared/ui/Modal'
  * `requireLabel` (0053) — после выбора чата запрашивает название привязки
  * (различает несколько чатов одного клиента, например «С клиентом» и
  * «С помощником») и передаёт его вторым аргументом `onPick`.
+ *
+ * `confirm` (0098) — после выбора чата спрашивает подтверждение (например
+ * «Переслать в «…»?»), чтобы случайный клик по чату ничего не отправлял.
  */
 export function ChatPickerModal({
   open,
@@ -21,12 +24,14 @@ export function ChatPickerModal({
   onPick,
   title = 'Привязать чат MAX',
   requireLabel = false,
+  confirm,
 }: {
   open: boolean
   onClose: () => void
   onPick: (chat: MaxChatSummary, label?: string) => Promise<{ ok: boolean; reason?: string }>
   title?: string
   requireLabel?: boolean
+  confirm?: { question: (chat: MaxChatSummary) => string; action: string; busy: string; failed: string }
 }) {
   const [chats, setChats] = useState<MaxChatSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -65,13 +70,13 @@ export function ChatPickerModal({
     if (result.ok) {
       onClose()
     } else {
-      setError(result.reason ?? 'Не удалось привязать чат')
+      setError(result.reason ?? confirm?.failed ?? 'Не удалось привязать чат')
       setPendingChat(null)
     }
   }
 
   function selectChat(chat: MaxChatSummary) {
-    if (requireLabel) {
+    if (requireLabel || confirm) {
       setPendingChat(chat)
       setLabel('')
       setError(null)
@@ -82,6 +87,10 @@ export function ChatPickerModal({
 
   function confirmLabel() {
     if (!pendingChat) return
+    if (confirm) {
+      pick(pendingChat)
+      return
+    }
     const trimmed = label.trim()
     if (!trimmed) {
       setError('Укажите название привязки')
@@ -92,7 +101,20 @@ export function ChatPickerModal({
 
   return (
     <Modal open={open} onClose={onClose} title={title} width="max-w-xl">
-      {pendingChat ? (
+      {pendingChat && confirm ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-ink">{confirm.question(pendingChat)}</p>
+          {error && <p className="text-[12px] text-danger">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setPendingChat(null)} disabled={linkingId !== null}>
+              Назад
+            </Button>
+            <Button size="sm" autoFocus onClick={confirmLabel} disabled={linkingId !== null}>
+              {linkingId !== null ? confirm.busy : confirm.action}
+            </Button>
+          </div>
+        </div>
+      ) : pendingChat ? (
         <div className="flex flex-col gap-3">
           <p className="text-[13px] text-ink">
             Чат «{pendingChat.title ?? `Чат ${pendingChat.id}`}» — укажите название привязки (например,

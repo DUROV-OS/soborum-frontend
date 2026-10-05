@@ -1,5 +1,12 @@
 import { API_BASE, apiRequest, ApiError, getToken } from '@/shared/lib/httpClient'
-import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult, MaxStartDialogResult } from './types'
+import {
+  MaxChatHistory,
+  MaxChatList,
+  MaxMediaUrl,
+  MaxMessage,
+  MaxSendResult,
+  MaxStartDialogResult,
+} from './types'
 
 const SECTION = 'max'
 
@@ -63,6 +70,46 @@ export function sendMessageWithFile(
     form,
     timeoutMs: 120000,
   })
+}
+
+/**
+ * POST /api/max/messages/forward (0098) — переслать сообщение `messageId`
+ * из чата `fromChatId` в `toChatId`.
+ */
+export function forwardMessage(
+  fromChatId: number,
+  messageId: string,
+  toChatId: number,
+): Promise<MaxSendResult> {
+  return apiRequest<MaxSendResult>({
+    section: SECTION,
+    path: '/messages/forward',
+    method: 'POST',
+    body: { from_chat_id: fromChatId, message_id: messageId, to_chat_id: toChatId },
+  })
+}
+
+/**
+ * PATCH /api/max/messages (0098) — изменить текст своего сообщения. Файлы
+ * сообщения бэк сохраняет; 403 — чужое, 409 — пересланное или с фото/видео.
+ */
+export function editMessage(chatId: number, messageId: string, text: string): Promise<MaxSendResult> {
+  return apiRequest<MaxSendResult>({
+    section: SECTION,
+    path: '/messages',
+    method: 'PATCH',
+    body: { chat_id: chatId, message_id: messageId, text },
+  })
+}
+
+/** Можно ли изменить сообщение: своё, не пересланное, из вложений только файлы. */
+export function isEditable(message: MaxMessage): boolean {
+  return (
+    message.isOutgoing &&
+    !message.isSystem &&
+    !message.forwarded &&
+    message.attaches.every((a) => a.type === 'FILE')
+  )
 }
 
 export interface StartDialogParams {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Link2, MessageSquareText, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
 import { MaxAttachButton, MaxPendingFile } from '@/max/components/MaxFilePicker'
+import { ForwardMessageModal, MaxMessageActions } from '@/max/components/MaxMessageActions'
 import * as maxApi from '@/max/api'
 import { useMaxEvents } from '@/max/realtime'
 import { MaxChatSummary, MaxMessage } from '@/max/types'
@@ -113,6 +114,10 @@ function ChatThread({
   const [draft, setDraft] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  /** Сообщение, которое сейчас правим в поле ввода (0098). */
+  const [editing, setEditing] = useState<MaxMessage | null>(null)
+  const [forwarding, setForwarding] = useState<MaxMessage | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const pinnedToBottomRef = useRef(true)
@@ -160,14 +165,20 @@ function ChatThread({
     if ((text === '' && !file) || sending) return
     setSending(true)
     try {
-      const result = file
-        ? await maxApi.sendMessageWithFile(chatId, file, text)
-        : await maxApi.sendMessage(chatId, text)
-      if (result.message) {
-        setMessages((prev) => [...(prev ?? []), result.message as MaxMessage])
+      if (editing) {
+        await maxApi.editMessage(chatId, editing.id, text)
+      } else {
+        const result = file
+          ? await maxApi.sendMessageWithFile(chatId, file, text)
+          : await maxApi.sendMessage(chatId, text)
+        if (result.message) {
+          setMessages((prev) => [...(prev ?? []), result.message as MaxMessage])
+        }
       }
       setDraft('')
       setFile(null)
+      setEditing(null)
+      setNotice(null)
       pinnedToBottomRef.current = true
       setError(null)
       refresh()
@@ -176,6 +187,24 @@ function ChatThread({
     } finally {
       setSending(false)
     }
+  }
+
+  function startEdit(message: MaxMessage) {
+    setEditing(message)
+    setDraft(message.text)
+    setFile(null)
+    setError(null)
+  }
+
+  function cancelEdit() {
+    setEditing(null)
+    setDraft('')
+  }
+
+  function onForwarded(toChat: MaxChatSummary) {
+    setForwarding(null)
+    setNotice(`Переслано в «${toChat.title ?? `Чат ${toChat.id}`}»`)
+    refresh()
   }
 
   const updateChatLink = useClientsStore((s) => s.updateChatLink)
@@ -252,6 +281,7 @@ function ChatThread({
               chatId={chatId}
               isGroup={isGroup}
               showAuthor={showAuthor}
+              actions={<MaxMessageActions message={msg} onForward={setForwarding} onEdit={startEdit} />}
             />
           )
         })}
@@ -259,16 +289,34 @@ function ChatThread({
 
       {error && <p className="mb-2 text-[12px] text-danger">{error}</p>}
 
+      {notice && !error && <p className="mb-2 text-[12px] text-muted">{notice}</p>}
+      {editing && (
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-sm bg-surface-muted px-2.5 py-1.5 text-[12px]">
+          <span className="min-w-0 truncate text-muted">
+            Редактирование: <span className="text-ink">{editing.text || 'сообщение с файлом'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={cancelEdit}
+            disabled={sending}
+            className="shrink-0 text-muted underline-offset-2 hover:text-danger hover:underline"
+          >
+            Отмена
+          </button>
+        </div>
+      )}
       {file && <MaxPendingFile file={file} onRemove={() => setFile(null)} disabled={sending} />}
       <div className="flex items-end gap-2">
-        <MaxAttachButton
-          onPick={(picked) => {
-            setFile(picked)
-            setError(null)
-          }}
-          onError={setError}
-          disabled={sending}
-        />
+        {!editing && (
+          <MaxAttachButton
+            onPick={(picked) => {
+              setFile(picked)
+              setError(null)
+            }}
+            onError={setError}
+            disabled={sending}
+          />
+        )}
         <Textarea
           rows={2}
           value={draft}
@@ -278,14 +326,21 @@ function ChatThread({
               e.preventDefault()
               send()
             }
+            if (e.key === 'Escape' && editing) cancelEdit()
           }}
           placeholder={`Написать ${client.full_name}…`}
         />
         <Button size="sm" onClick={send} disabled={(!draft.trim() && !file) || sending} className="shrink-0">
           <Send size={14} />
-          {sending ? 'Отправка…' : 'Отправить'}
+          {sending ? (editing ? 'Сохранение…' : 'Отправка…') : editing ? 'Сохранить' : 'Отправить'}
         </Button>
       </div>
+      <ForwardMessageModal
+        fromChatId={chatId}
+        message={forwarding}
+        onClose={() => setForwarding(null)}
+        onForwarded={onForwarded}
+      />
     </>
   )
 }
@@ -295,11 +350,13 @@ function MessageBubble({
   chatId,
   isGroup,
   showAuthor,
+  actions,
 }: {
   msg: MaxMessage
   chatId: number
   isGroup: boolean
   showAuthor: boolean
+  actions?: ReactNode
 }) {
   if (msg.isSystem) {
     const who = msg.senderName
@@ -311,14 +368,15 @@ function MessageBubble({
     )
   }
 
-  if (!msg.text && msg.attaches.length === 0) return null
+  const forwarded = msg.forwarded ?? null
+  if (!msg.text && msg.attaches.length === 0 && !forwarded) return null
 
   const time = msg.time ? new Date(msg.time).toLocaleString('ru-RU') : ''
   const outgoing = msg.isOutgoing
   const authorLabel =
     isGroup && !outgoing && showAuthor ? msg.senderName ?? 'Участник' : null
   return (
-    <div className={`flex flex-col ${outgoing ? 'items-end' : 'items-start'}`}>
+    <div className={`group flex flex-col ${outgoing ? 'items-end' : 'items-start'}`}>
       {authorLabel && (
         <span className="text-[11px] font-medium text-brand-dark">{authorLabel}</span>
       )}
@@ -327,10 +385,25 @@ function MessageBubble({
           outgoing ? 'bg-brand text-white' : 'bg-surface text-ink'
         }`}
       >
+        {forwarded && (
+          <div className="border-l-2 border-current pl-2">
+            <span className="block text-[11px] font-medium opacity-80">
+              {forwarded.senderName ? `Переслано от ${forwarded.senderName}` : 'Пересланное сообщение'}
+            </span>
+            {forwarded.text && <p className="whitespace-pre-wrap break-words">{forwarded.text}</p>}
+            <MaxAttachList attaches={forwarded.attaches} chatId={chatId} messageId={msg.id} />
+          </div>
+        )}
         {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
         <MaxAttachList attaches={msg.attaches} chatId={chatId} messageId={msg.id} />
       </div>
-      {time && <span className="mt-0.5 text-[11px] text-muted">{time}</span>}
+      {time && (
+        <span className="mt-0.5 text-[11px] text-muted">
+          {time}
+          {msg.status === 'EDITED' ? ' · изменено' : ''}
+          {actions && <span className="ml-1">{actions}</span>}
+        </span>
+      )}
     </div>
   )
 }

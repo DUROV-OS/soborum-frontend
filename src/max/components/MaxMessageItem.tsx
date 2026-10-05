@@ -160,11 +160,16 @@ function Attachment({ attach, chatId, messageId }: { attach: MaxAttach; chatId: 
   )
 }
 
+function statusLabel(status: string): string {
+  return status === 'EDITED' ? 'изменено' : status.toLowerCase()
+}
+
 export function MaxMessageItem({
   message,
   chatId,
   isGroup = false,
   showAuthor = true,
+  actions,
 }: {
   message: MaxMessage
   chatId: number
@@ -172,6 +177,8 @@ export function MaxMessageItem({
   isGroup?: boolean
   /** false — предыдущее сообщение того же автора, подпись не повторяем. */
   showAuthor?: boolean
+  /** Кнопки действий рядом со временем (0098, см. MaxMessageActions). */
+  actions?: React.ReactNode
 }) {
   // Служебное событие чата (вступил / вышел / переименовал) — отдельной
   // строкой по центру, не как чей-то пузырь.
@@ -187,7 +194,8 @@ export function MaxMessageItem({
 
   const hasText = message.text.trim().length > 0
   const attaches = message.attaches ?? []
-  if (!hasText && attaches.length === 0) return null
+  const forwarded = message.forwarded ?? null
+  if (!hasText && attaches.length === 0 && !forwarded) return null
 
   const outgoing = message.isOutgoing
   // Автор виден только у входящих в групповом чате и только на первом
@@ -196,7 +204,7 @@ export function MaxMessageItem({
     isGroup && !outgoing && showAuthor ? message.senderName ?? 'Участник' : null
 
   return (
-    <div className={`flex min-w-0 flex-col gap-1 ${outgoing ? 'items-end' : 'items-start'}`}>
+    <div className={`group flex min-w-0 flex-col gap-1 ${outgoing ? 'items-end' : 'items-start'}`}>
       {authorLabel && (
         <span className="px-1 text-[11px] font-medium text-brand-dark">{authorLabel}</span>
       )}
@@ -205,6 +213,17 @@ export function MaxMessageItem({
           outgoing ? 'bg-brand text-white' : 'bg-surface-muted text-ink'
         }`}
       >
+        {forwarded && (
+          <div className="flex flex-col gap-2 border-l-2 border-current pl-2">
+            <span className="text-[11px] font-medium opacity-80">
+              {forwarded.senderName ? `Переслано от ${forwarded.senderName}` : 'Пересланное сообщение'}
+            </span>
+            {forwarded.attaches.map((a, i) => (
+              <Attachment key={i} attach={a} chatId={chatId} messageId={message.id} />
+            ))}
+            {forwarded.text.trim() && <p className="whitespace-pre-wrap break-words">{forwarded.text}</p>}
+          </div>
+        )}
         {attaches.map((a, i) => (
           <Attachment key={i} attach={a} chatId={chatId} messageId={message.id} />
         ))}
@@ -212,7 +231,8 @@ export function MaxMessageItem({
       </div>
       <span className="px-1 text-[10px] text-muted">
         {message.time ? format(new Date(message.time), 'dd.MM HH:mm') : ''}
-        {message.status ? ` · ${message.status.toLowerCase()}` : ''}
+        {message.status ? ` · ${statusLabel(message.status)}` : ''}
+        {actions && <span className="ml-1">{actions}</span>}
       </span>
     </div>
   )
