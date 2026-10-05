@@ -14,7 +14,7 @@ function reasonOf(error: unknown): string {
     : 'Не удалось получить вложение'
 }
 
-function formatBytes(n?: number): string {
+export function formatBytes(n?: number): string {
   if (!n || n <= 0) return ''
   const units = ['Б', 'КБ', 'МБ', 'ГБ']
   let value = n
