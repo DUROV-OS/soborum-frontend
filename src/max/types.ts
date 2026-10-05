@@ -45,6 +45,20 @@ export interface MaxMessage {
   text: string
   elements: unknown[]
   attaches: MaxAttach[]
+  /** Пересланное сообщение (0098): свои text/attaches пустые, оригинал здесь.
+   * Вложения оригинала скачиваются по id самого пересланного сообщения. */
+  forwarded?: MaxForwarded | null
+}
+
+/** Оригинал пересланного сообщения (см. `_fmt_forwarded`). */
+export interface MaxForwarded {
+  senderId: string | null
+  /** Имя автора оригинала из контактов. null — автор не в контактах. */
+  senderName: string | null
+  /** Чат, откуда переслано. */
+  chatId: number | null
+  text: string
+  attaches: MaxAttach[]
 }
 
 /** Одна строка списка чатов — GET /api/max/chats (см. `_fmt_chat`). */
