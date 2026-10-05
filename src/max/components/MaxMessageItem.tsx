@@ -169,6 +169,7 @@ export function MaxMessageItem({
   chatId,
   isGroup = false,
   showAuthor = true,
+  actions,
 }: {
   message: MaxMessage
   chatId: number
@@ -176,6 +177,8 @@ export function MaxMessageItem({
   isGroup?: boolean
   /** false — предыдущее сообщение того же автора, подпись не повторяем. */
   showAuthor?: boolean
+  /** Кнопки действий рядом со временем (0098, см. MaxMessageActions). */
+  actions?: React.ReactNode
 }) {
   // Служебное событие чата (вступил / вышел / переименовал) — отдельной
   // строкой по центру, не как чей-то пузырь.
@@ -201,7 +204,7 @@ export function MaxMessageItem({
     isGroup && !outgoing && showAuthor ? message.senderName ?? 'Участник' : null
 
   return (
-    <div className={`flex min-w-0 flex-col gap-1 ${outgoing ? 'items-end' : 'items-start'}`}>
+    <div className={`group flex min-w-0 flex-col gap-1 ${outgoing ? 'items-end' : 'items-start'}`}>
       {authorLabel && (
         <span className="px-1 text-[11px] font-medium text-brand-dark">{authorLabel}</span>
       )}
@@ -229,6 +232,7 @@ export function MaxMessageItem({
       <span className="px-1 text-[10px] text-muted">
         {message.time ? format(new Date(message.time), 'dd.MM HH:mm') : ''}
         {message.status ? ` · ${statusLabel(message.status)}` : ''}
+        {actions && <span className="ml-1">{actions}</span>}
       </span>
     </div>
   )

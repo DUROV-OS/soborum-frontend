@@ -10,12 +10,13 @@ import { HelpButton } from '@/shared/ui/HelpButton'
 import { LoadingState } from '@/shared/ui/LoadingState'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
-import { getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
-import { MaxChatHistory, MaxChatSummary } from '../types'
+import { editMessage, getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
+import { MaxChatHistory, MaxChatSummary, MaxMessage } from '../types'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
 import { MaxAttachButton, MaxPendingFile } from '../components/MaxFilePicker'
+import { ForwardMessageModal, MaxMessageActions } from '../components/MaxMessageActions'
 import { useMaxEvents } from '../realtime'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
@@ -81,6 +82,10 @@ export function AllChatsPage() {
   const [draft, setDraft] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  /** Сообщение, которое сейчас правим в поле ввода (0098). */
+  const [editing, setEditing] = useState<MaxMessage | null>(null)
+  const [forwarding, setForwarding] = useState<MaxMessage | null>(null)
   const [sending, setSending] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -132,6 +137,8 @@ export function AllChatsPage() {
     pinnedToBottomRef.current = true
     setFile(null)
     setSendError(null)
+    setNotice(null)
+    setEditing(null)
     if (activeId == null || Number.isNaN(activeId)) {
       setHistory(null)
       return
@@ -180,11 +187,14 @@ export function AllChatsPage() {
     if (activeId == null || (!draft.trim() && !file) || sending) return
     setSending(true)
     try {
-      if (file) await sendMessageWithFile(activeId, file, draft.trim())
+      if (editing) await editMessage(activeId, editing.id, draft.trim())
+      else if (file) await sendMessageWithFile(activeId, file, draft.trim())
       else await sendMessage(activeId, draft.trim())
       setDraft('')
       setFile(null)
+      setEditing(null)
       setSendError(null)
+      setNotice(null)
       pinnedToBottomRef.current = true
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
@@ -193,6 +203,26 @@ export function AllChatsPage() {
     } finally {
       setSending(false)
     }
+  }
+
+  function startEdit(message: MaxMessage) {
+    setEditing(message)
+    setDraft(message.text)
+    setFile(null)
+    setSendError(null)
+  }
+
+  function cancelEdit() {
+    setEditing(null)
+    setDraft('')
+  }
+
+  async function onForwarded(toChat: MaxChatSummary) {
+    setForwarding(null)
+    setNotice(`Переслано в «${toChat.title ?? `Чат ${toChat.id}`}»`)
+    if (activeId == null) return
+    const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
+    setHistory(fresh)
   }
 
   const showThread = activeId != null
@@ -330,6 +360,7 @@ export function AllChatsPage() {
                     chatId={activeId}
                     isGroup={history.isGroup}
                     showAuthor={showAuthor}
+                    actions={<MaxMessageActions message={m} onForward={setForwarding} onEdit={startEdit} />}
                   />
                 )
               })}
@@ -337,16 +368,34 @@ export function AllChatsPage() {
 
             <form onSubmit={handleSend} className="border-t border-border p-3">
               {sendError && <p className="mb-2 text-[12px] text-danger">{sendError}</p>}
+              {notice && !sendError && <p className="mb-2 text-[12px] text-muted">{notice}</p>}
+              {editing && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-sm bg-surface-muted px-2.5 py-1.5 text-[12px]">
+                  <span className="min-w-0 truncate text-muted">
+                    Редактирование: <span className="text-ink">{editing.text || 'сообщение с файлом'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    disabled={sending}
+                    className="shrink-0 text-muted underline-offset-2 hover:text-danger hover:underline"
+                  >
+                    Отмена
+                  </button>
+                </div>
+              )}
               {file && <MaxPendingFile file={file} onRemove={() => setFile(null)} disabled={sending} />}
               <div className="flex items-end gap-2">
-                <MaxAttachButton
-                  onPick={(picked) => {
-                    setFile(picked)
-                    setSendError(null)
-                  }}
-                  onError={setSendError}
-                  disabled={sending}
-                />
+                {!editing && (
+                  <MaxAttachButton
+                    onPick={(picked) => {
+                      setFile(picked)
+                      setSendError(null)
+                    }}
+                    onError={setSendError}
+                    disabled={sending}
+                  />
+                )}
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -355,6 +404,7 @@ export function AllChatsPage() {
                       e.preventDefault()
                       handleSend(e)
                     }
+                    if (e.key === 'Escape' && editing) cancelEdit()
                   }}
                   rows={1}
                   placeholder="Сообщение…"
@@ -362,13 +412,22 @@ export function AllChatsPage() {
                 />
                 <Button type="submit" size="sm" disabled={(!draft.trim() && !file) || sending}>
                   <Send size={14} />
-                  {sending ? 'Отправка…' : 'Отправить'}
+                  {sending ? (editing ? 'Сохранение…' : 'Отправка…') : editing ? 'Сохранить' : 'Отправить'}
                 </Button>
               </div>
             </form>
           </>
         )}
       </div>
+
+      {activeId != null && (
+        <ForwardMessageModal
+          fromChatId={activeId}
+          message={forwarding}
+          onClose={() => setForwarding(null)}
+          onForwarded={onForwarded}
+        />
+      )}
 
       <AddContactModal
         open={addContactOpen}
