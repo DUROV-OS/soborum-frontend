@@ -52,6 +52,19 @@ export function planHasBalance(plan: PaymentPlan | null): boolean {
   return plan === 'advance_then_balance' || plan === 'post_payment'
 }
 
+/** Состояние остатка «после получения» (0084-j) — вычисляет бэк из плана,
+ * отметки приёма и срока. `pending` — срок не наступил, это не нарушение;
+ * `no_due_date` — срок не указан, просрочку не определить. */
+export type BalanceState = 'not_applicable' | 'no_due_date' | 'pending' | 'overdue' | 'paid'
+
+export const BALANCE_STATE_LABEL: Record<BalanceState, string> = {
+  not_applicable: 'Остатка нет',
+  no_due_date: 'Срок оплаты не указан',
+  pending: 'Остаток в срок',
+  overdue: 'Остаток просрочен',
+  paid: 'Остаток принят',
+}
+
 export const CLIENT_STAGES: { key: ClientStage; label: string }[] = [
   { key: 'lead', label: 'Лид' },
   { key: 'discussion', label: 'Обсуждение' },
@@ -133,6 +146,18 @@ export interface FileAsset {
   created_at: string
 }
 
+/** Откуда файл договора/приложения (0084-i): загружен человеком или написан
+ * Мариной. Сгенерированный — черновик, гейт стадии его не пропускает. */
+export type ContractSource = 'uploaded' | 'generated'
+
+/** Договор и приложение — два документа с одинаковыми правилами проверки. */
+export type ContractDocument = 'contract' | 'contract_appendix'
+
+export interface ContractVerifier {
+  id: number
+  full_name: string
+}
+
 export interface ClientNote {
   id: number
   client_id: number
@@ -192,6 +217,20 @@ export interface Client {
   advance_amount: number | null
   contract_file: FileAsset | null
   contract_appendix_file: FileAsset | null
+  /** Источник и проверка договора/приложения (0084-i). Загрузка ≠ проверка:
+   * `*_verified_at` ставит отдельное действие «Отметить проверенным». Флаг
+   * `*_verification_required` false — файл приложен до ввода проверки: гейт
+   * стадии только предупреждает, переход не блокирует. */
+  contract_source: ContractSource | null
+  contract_verification_required: boolean
+  contract_verified_by: ContractVerifier | null
+  contract_verified_at: string | null
+  contract_verification_note: string | null
+  contract_appendix_source: ContractSource | null
+  contract_appendix_verification_required: boolean
+  contract_appendix_verified_by: ContractVerifier | null
+  contract_appendix_verified_at: string | null
+  contract_appendix_verification_note: string | null
   /** Необязателен с 0061 — не у каждого клиента есть проект дома в системе. */
   house_project_file: FileAsset | null
   ar_file: FileAsset | null
@@ -204,6 +243,9 @@ export interface Client {
   /** Приём остатка после получения дома — стадия «Постоплата», планы advance/postpay. */
   balance_paid: boolean | null
   balance_paid_at: string | null
+  /** Срок оплаты остатка по договору (0084-j), `YYYY-MM-DD`; вводится вручную. */
+  balance_due_date: string | null
+  balance_state: BalanceState
   notes: ClientNote[]
   /** Задачи по клиенту (0079-d), свежие сверху — и открытые, и закрытые. */
   tasks: ClientTask[]

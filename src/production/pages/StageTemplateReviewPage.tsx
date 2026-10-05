@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, FileText, Lock, Search } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileText, Lock, Search, Sparkles } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -42,6 +42,8 @@ export function StageTemplateReviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
+  const [filling, setFilling] = useState(false)
+  const [fillMessage, setFillMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -99,6 +101,25 @@ export function StageTemplateReviewPage() {
     }
   }
 
+  async function handleFillQuantities() {
+    if (!template) return
+    setFilling(true)
+    setFillMessage(null)
+    try {
+      const result = await stageTemplateApi.fillStageTemplateQuantities(template.id)
+      refresh(result.template)
+      setFillMessage(
+        result.remaining > 0
+          ? `Заполнено нормативов: ${result.filled}. В КР не найдено: ${result.remaining} — заполните вручную.`
+          : `Заполнено нормативов: ${result.filled}.`,
+      )
+    } catch (e) {
+      setFillMessage(e instanceof Error ? e.message : 'Не удалось заполнить нормативы из КР')
+    } finally {
+      setFilling(false)
+    }
+  }
+
   if (loading) return <LoadingState label="Загружаем предложенный план…" />
   if (error || !template) {
     return <EmptyState icon={<FileText size={24} />} title="Шаблон не найден" description={error ?? undefined} />
@@ -106,6 +127,8 @@ export function StageTemplateReviewPage() {
 
   const blocks = [...template.blocks].sort((a, b) => a.sequence - b.sequence)
   const blockNameById = new Map(blocks.map((b) => [b.id, b.name]))
+  const allMaterials = blocks.flatMap((b) => b.materials)
+  const missingQuantities = allMaterials.filter((m) => m.quantity === null).length
   const selectedImageId = selectedPage != null ? imageByPage.get(selectedPage) : undefined
 
   return (
@@ -140,6 +163,28 @@ export function StageTemplateReviewPage() {
           )}
         </div>
       </div>
+
+      {allMaterials.length > 0 && (
+        <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-[13px]">
+          <span className="font-medium text-ink">
+            Нормативы на дом: {allMaterials.length - missingQuantities} из {allMaterials.length}
+          </span>
+          <span className="ml-2 text-muted">
+            {missingQuantities > 0
+              ? 'у остальных количество в КР не найдено — без норматива отпуск по техкарте их не выдаст'
+              : 'все заполнены'}
+          </span>
+          {/* Доступно и у подтверждённого шаблона: заполняет только пустые нормативы,
+              остальное не трогает. Уже развёрнутые дома не меняются. */}
+          {canEdit && missingQuantities > 0 && (
+            <Button size="sm" variant="secondary" className="ml-3" onClick={handleFillQuantities} disabled={filling}>
+              <Sparkles size={14} />
+              {filling ? 'Ищем в КР…' : 'Заполнить нормативы из КР'}
+            </Button>
+          )}
+          {fillMessage && <p className="mt-2 text-[12px] text-muted">{fillMessage}</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="lg:sticky lg:top-4 lg:self-start">
@@ -237,6 +282,58 @@ function EditableField({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       className={inputClassName}
+    />
+  )
+}
+
+/** Норматив на дом (0088-e): пусто — «нет в КР», вводится числом (запятая допустима). */
+function QuantityField({
+  value,
+  locked,
+  onSave,
+}: {
+  value: number | null
+  locked: boolean
+  onSave: (next: number | null) => void
+}) {
+  const shown = value === null ? '' : String(value)
+  const [draft, setDraft] = useState(shown)
+  useEffect(() => setDraft(shown), [shown])
+
+  if (locked) {
+    return value === null ? (
+      <span className="shrink-0 text-[12px] text-muted">норматив не указан</span>
+    ) : (
+      <span className="tabular shrink-0 text-ink">{value}</span>
+    )
+  }
+
+  const commit = () => {
+    const text = draft.trim().replace(',', '.')
+    if (!text) {
+      if (value !== null) onSave(null)
+      return
+    }
+    const next = Number(text)
+    if (!Number.isFinite(next) || next < 0) {
+      setDraft(shown)
+      return
+    }
+    if (next !== value) onSave(next)
+  }
+
+  return (
+    <input
+      value={draft}
+      inputMode="decimal"
+      placeholder="нет в КР"
+      aria-label="Норматив на дом"
+      title="Норматив на один дом из спецификации КР"
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      className={`tabular w-20 shrink-0 rounded border px-1 text-right focus:border-brand focus:bg-white focus:outline-none ${
+        value === null ? 'border-warning/60 bg-warning-bg placeholder:text-warning' : 'border-transparent bg-transparent hover:border-border'
+      }`}
     />
   )
 }
@@ -344,6 +441,11 @@ function BlockCard({
                       className="min-w-0 flex-1 text-ink"
                     />
                     <span className="text-muted">·</span>
+                    <QuantityField
+                      value={material.quantity}
+                      locked={locked}
+                      onSave={(quantity) => saveMaterial(material, { quantity })}
+                    />
                     <EditableField
                       value={material.unit}
                       locked={locked}

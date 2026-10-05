@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Task, TaskLinkType, TaskPriority, TaskStatus, Workload } from './types'
+import { Task, TaskLinkType, TaskPriority, TaskReportRevision, TaskStatus, Workload } from './types'
 
 const SECTION = 'tasks'
 
@@ -11,7 +11,8 @@ export interface TaskFilters {
   reviewer_id?: number
   block_id?: number
   link_type?: TaskLinkType
-  status?: TaskStatus
+  /** `open` — всё, кроме done: тот же набор, что счётчик на Пульсе (0084-h). */
+  status?: TaskStatus | 'open'
   overdue?: boolean
   [key: string]: string | number | boolean | undefined
 }
@@ -97,6 +98,11 @@ export function editReportComment(taskId: number, reportId: number, comment: str
     method: 'PATCH',
     body: { comment },
   })
+}
+
+/** GET /api/tasks/:id/reports/:reportId/revisions — прежние версии текста записи, от старой к новой. */
+export function listReportRevisions(taskId: number, reportId: number): Promise<TaskReportRevision[]> {
+  return apiRequest<TaskReportRevision[]>({ section: SECTION, path: `/${taskId}/reports/${reportId}/revisions` })
 }
 
 /** DELETE /api/tasks/:id */

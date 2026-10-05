@@ -40,6 +40,9 @@ export type MovementReason =
   | 'request_rejected_return'
   | 'manual_adjust'
   | 'write_off'
+  | 'receipt'
+  | 'issued_techcard'
+  | 'issued_manual'
 
 export interface StockMovement {
   id: number
@@ -48,6 +51,8 @@ export interface StockMovement {
   reason: MovementReason
   reference_id: number | null
   note: string | null
+  operation_id: number | null
+  balance_after: number | null
   created_by_id: number
   created_at: string
 }
@@ -73,4 +78,128 @@ export const MOVEMENT_REASON_LABEL: Record<MovementReason, string> = {
   request_rejected_return: 'Возврат по отклонённой заявке',
   manual_adjust: 'Ручная корректировка',
   write_off: 'Списание',
+  receipt: 'Оприходование',
+  issued_techcard: 'Отпуск по техкарте',
+  issued_manual: 'Отпуск на объект / в цех',
+}
+
+// --- Документы операций склада и журнал (0088) ---
+
+export type OperationKind = 'receipt' | 'write_off' | 'issue_techcard' | 'issue_manual'
+
+export type DestinationKind = 'house' | 'object' | 'workshop' | 'rework'
+
+export const DESTINATION_KIND_LABEL: Record<DestinationKind, string> = {
+  house: 'Дом',
+  object: 'Объект',
+  workshop: 'Цех',
+  rework: 'На доработки',
+}
+
+/** Причины, которые попадают в журнал (меняют остаток), — для фильтра. */
+export const JOURNAL_REASONS: MovementReason[] = [
+  'supply',
+  'receipt',
+  'issued',
+  'issued_techcard',
+  'issued_manual',
+  'write_off',
+]
+
+export interface OperationLine {
+  movement_id: number
+  warehouse_material_id: number
+  material_title: string
+  material_code: string
+  unit: string
+  delta: number
+  balance_after: number | null
+}
+
+export interface WarehouseOperation {
+  id: number
+  kind: OperationKind
+  occurred_at: string
+  destination_kind: DestinationKind | null
+  destination: string | null
+  production_id: number | null
+  received_by: string | null
+  note: string | null
+  created_by_id: number
+  created_by_name: string
+  created_at: string
+  lines: OperationLine[]
+}
+
+export interface JournalEntry {
+  movement_id: number
+  operation_id: number | null
+  occurred_at: string
+  reason: MovementReason
+  warehouse_material_id: number
+  material_title: string
+  material_code: string
+  unit: string
+  delta: number
+  /** null — движение до 0088, остаток тогда не фиксировался. */
+  balance_after: number | null
+  destination_kind: DestinationKind | null
+  destination: string | null
+  production_id: number | null
+  received_by: string | null
+  note: string | null
+  created_by_name: string
+}
+
+export interface JournalFilters {
+  direction?: 'in' | 'out'
+  reason?: MovementReason
+  material_id?: number
+  production_id?: number
+  date_from?: string
+  date_to?: string
+  limit?: number
+  offset?: number
+}
+
+// --- Отпуск со склада (0088-d) ---
+
+export interface IssueSuggestions {
+  destinations: string[]
+  received_by: string[]
+}
+
+export interface TechcardHouse {
+  production_id: number
+  house_name: string
+  client_name: string | null
+  house_model_title: string | null
+  positions_to_issue: number
+}
+
+export interface TechcardPreviewLine {
+  warehouse_material_id: number
+  material_title: string
+  material_code: string
+  unit: string
+  is_fractional: boolean
+  norm_total: number
+  provided: number
+  requested: number
+  to_issue: number
+  in_stock: number
+  balance_after: number
+  shortage: boolean
+  blocks: { block_id: number; block_name: string; to_issue: number }[]
+}
+
+export interface TechcardPreview {
+  production_id: number
+  house_label: string
+  house_model_title: string | null
+  /** Материалы техкарты с нулевым нормативом (количество не перенесено из КР). */
+  zero_norm_count: number
+  /** Открытые задачи «сопоставить материал КР со складом» по этому дому. */
+  unmatched_materials_count: number
+  lines: TechcardPreviewLine[]
 }

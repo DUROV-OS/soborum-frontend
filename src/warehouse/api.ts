@@ -1,5 +1,16 @@
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
-import { Material, MovementReason, StockMovement, Supply } from './types'
+import {
+  DestinationKind,
+  IssueSuggestions,
+  JournalEntry,
+  JournalFilters,
+  Material,
+  StockMovement,
+  Supply,
+  TechcardHouse,
+  TechcardPreview,
+  WarehouseOperation,
+} from './types'
 
 const SECTION = 'warehouse'
 
@@ -21,6 +32,17 @@ export function listMaterialUnits(): Promise<string[]> {
 /** GET /api/warehouse/categories — список категорий материалов (значения enum) */
 export function listCategories(): Promise<string[]> {
   return apiRequest<string[]>({ section: SECTION, path: '/categories' })
+}
+
+/** GET /api/warehouse/materials/suggest-code — код по умолчанию для нового
+ * материала: «первое слово названия-номер позиции на складе» (0096) */
+export async function suggestMaterialCode(warehouse: string, title: string): Promise<string> {
+  const { code } = await apiRequest<{ code: string }>({
+    section: SECTION,
+    path: '/materials/suggest-code',
+    query: { warehouse, title },
+  })
+  return code
 }
 
 /** GET /api/warehouse/materials/:id */
@@ -86,11 +108,6 @@ export function materialHistory(id: number): Promise<StockMovement[]> {
   return apiRequest<StockMovement[]>({ section: SECTION, path: `/materials/${id}/history` })
 }
 
-/** GET /api/warehouse/history */
-export function history(filters: { material_id?: number; reason?: MovementReason } = {}): Promise<StockMovement[]> {
-  return apiRequest<StockMovement[]>({ section: SECTION, path: '/history', query: filters })
-}
-
 /** GET /api/warehouse/supplies/template */
 export function downloadSupplyTemplate(): Promise<void> {
   return downloadFile(SECTION, '/supplies/template', 'soborbum_shablon_postavki.xlsx')
@@ -126,4 +143,88 @@ export function approveRequest(requestId: number): Promise<unknown> {
 /** POST /api/warehouse/requests/:id/reject */
 export function rejectRequest(requestId: number): Promise<unknown> {
   return apiRequest({ section: SECTION, path: `/requests/${requestId}/reject`, method: 'POST' })
+}
+
+// --- Документы операций склада и журнал (0088) ---
+
+export interface OperationLineInput {
+  warehouse_material_id: number
+  quantity: number
+}
+
+export interface InventoryOperationInput {
+  /** ISO-строка; не передана — «сейчас» на сервере. */
+  occurred_at?: string
+  note: string
+  lines: OperationLineInput[]
+}
+
+/** POST /api/warehouse/operations/receipt | /operations/write-off */
+export function createInventoryOperation(
+  kind: 'receipt' | 'write_off',
+  input: InventoryOperationInput,
+): Promise<WarehouseOperation> {
+  const path = kind === 'receipt' ? '/operations/receipt' : '/operations/write-off'
+  return apiRequest<WarehouseOperation>({ section: SECTION, path, method: 'POST', body: input })
+}
+
+/** GET /api/warehouse/operations/:id */
+export function getOperation(id: number): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({ section: SECTION, path: `/operations/${id}` })
+}
+
+/** GET /api/warehouse/journal */
+export function journal(filters: JournalFilters = {}): Promise<JournalEntry[]> {
+  return apiRequest<JournalEntry[]>({ section: SECTION, path: '/journal', query: { ...filters } })
+}
+
+// --- Отпуск со склада (0088-d) ---
+
+export interface ManualIssueInput {
+  occurred_at?: string
+  destination_kind: DestinationKind
+  /** Для объекта / цеха / доработок — обязательно; для дома — подставит сервер. */
+  destination?: string
+  production_id?: number
+  received_by: string
+  note?: string
+  lines: OperationLineInput[]
+}
+
+/** POST /api/warehouse/operations/issue */
+export function createManualIssue(input: ManualIssueInput): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({ section: SECTION, path: '/operations/issue', method: 'POST', body: input })
+}
+
+/** GET /api/warehouse/operations/destinations — подсказки «куда» и «кто получил». */
+export function issueSuggestions(kind?: DestinationKind): Promise<IssueSuggestions> {
+  return apiRequest<IssueSuggestions>({ section: SECTION, path: '/operations/destinations', query: { kind } })
+}
+
+/** GET /api/warehouse/techcard-issue/houses — `all` — все дома, иначе только с невыданным нормативом. */
+export function techcardHouses(all = false): Promise<TechcardHouse[]> {
+  return apiRequest<TechcardHouse[]>({ section: SECTION, path: '/techcard-issue/houses', query: { all: all || undefined } })
+}
+
+/** GET /api/warehouse/techcard-issue/:productionId/preview */
+export function techcardPreview(productionId: number): Promise<TechcardPreview> {
+  return apiRequest<TechcardPreview>({ section: SECTION, path: `/techcard-issue/${productionId}/preview` })
+}
+
+export interface TechcardIssueInput {
+  occurred_at?: string
+  received_by: string
+  note?: string
+  /** Не передано — весь остаток норматива дома. */
+  lines?: OperationLineInput[]
+}
+
+/** POST /api/warehouse/techcard-issue/:productionId */
+export function issueByTechcard(productionId: number, input: TechcardIssueInput): Promise<WarehouseOperation> {
+  return apiRequest<WarehouseOperation>({
+    section: SECTION,
+    path: `/techcard-issue/${productionId}`,
+    method: 'POST',
+    body: input,
+  })
 }

@@ -8,6 +8,7 @@ import {
   ClientSourceInput,
   ClientTask,
   ClientTaskInput,
+  ContractDocument,
   OrderType,
   PaymentPlan,
 } from './types'
@@ -143,6 +144,17 @@ export function setPaymentEditUnlocked(id: number, unlocked: boolean): Promise<C
   })
 }
 
+/** PATCH /api/clients/:id/balance-due-date — срок оплаты остатка (0084-j);
+ * `null` снимает срок. Дедлайн задачи приёма остатка бэк двигает сам. */
+export function updateBalanceDueDate(id: number, balanceDueDate: string | null): Promise<Client> {
+  return apiRequest<Client>({
+    section: SECTION,
+    path: `/${id}/balance-due-date`,
+    method: 'PATCH',
+    body: { balance_due_date: balanceDueDate },
+  })
+}
+
 /** PATCH /api/clients/:id/balance-payment — приём остатка после получения дома. */
 export function markBalancePayment(id: number): Promise<Client> {
   return apiRequest<Client>({
@@ -169,6 +181,18 @@ export function uploadContractFiles(id: number, contract: File, appendix: File):
   form.append('contract', contract)
   form.append('appendix', appendix)
   return apiRequest<Client>({ section: SECTION, path: `/${id}/contract-file`, method: 'POST', form })
+}
+
+/** POST /api/clients/:id/contract/verify — отметка «проверен» у договора или
+ * приложения (0084-i). `note` — что сверено; свой же файл бэк отметить не даст,
+ * если есть другой сотрудник с правом документов. */
+export function verifyContractDocument(id: number, document: ContractDocument, note: string): Promise<Client> {
+  return apiRequest<Client>({
+    section: SECTION,
+    path: `/${id}/contract/verify`,
+    method: 'POST',
+    body: { document, note },
+  })
 }
 
 /** POST /api/clients/:id/house-project-file */

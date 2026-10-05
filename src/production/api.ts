@@ -1,11 +1,30 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { ProductionHome, ProductionListItem, MaterialRequest, Block, BlockMaterial, Production } from './types'
+import {
+  ProductionHome,
+  ProductionListItem,
+  ProductionReadiness,
+  ProductionReadinessListItem,
+  MaterialRequest,
+  Block,
+  BlockMaterial,
+  Production,
+} from './types'
 
 const SECTION = 'production'
 
 /** Собственный список: достаточно права production, данные клиентов не запрашиваются. */
 export function listProductions(): Promise<ProductionListItem[]> {
   return apiRequest<ProductionListItem[]>({ section: SECTION, path: '/' })
+}
+
+/** GET /api/production/readiness — оценка готовности по каждому производству для списка. */
+export function listProductionsReadiness(): Promise<ProductionReadinessListItem[]> {
+  return apiRequest<ProductionReadinessListItem[]>({ section: SECTION, path: '/readiness' })
+}
+
+/** GET /api/production/:id/readiness — оценка производства с оценками блоков. */
+export function getProductionReadiness(id: number): Promise<ProductionReadiness> {
+  return apiRequest<ProductionReadiness>({ section: SECTION, path: `/${id}/readiness` })
 }
 
 /** GET /api/production/:id */
@@ -39,7 +58,13 @@ export function getBlock(id: number): Promise<Block> {
 }
 
 /** PATCH /api/production/blocks/:id */
-export function updateBlock(id: number, patch: { name?: string; description?: string }): Promise<Block> {
+export interface BlockPatch {
+  name?: string
+  description?: string
+  requires_materials?: boolean
+}
+
+export function updateBlock(id: number, patch: BlockPatch): Promise<Block> {
   return apiRequest<Block>({ section: SECTION, path: `/blocks/${id}`, method: 'PATCH', body: patch })
 }
 

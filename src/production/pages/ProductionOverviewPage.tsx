@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -9,8 +9,10 @@ import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { CheckCircle2, Factory } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { CYCLE_STAGES } from '@/cycles/types'
+import * as productionApi from '../api'
+import { FactsTime, isProblemState, ReadinessBadge } from '../components/ReadinessBadge'
 import { useProductionStore } from '../store'
-import { ProductionCriticality, ProductionListItem } from '../types'
+import { ProductionCriticality, ProductionListItem, ProductionReadinessListItem } from '../types'
 
 const CRITICALITY_ORDER: Record<ProductionCriticality, number> = { critical: 0, warning: 1, normal: 2 }
 
@@ -49,9 +51,19 @@ export function ProductionOverviewPage() {
   const navigate = useNavigate()
   const onboarding = useSectionOnboarding('production')
 
+  // null — ещё грузится; 'error' — оценку получить не удалось (карточки при
+  // этом показываем, но без готовности, а не с выдуманным «всё хорошо»).
+  const [readiness, setReadiness] = useState<Map<number, ProductionReadinessListItem> | 'error' | null>(null)
+
   useEffect(() => {
     loadProductions()
+    productionApi
+      .listProductionsReadiness()
+      .then((items) => setReadiness(new Map(items.map((item) => [item.production_id, item]))))
+      .catch(() => setReadiness('error'))
   }, [loadProductions])
+
+  const readinessOf = (id: number) => (readiness instanceof Map ? readiness.get(id) : undefined)
 
   const current = productions
     .filter((p) => !p.is_completed)
@@ -96,6 +108,7 @@ export function ProductionOverviewPage() {
                 {current.map((production) => (
                   <ProductionCard key={production.id} production={production}
                     accentClassName={CRITICALITY_ACCENT[production.criticality]}
+                    readiness={readinessOf(production.id)} readinessFailed={readiness === 'error'}
                     onClick={() => navigate(`/production/${production.id}`)} />
                 ))}
               </div>
@@ -114,6 +127,7 @@ export function ProductionOverviewPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {completed.map((production) => (
                   <ProductionCard key={production.id} production={production} muted
+                    readiness={readinessOf(production.id)} readinessFailed={readiness === 'error'}
                     onClick={() => navigate(`/production/${production.id}`)} />
                 ))}
               </div>
@@ -137,6 +151,8 @@ function ProductionCard({
   onClick,
   accentClassName = '',
   muted = false,
+  readiness,
+  readinessFailed,
 }: {
   production: ProductionListItem
   onClick: () => void
@@ -144,6 +160,8 @@ function ProductionCard({
   accentClassName?: string
   /** Приглушённый вид для завершённых — без акцента критичности. */
   muted?: boolean
+  readiness?: ProductionReadinessListItem
+  readinessFailed: boolean
 }) {
   return (
     <button
@@ -160,6 +178,37 @@ function ProductionCard({
       <div className="mt-1 text-[12px] text-muted">
         Блоков: {production.block_count} · {CYCLE_STAGES.find((s) => s.key === production.cycle_status)?.label}
       </div>
+      <ReadinessLine item={readiness} failed={readinessFailed} />
     </button>
+  )
+}
+
+function reasonsWord(count: number): string {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return 'причина'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'причины'
+  return 'причин'
+}
+
+/** Колонка «Готовность» карточки производства: бейдж, число причин, время факта. */
+function ReadinessLine({ item, failed }: { item?: ProductionReadinessListItem; failed: boolean }) {
+  if (!item) {
+    return (
+      <div className="mt-2 text-[11px] text-muted">
+        {failed ? 'Готовность: оценка недоступна' : 'Готовность: загрузка…'}
+      </div>
+    )
+  }
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <ReadinessBadge state={item.materials_state} label={item.materials_label} />
+      {isProblemState(item.materials_state) && item.reasons_count > 0 && (
+        <span className="text-[12px] text-muted">
+          {item.reasons_count} {reasonsWord(item.reasons_count)}
+        </span>
+      )}
+      <FactsTime factsAt={item.facts_at} />
+    </div>
   )
 }

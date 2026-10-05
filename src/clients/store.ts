@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
-import { Client, ClientCreateInput, ClientSourceInput, ClientTaskInput } from './types'
+import { Client, ClientCreateInput, ClientSourceInput, ClientTaskInput, ContractDocument } from './types'
 
 export interface ActionResult {
   ok: boolean
@@ -34,7 +34,9 @@ interface ClientsState {
   updateChatLink: (id: number, linkId: number, patch: clientsApi.ChatLinkUpdateInput) => Promise<ActionResult>
   deleteChatLink: (id: number, linkId: number) => Promise<ActionResult>
   markBalancePayment: (id: number) => Promise<ActionResult>
+  updateBalanceDueDate: (id: number, balanceDueDate: string | null) => Promise<ActionResult>
   uploadContractFiles: (id: number, contract: File, appendix: File) => Promise<ActionResult>
+  verifyContractDocument: (id: number, document: ContractDocument, note: string) => Promise<ActionResult>
   uploadHouseProjectFile: (id: number, file: File) => Promise<ActionResult>
   uploadArFile: (id: number, file: File) => Promise<ActionResult>
   uploadKrFile: (id: number, file: File) => Promise<ActionResult>
@@ -128,8 +130,12 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     updateChatLink: (id, linkId, patch) => applyNoteMutation(id, () => clientsApi.updateChatLink(id, linkId, patch)),
     deleteChatLink: (id, linkId) => applyNoteMutation(id, () => clientsApi.deleteChatLink(id, linkId)),
     markBalancePayment: (id) => applyClientMutation(() => clientsApi.markBalancePayment(id)),
+    updateBalanceDueDate: (id, balanceDueDate) =>
+      applyClientMutation(() => clientsApi.updateBalanceDueDate(id, balanceDueDate)),
     uploadContractFiles: (id, contract, appendix) =>
       applyClientMutation(() => clientsApi.uploadContractFiles(id, contract, appendix)),
+    verifyContractDocument: (id, document, note) =>
+      applyClientMutation(() => clientsApi.verifyContractDocument(id, document, note)),
     uploadHouseProjectFile: (id, file) => applyClientMutation(() => clientsApi.uploadHouseProjectFile(id, file)),
     uploadArFile: (id, file) => applyClientMutation(() => clientsApi.uploadArFile(id, file)),
     uploadKrFile: (id, file) => applyClientMutation(() => clientsApi.uploadKrFile(id, file)),

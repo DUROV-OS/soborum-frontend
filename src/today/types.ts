@@ -6,6 +6,9 @@ export interface DashboardWidget {
   value: string
   hint?: string | null
   tone: WidgetTone
+  /** Куда ведёт клик, если не просто в раздел: счётчик задач открывает доску
+   * с тем же набором (`/tasks?scope=…&status=open`, 0084-h). */
+  href?: string | null
 }
 
 export interface DashboardAction {

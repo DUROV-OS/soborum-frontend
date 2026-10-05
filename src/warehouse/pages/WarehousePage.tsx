@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Truck } from 'lucide-react'
+import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -18,7 +18,10 @@ import { CreateMaterialModal } from '../components/CreateMaterialModal'
 import { SupplyIntakeModal } from '../components/SupplyIntakeModal'
 import { MaterialDetailDrawer } from '../components/MaterialDetailDrawer'
 import { RequestApprovalQueue } from '../components/RequestApprovalQueue'
-import { MovementHistoryPanel } from '../components/MovementHistoryPanel'
+import { JournalPanel } from '../components/JournalPanel'
+import { InventoryOperationModal } from '../components/InventoryOperationModal'
+import { TechcardIssueModal } from '../components/TechcardIssueModal'
+import { ManualIssueModal } from '../components/ManualIssueModal'
 
 type Tab = 'materials' | 'requests' | 'history'
 
@@ -37,17 +40,19 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     body: (
       <p>
         «Материалы» — остатки на складе, «Заявки на проверку» — запросы от производства, ожидающие вашего
-        решения, «История движения» — журнал прихода и расхода. Переключайтесь между ними вкладками под
-        заголовком.
+        решения, «Журнал операций» — все приходы и расходы: когда, куда, кто получил и сколько осталось на
+        складе после операции. Переключайтесь между ними вкладками под заголовком.
       </p>
     ),
   },
   {
-    title: 'Добавить материал или поставку',
+    title: 'Приход и расход материала',
     body: (
       <p>
         Кнопка «Материал» создаёт новую позицию на складе. Кнопка «Оформить поставку» фиксирует приход
-        материала — остатки на складе обновятся автоматически.
+        материала — остатки на складе обновятся автоматически. «Отпуск по техкарте» выдаёт материалы дома по
+        нормативам КР, «Отпуск на объект / в цех» — вручную, без техкарты. «Оприходование» и «Списание» — для
+        контроля остатков: излишки и недостачи, найденные при пересчёте.
       </p>
     ),
   },
@@ -84,7 +89,14 @@ export function WarehousePage() {
   const [onlyNeedsSupply, setOnlyNeedsSupply] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const onboarding = useSectionOnboarding('warehouse')
-  const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
+  const accessLevel = useAccessLevel('warehouse')
+  const canEdit = accessLevelAtLeast(accessLevel, 'edit')
+  // Оприходование/списание меняют остаток без поставки и отпуска — как и
+  // списание из карточки (0030-e), только с полным доступом.
+  const canFull = accessLevelAtLeast(accessLevel, 'full')
+  const [inventoryKind, setInventoryKind] = useState<'receipt' | 'write_off' | null>(null)
+  const [issuingByTechcard, setIssuingByTechcard] = useState(false)
+  const [issuingManually, setIssuingManually] = useState(false)
 
   useEffect(() => {
     load()
@@ -123,7 +135,7 @@ export function WarehousePage() {
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-[20px] font-medium text-ink">Склад</h1>
-          <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и история движения</p>
+          <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и журнал операций</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <AskAiButton domain="warehouse" />
@@ -137,6 +149,26 @@ export function WarehousePage() {
                 <Truck size={16} />
                 Оформить поставку
               </Button>
+              <Button variant="secondary" onClick={() => setIssuingByTechcard(true)}>
+                <ClipboardList size={16} />
+                Отпуск по техкарте
+              </Button>
+              <Button variant="secondary" onClick={() => setIssuingManually(true)}>
+                <Send size={16} />
+                Отпуск на объект / в цех
+              </Button>
+            </>
+          )}
+          {canFull && (
+            <>
+              <Button variant="secondary" onClick={() => setInventoryKind('receipt')}>
+                <PackagePlus size={16} />
+                Оприходование
+              </Button>
+              <Button variant="secondary" onClick={() => setInventoryKind('write_off')}>
+                <PackageMinus size={16} />
+                Списание
+              </Button>
             </>
           )}
           <HelpButton onClick={onboarding.show} />
@@ -148,7 +180,7 @@ export function WarehousePage() {
           tabs={[
             { key: 'materials', label: 'Материалы' },
             { key: 'requests', label: 'Заявки на проверку' },
-            { key: 'history', label: 'История движения' },
+            { key: 'history', label: 'Журнал операций' },
           ]}
           activeKey={tab}
           onChange={setTab}
@@ -223,10 +255,13 @@ export function WarehousePage() {
       )}
 
       {tab === 'requests' && <RequestApprovalQueue />}
-      {tab === 'history' && <MovementHistoryPanel />}
+      {tab === 'history' && <JournalPanel />}
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
+      <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
+      <TechcardIssueModal open={issuingByTechcard} onClose={() => setIssuingByTechcard(false)} />
+      <ManualIssueModal open={issuingManually} onClose={() => setIssuingManually(false)} />
       <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
 
       <OnboardingDialog

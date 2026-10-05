@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react'
-import { Paperclip, X } from 'lucide-react'
+import { ExternalLink, Paperclip, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -9,10 +10,12 @@ import { Drawer } from '@/shared/ui/Drawer'
 import { Field, Textarea } from '@/shared/ui/Field'
 import { FileLink } from '@/shared/ui/FileLink'
 import { Select } from '@/shared/ui/Field'
+import { listReportRevisions } from '../api'
 import { useTasksStore } from '../store'
 import {
   Task,
   TaskReport,
+  TaskReportRevision,
   TASK_PRIORITIES,
   TASK_REPORT_KIND_LABEL,
   TASK_STATES,
@@ -28,6 +31,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   const review = useTasksStore((s) => s.review)
   const editReportComment = useTasksStore((s) => s.editReportComment)
   const currentUserId = useAuthStore((s) => s.current?.id ?? null)
+  const navigate = useNavigate()
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -90,6 +94,10 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
 
   const stateLabel = TASK_STATES.find((s) => s.key === task.status)?.label ?? task.status
   const priorityLabel = TASK_PRIORITIES.find((p) => p.key === task.priority)?.label ?? task.priority
+  const reviewRequired = task.review_policy === 'review_required'
+  // Задачу блока производства исполнитель не принимает сам (0084-f) — сервер
+  // ответит 403, поэтому кнопку «Принять» ему не показываем.
+  const ownAcceptBlocked = reviewRequired && task.assignees.some((a) => a.id === currentUserId)
   const attachments = (
     <>
       <input
@@ -133,7 +141,24 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   return (
     <Drawer open={!!task} onClose={onClose} title={task.title} subtitle={<Chip tone={stateTone(task.status)}>{stateLabel}</Chip>}>
       <div className="flex flex-col gap-5">
-        {task.description && <p className="text-[13px] text-ink">{task.description}</p>}
+        {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
+
+        {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
+        {task.link_type === 'client_stage' && task.link_id !== null && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onClick={() => {
+              onClose()
+              navigate(`/clients/${task.link_id}`)
+            }}
+          >
+            <ExternalLink size={14} />
+            Открыть карточку клиента
+          </Button>
+        )}
 
         {task.deadline && <Row label="Дедлайн" value={new Date(task.deadline).toLocaleDateString('ru-RU')} />}
 
@@ -159,7 +184,18 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
 
         <Row label="Исполнители" value={task.assignees.map((a) => a.full_name).join(', ') || '—'} />
         <Row label="Ответственный" value={task.responsible?.full_name ?? '—'} />
-        <Row label="Проверяющие" value={task.reviewers.map((a) => a.full_name).join(', ') || 'нет — проверка не требуется'} />
+        <Row
+          label="Проверяющие"
+          value={
+            task.reviewers.map((a) => a.full_name).join(', ') ||
+            (reviewRequired ? 'нет — нужен проверяющий' : 'нет — проверка не требуется')
+          }
+        />
+        {task.review_blocked_reason === 'no_reviewer' && (
+          <p className="rounded-md border border-danger/30 bg-danger-bg/40 px-3 py-2 text-[13px] font-medium text-danger">
+            Нет проверяющего — задача не закроется, пока его не назначат.
+          </p>
+        )}
 
         {task.depends_on_ids.length > 0 && <Row label="Зависит от" value={`${task.depends_on_ids.length} задач(и)`} />}
 
@@ -181,10 +217,12 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
               {task.reports.map((report) => (
                 <ReportCard
                   key={report.id}
+                  taskId={taskId}
                   report={report}
                   // Свой комментарий автор правит в любой момент, в том числе
                   // после того, как задачу приняли (0077).
-                  canEditComment={canEdit && report.author.id === currentUserId}
+                  // Служебная запись о назначении проверяющего не правится.
+                  canEditComment={canEdit && report.author.id === currentUserId && report.kind !== 'reviewer_assigned'}
                   onSave={(text) => editReportComment(taskId, report.id, text)}
                 />
               ))}
@@ -214,13 +252,22 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
             </Field>
             {attachments}
             {task.status === 'in_review' ? (
-              <div className="flex gap-2">
-                <Button size="sm" disabled={busy} onClick={() => decide(true)}>
-                  {busy ? 'Отправляем…' : 'Принять — выполнена'}
-                </Button>
-                <Button size="sm" variant="secondary" disabled={busy} onClick={() => decide(false)}>
-                  Вернуть в работу
-                </Button>
+              <div className="flex flex-col gap-2">
+                {ownAcceptBlocked && (
+                  <p className="text-[13px] font-medium text-danger">
+                    Свою сдачу принять нельзя — задачу блока производства принимает другой сотрудник.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  {!ownAcceptBlocked && (
+                    <Button size="sm" disabled={busy} onClick={() => decide(true)}>
+                      {busy ? 'Отправляем…' : 'Принять — выполнена'}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => decide(false)}>
+                    Вернуть в работу
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="flex gap-2">
@@ -246,7 +293,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
           )}
           {canEdit && task.status === 'in_progress' && !reporting && (
             <Button size="sm" disabled={busy} onClick={() => setReporting(true)}>
-              {task.reviewers.length > 0 ? 'Отправить на проверку' : 'Сдать задачу'}
+              {task.reviewers.length > 0 || reviewRequired ? 'Отправить на проверку' : 'Сдать задачу'}
             </Button>
           )}
           {task.status === 'not_ready' && (
@@ -266,10 +313,12 @@ function FormBox({ children }: { children: ReactNode }) {
 }
 
 function ReportCard({
+  taskId,
   report,
   canEditComment,
   onSave,
 }: {
+  taskId: number
   report: TaskReport
   canEditComment: boolean
   onSave: (comment: string) => Promise<{ ok: boolean; reason?: string }>
@@ -300,9 +349,9 @@ function ReportCard({
         </span>
         <span>
           {new Date(report.created_at).toLocaleString('ru-RU')}
-          {report.updated_at && ' · изменён'}
         </span>
       </div>
+      <ReportEditedMark taskId={taskId} report={report} />
       {editing ? (
         <div className="mt-2 flex flex-col gap-2">
           <Textarea rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} />
@@ -346,6 +395,88 @@ function ReportCard({
         <div className="mt-2 flex flex-col gap-1">
           {report.files.map((file) => (
             <FileLink key={file.id} id={file.id} filename={file.filename} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Пометка «изменено» / «изменено после приёмки» у записи журнала и прежние
+ * версии текста по клику (0084-g). Правки, сделанные до того, как начали
+ * хранить историю, помечены, но прежнего текста у них нет — так и пишем.
+ */
+function ReportEditedMark({ taskId, report }: { taskId: number; report: TaskReport }) {
+  const [open, setOpen] = useState(false)
+  const [revisions, setRevisions] = useState<TaskReportRevision[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Новая правка — новая версия в истории: загруженный список устарел.
+  useEffect(() => {
+    setRevisions(null)
+  }, [report.revisions_count])
+
+  useEffect(() => {
+    if (!open || revisions !== null) return
+    let cancelled = false
+    listReportRevisions(taskId, report.id)
+      .then((list) => {
+        if (!cancelled) {
+          setRevisions(list)
+          setLoadError(null)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить прежние версии')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, revisions, taskId, report.id])
+
+  if (!report.updated_at && report.revisions_count === 0) return null
+
+  const label = report.edited_after_acceptance ? 'Изменено после приёмки' : 'Изменено'
+  const tone = report.edited_after_acceptance ? 'warning' : 'info'
+
+  if (report.revisions_count === 0) {
+    return (
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <Chip tone={tone}>{label}</Chip>
+        <span className="text-[12px] text-muted">прежний текст не сохранился — правка сделана до ведения истории</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="rounded-pill"
+        title="Показать прежние версии"
+      >
+        <Chip tone={tone}>
+          {label} · версий: {report.revisions_count} {open ? '▴' : '▾'}
+        </Chip>
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2 rounded-md border border-border bg-surface-muted p-3">
+          {loadError && <p className="text-[12px] text-danger">{loadError}</p>}
+          {!loadError && revisions === null && <p className="text-[12px] text-muted">Загружаем…</p>}
+          {revisions?.map((revision) => (
+            <div key={revision.id} className="flex flex-col gap-1">
+              <div className="text-[12px] text-muted">
+                Было до правки {new Date(revision.edited_at).toLocaleString('ru-RU')}
+                {' · '}правил(а) {revision.edited_by?.full_name ?? 'удалённый пользователь'}
+                {revision.after_acceptance && (
+                  <span className="font-medium text-warning"> · после приёмки</span>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-[13px] text-ink">{revision.comment || '—'}</p>
+            </div>
           ))}
         </div>
       )}

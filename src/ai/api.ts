@@ -80,9 +80,13 @@ export function uploadAttachment(file: File): Promise<FileAssetOut> {
   return apiRequest<FileAssetOut>({ section: SECTION, path: '/files', method: 'POST', form })
 }
 
-/** GET /api/ai/{section}/analytics */
-export function getSectionAnalytics(section: AnalyticsSection): Promise<SectionAnalyticsOut> {
-  return apiRequest<SectionAnalyticsOut>({ section: SECTION, path: `/${section}/analytics` })
+/** GET /api/ai/{section}/analytics; reload=true — пересчитать мимо кэша. */
+export function getSectionAnalytics(section: AnalyticsSection, reload = false): Promise<SectionAnalyticsOut> {
+  return apiRequest<SectionAnalyticsOut>({
+    section: SECTION,
+    path: `/${section}/analytics`,
+    query: reload ? { reload: true } : undefined,
+  })
 }
 
 /** GET /api/ai/tasks/priorities */

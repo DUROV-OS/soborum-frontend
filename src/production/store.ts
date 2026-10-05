@@ -18,7 +18,7 @@ interface ProductionState {
   loadProduction: (id: number) => Promise<void>
   loadBlock: (id: number) => Promise<void>
   createBlock: (productionId: number, name: string, description?: string) => Promise<ActionResult>
-  updateBlock: (id: number, patch: { name?: string; description?: string }) => Promise<ActionResult>
+  updateBlock: (id: number, patch: productionApi.BlockPatch) => Promise<ActionResult>
   deleteProduction: (id: number) => Promise<ActionResult>
   deleteBlock: (id: number) => Promise<ActionResult>
   addBlockDependency: (blockId: number, dependsOnId: number) => Promise<ActionResult>

@@ -134,7 +134,7 @@ export function TodayPage() {
                   value={widget.value}
                   hint={widget.hint ?? undefined}
                   tone={widget.tone}
-                  onClick={section ? () => navigate(section.path) : undefined}
+                  onClick={widget.href ? () => navigate(widget.href!) : section ? () => navigate(section.path) : undefined}
                 />
               })}
             </div>}

@@ -25,6 +25,8 @@ export interface TemplateBlockMaterial {
   // или подтверждённое/поправленное инженером на этой же проверке.
   warehouse_material_title: string | null
   confidence: MatchConfidence | null
+  /** Норматив на один дом из спецификации КР (0088-e); null — в КР не найден. */
+  quantity: number | null
 }
 
 export interface StageTemplateBlock {

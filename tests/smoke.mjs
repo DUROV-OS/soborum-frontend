@@ -11,8 +11,8 @@ const browser = await chromium.launch({ headless: true })
 const errors = []
 const checks = []
 const modules = ['clients', 'production', 'installation', 'cycle', 'warehouse', 'marketing', 'tasks', 'ai', 'board']
-const worker = { id: 2, email: 'worker@example.test', full_name: 'Сотрудник производства', role: 'worker', module_access: ['production'], is_active: true, created_at: '2026-09-05T08:00:00Z' }
-const admin = { ...worker, id: 1, email: 'owner@example.test', full_name: 'Руководитель', role: 'admin', module_access: modules }
+const worker = { id: 2, email: 'worker@example.test', full_name: 'Сотрудник производства', role: 'worker', module_access: { production: 'edit' }, is_active: true, created_at: '2026-09-05T08:00:00Z' }
+const admin = { ...worker, id: 1, email: 'owner@example.test', full_name: 'Руководитель', role: 'admin', module_access: Object.fromEntries(modules.map(module => [module, 'full'])) }
 const widget = (section, title, value, tone = 'neutral') => ({ section, title, value, tone })
 const overview = {
   generated_at: '2026-09-05T09:30:00Z', source: 'database', ai_configured: false,
@@ -23,7 +23,7 @@ const overview = {
     { id: 'warehouse', section: 'warehouse', title: 'Проверить пополнение склада', description: 'Остатки и текущая потребность требуют внимания.', count: 3, href: '/warehouse', tone: 'warning' },
     { id: 'clients', section: 'clients', title: 'Проверить поступление оплаты', description: 'Клиенты на этапе оплаты без подтверждённого поступления.', count: 1, href: '/clients', tone: 'warning' },
   ],
-  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Блоки ждут материалы', '2', 'warning'), widget('tasks', 'Открытых задач', '8'), widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
+  widgets: [widget('production', 'Производственных заказов', '4'), widget('production', 'Блоки ждут материалы', '2', 'warning'), { ...widget('tasks', 'Открытых задач (все)', '8'), href: '/tasks?scope=all&status=open' }, widget('tasks', 'Просроченных задач', '3', 'warning'), widget('warehouse', 'Позиций на складе', '24'), widget('warehouse', 'Позиций требуют пополнения', '3', 'warning')],
 }
 const clientFixture = {
   // created_at must fall within the current calendar month — the clients board
@@ -35,6 +35,8 @@ const clientFixture = {
   installation_address: null, payment_plan: null, advance_amount: null, contract_file: null,
   house_project_file: null, documents_locked_at: null, is_paid: null, payment_locked_at: null,
   balance_paid: null, balance_paid_at: null, notes: [],
+  via_agency: false, agency_name: null, agency_contact: null, chat_links: [], house_model_key: null,
+  house_model: null, contract_appendix_file: null, ar_file: null, kr_file: null, payment_edit_unlocked: false, tasks: [],
 }
 const documentsClient = {
   id: 22, cycle_id: 22, stage: 'approval', created_at: '2026-08-01T08:00:00Z',
@@ -44,6 +46,8 @@ const documentsClient = {
   final_price: null, installation_address: null, payment_plan: null, advance_amount: null,
   contract_file: null, house_project_file: null, documents_locked_at: null, is_paid: null,
   payment_locked_at: null, balance_paid: null, balance_paid_at: null, notes: [],
+  via_agency: false, agency_name: null, agency_contact: null, chat_links: [], house_model_key: null,
+  house_model: null, contract_appendix_file: null, ar_file: null, kr_file: null, payment_edit_unlocked: false, tasks: [],
 }
 let lastDocumentsPatchBody = null
 const aiClient = {
@@ -54,6 +58,8 @@ const aiClient = {
   installation_address: null, payment_plan: null, advance_amount: null, contract_file: null,
   house_project_file: null, documents_locked_at: null, is_paid: null, payment_locked_at: null,
   balance_paid: null, balance_paid_at: null, notes: [],
+  via_agency: false, agency_name: null, agency_contact: null, chat_links: [], house_model_key: null,
+  house_model: null, contract_appendix_file: null, ar_file: null, kr_file: null, payment_edit_unlocked: false, tasks: [],
 }
 const supplierFixture = {
   id: 41, name: 'ЛесТорг', categories: ['брусы/доска'], status: 'active',
@@ -99,6 +105,7 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url())
     requests.push(`${route.request().method()} ${url.pathname}`)
+    if (url.pathname === '/api/tasks/') requests.push(`TASKS-QUERY ${url.search}`)
     let body
     let status = 200
     if (url.pathname === '/api/auth/me') body = user
@@ -117,9 +124,9 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
     else if (url.pathname === '/api/tasks/') body = [
       // задача-ссылка смены стадии клиента: без дедлайна, создана давно —
       // должна быть видна в борде задач при фильтрах по умолчанию (регрессия 0013)
-      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', block_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], responsible: null, images: [], depends_on_ids: [] },
+      { id: 501, title: 'Клиент «Иванов И.»: перевести со стадии на следующую', description: null, deadline: null, status: 'ready', created_at: '2026-06-01T08:00:00Z', block_id: null, link_type: 'client_stage', link_id: 11, link_meta: { stage: 'contract' }, assignees: [], reviewers: [], responsible: null, images: [], reports: [], depends_on_ids: [] },
       // задача без проверяющих в работе: кнопка сдачи не должна звать это «проверкой» (регрессия 0020)
-      { id: 502, title: 'Собрать блок №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', block_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], responsible: null, images: [], depends_on_ids: [] },
+      { id: 502, title: 'Собрать блок №3', description: null, deadline: null, status: 'in_progress', created_at: '2026-06-02T08:00:00Z', block_id: null, link_type: null, link_id: null, link_meta: null, assignees: [], reviewers: [], responsible: null, images: [], reports: [], depends_on_ids: [] },
     ]
     else if (url.pathname === '/api/ai/chats') body = []
     else if (url.pathname === '/api/clients/22/documents' && route.request().method() === 'PATCH') {
@@ -207,6 +214,13 @@ try {
   await owner.page.getByText('Клиент «Иванов И.»: перевести со стадии на следующую', { exact: true }).waitFor()
   checks.push('Client-stage link task (no deadline) is visible on the tasks board by default')
 
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByRole('button', { name: /Открытых задач \(все\)/ }).click()
+  await owner.page.getByText('Показаны только открытые задачи — тот же набор, что в счётчике на Пульсе.').waitFor()
+  assert.match(owner.page.url(), /\/tasks\?scope=all&status=open$/)
+  assert(owner.requests.some(request => request.startsWith('TASKS-QUERY ') && request.includes('scope=all') && request.includes('status=open')))
+  checks.push('Pulse task counter opens the board with the same scope and status=open')
+
   await owner.page.getByRole('button', { name: /Собрать блок №3/ }).click()
   await owner.page.getByRole('button', { name: 'Сдать задачу', exact: true }).waitFor()
   assert.equal(await owner.page.getByText('Отправить на проверку', { exact: true }).count(), 0)
@@ -228,10 +242,12 @@ try {
   assert.equal(await dialog.getByLabel('Пароль').inputValue(), '')
   await dialog.getByRole('button', { name: 'Отмена' }).click()
   checks.push('Cancelled employee form clears identity and password and discourages login autofill')
-  await owner.page.getByRole('checkbox', { name: 'Сотрудник производства: Клиенты', exact: true }).click()
+  // Матрица — уровни доступа (0052), а не чекбоксы.
+  const clientsAccess = owner.page.getByLabel('Сотрудник производства: Клиенты', { exact: true })
+  await clientsAccess.selectOption('view')
   await owner.page.getByText('Изменение доступа отклонено сервером', { exact: true }).waitFor()
-  assert.equal(await owner.page.getByRole('checkbox', { name: 'Сотрудник производства: Клиенты', exact: true }).isChecked(), false)
-  checks.push('Failed permission update remains unchecked and explains the server error')
+  assert.equal(await clientsAccess.inputValue(), 'none')
+  checks.push('Failed permission update keeps the previous level and explains the server error')
   await owner.page.getByRole('button', { name: 'Меню учётной записи' }).click()
   await owner.page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await owner.page.getByRole('button', { name: 'Войти', exact: true }).waitFor()
@@ -300,7 +316,7 @@ try {
   checks.push('Mobile clients board opens with the lead-stage accordion column expanded by default')
   await mobile.page.getByText('Кузнецова Кузнецова', { exact: true }).last().click()
   await mobile.page.getByRole('button', { name: 'Перевести на «Обсуждение»' }).click()
-  await mobile.page.getByRole('button', { name: 'Перевести на «Согласование»' }).waitFor()
+  await mobile.page.getByRole('button', { name: 'Перевести на «Гость на объекте»' }).waitFor()
   await mobile.page.getByRole('link', { name: 'Все клиенты' }).click()
   await mobile.page.getByText('Кузнецова Кузнецова', { exact: true }).last().waitFor()
   checks.push('After a mobile stage transition the client card is visible in the new stage column without manually expanding it (regression 0019)')
