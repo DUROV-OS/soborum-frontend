@@ -16,6 +16,8 @@ export function KanbanBoard<T, K extends string>({
   onCardClick,
   loading = false,
   focusKey = null,
+  sortItem,
+  scrollColumns = false,
 }: {
   columns: KanbanColumn<K>[]
   items: T[]
@@ -27,6 +29,13 @@ export function KanbanBoard<T, K extends string>({
   /** Колонка, которую нужно раскрыть на мобильном аккордеоне (например, куда только что
    * переехала карточка) — иначе на мобильных карточка в свёрнутой колонке визуально теряется. */
   focusKey?: K | null
+  /** Если передан — карточки внутри каждой колонки сортируются им перед рендером;
+   * если не передан — порядок как в `items` (текущее поведение). */
+  sortItem?: (a: T, b: T) => number
+  /** Десктопная раскладка: колонка получает фиксированную высоту и свою полосу
+   * прокрутки вместо скролла всей страницы; заголовок остаётся закреплён.
+   * По умолчанию выключено — поведение не меняется. */
+  scrollColumns?: boolean
 }) {
   const [openKey, setOpenKey] = useState<K | null>(columns[0]?.key ?? null)
 
@@ -34,10 +43,11 @@ export function KanbanBoard<T, K extends string>({
     if (focusKey !== null) setOpenKey(focusKey)
   }, [focusKey])
 
-  const columnsWithItems = columns.map((column) => ({
-    column,
-    columnItems: items.filter((item) => columnOf(item) === column.key),
-  }))
+  const columnsWithItems = columns.map((column) => {
+    const columnItems = items.filter((item) => columnOf(item) === column.key)
+    if (sortItem) columnItems.sort(sortItem)
+    return { column, columnItems }
+  })
 
   const renderCards = (columnItems: T[]) => (
     <>
@@ -70,12 +80,17 @@ export function KanbanBoard<T, K extends string>({
     <>
       <div className="hidden gap-4 overflow-x-auto pb-2 sm:flex">
         {columnsWithItems.map(({ column, columnItems }) => (
-          <div key={column.key} className="flex w-72 shrink-0 flex-col">
-            <div className="mb-3 flex items-baseline justify-between px-1">
+          <div
+            key={column.key}
+            className={`flex w-72 shrink-0 flex-col ${scrollColumns ? 'max-h-[calc(100vh-14rem)]' : ''}`}
+          >
+            <div className="mb-3 flex shrink-0 items-baseline justify-between px-1">
               <h3 className="text-[13px] font-medium text-ink">{column.label}</h3>
               <span className="tabular text-[12px] text-muted">{columnItems.length}</span>
             </div>
-            <div className="flex flex-col gap-2">{renderCards(columnItems)}</div>
+            <div className={`flex flex-col gap-2 ${scrollColumns ? 'min-h-0 overflow-y-auto pr-0.5' : ''}`}>
+              {renderCards(columnItems)}
+            </div>
           </div>
         ))}
       </div>
