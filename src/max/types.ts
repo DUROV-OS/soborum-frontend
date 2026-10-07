@@ -74,6 +74,9 @@ export interface MaxChatSummary {
   /** Клиент (app.clients), к которому привязан чат — null, если не привязан. */
   linkedClientId: number | null
   linkedClientName: string | null
+  /** Номер собеседника личного диалога (`+79001234567`) — только если он есть
+   * в контактах аккаунта MAX; у групп и остальных диалогов null (0099). */
+  phone: string | null
 }
 
 /** Ответ GET /api/max/chats — все чаты, самые свежие сверху. */
@@ -90,8 +93,18 @@ export interface MaxChatHistory {
   /** true — беседа на несколько человек (не диалог 1:1). У входящих
    * сообщений в таком чате фронт подписывает автора. */
   isGroup: boolean
+  /** Собеседник личного диалога (0099); null у группы и «Избранного». */
+  peer: MaxDialogPeer | null
   count: number
   messages: MaxMessage[]
+}
+
+/** Собеседник личного диалога. `phone` null — человека нет в контактах
+ * аккаунта, MAX его номер не раскрывает. */
+export interface MaxDialogPeer {
+  contactId: string
+  name: string | null
+  phone: string | null
 }
 
 /** Ответ POST /api/max/messages — отправленное сообщение. */
