@@ -185,7 +185,7 @@ export interface ClientContact {
 }
 
 /** Подсказки для поля «мессенджер» — не ограничение, просто частые варианты. */
-export const MESSENGER_SUGGESTIONS = ['Telegram', 'WhatsApp', 'Viber', 'Телефон', 'Email', 'VK']
+export const MESSENGER_SUGGESTIONS = ['Telegram', 'WhatsApp', 'MAX', 'Viber', 'Телефон', 'Email', 'VK']
 
 export interface Client {
   id: number

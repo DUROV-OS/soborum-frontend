@@ -344,7 +344,11 @@ export function AllChatsPage() {
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
                 {history?.peer && <PeerPhone peer={history.peer} />}
               </div>
-              <ChatClientSwitcher chat={chats.find((c) => c.id === activeId)} onLinked={() => loadChats()} />
+              <ChatClientSwitcher
+                chat={chats.find((c) => c.id === activeId)}
+                peer={history?.chatId === activeId ? history.peer : null}
+                onLinked={() => loadChats()}
+              />
             </div>
 
             <div ref={scrollRef} onScroll={onThreadScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -488,7 +492,15 @@ function PeerPhone({ peer }: { peer: MaxDialogPeer }) {
 /** Переключатель клиента в шапке открытого чата (0053): показывает, к кому
  * привязан текущий чат (или «Не привязан»), клик открывает поиск по клиентам
  * для смены/выбора привязки, не уходя из MAX. */
-function ChatClientSwitcher({ chat, onLinked }: { chat: MaxChatSummary | undefined; onLinked: () => void }) {
+function ChatClientSwitcher({
+  chat,
+  peer,
+  onLinked,
+}: {
+  chat: MaxChatSummary | undefined
+  peer: MaxDialogPeer | null
+  onLinked: () => void
+}) {
   const [open, setOpen] = useState(false)
   if (!chat) return null
 
@@ -504,7 +516,14 @@ function ChatClientSwitcher({ chat, onLinked }: { chat: MaxChatSummary | undefin
         {linked ? <UserCheck size={13} /> : <Link2 size={13} />}
         {linked ? chat.linkedClientName ?? 'Клиент' : 'Не привязан'}
       </button>
-      <LinkClientModal chatId={chat.id} open={open} onClose={() => setOpen(false)} onLinked={onLinked} />
+      <LinkClientModal
+        chatId={chat.id}
+        peer={peer}
+        chatTitle={chat.title}
+        open={open}
+        onClose={() => setOpen(false)}
+        onLinked={onLinked}
+      />
     </>
   )
 }

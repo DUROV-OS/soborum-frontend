@@ -74,10 +74,11 @@ export function CreateClientModal({
         via_agency: false,
         referrer_partner_id: referrer?.id ?? null,
       })
+      // свой шаг — пока форма ещё открыта и показывает «Сохранение…»
+      if (onCreated) await onCreated(client)
       reset()
       onClose()
-      if (onCreated) await onCreated(client)
-      else navigate(`/clients/${client.id}`)
+      if (!onCreated) navigate(`/clients/${client.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать клиента')
     } finally {
