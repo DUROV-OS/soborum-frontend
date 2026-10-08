@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -11,7 +11,8 @@ import { LoadingState } from '@/shared/ui/LoadingState'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { editMessage, getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
-import { MaxChatHistory, MaxChatSummary, MaxMessage } from '../types'
+import { MaxChatHistory, MaxChatSummary, MaxDialogPeer, MaxMessage } from '../types'
+import { formatPhone, phoneMatches } from '../phone'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
@@ -178,7 +179,8 @@ export function AllChatsPage() {
     return chats.filter(
       (c) =>
         (c.title ?? '').toLowerCase().includes(q) ||
-        (c.lastMessage?.text ?? '').toLowerCase().includes(q),
+        (c.lastMessage?.text ?? '').toLowerCase().includes(q) ||
+        phoneMatches(c.phone, q),
     )
   }, [chats, query])
 
@@ -340,8 +342,13 @@ export function AllChatsPage() {
                   {history?.title ?? chats.find((c) => c.id === activeId)?.title ?? `Чат ${activeId}`}
                 </div>
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
+                {history?.peer && <PeerPhone peer={history.peer} />}
               </div>
-              <ChatClientSwitcher chat={chats.find((c) => c.id === activeId)} onLinked={() => loadChats()} />
+              <ChatClientSwitcher
+                chat={chats.find((c) => c.id === activeId)}
+                peer={history?.chatId === activeId ? history.peer : null}
+                onLinked={() => loadChats()}
+              />
             </div>
 
             <div ref={scrollRef} onScroll={onThreadScroll} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -445,10 +452,55 @@ export function AllChatsPage() {
   )
 }
 
+/** Номер собеседника под именем в шапке (0099) — чтобы внести человека в
+ * карточку клиента. MAX отдаёт номер только тех, кто есть в контактах
+ * аккаунта; остальным честно пишем, что номер скрыт. */
+function PeerPhone({ peer }: { peer: MaxDialogPeer }) {
+  const [copied, setCopied] = useState(false)
+
+  if (!peer.phone) {
+    return <div className="text-[11px] text-muted">Номер скрыт MAX — человека нет в контактах аккаунта</div>
+  }
+  const phone = peer.phone
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(phone)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* буфер недоступен (не https) — номер виден, его можно выделить */
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-[12px] text-ink">
+      <span className="select-all">{formatPhone(phone)}</span>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label="Скопировать номер"
+        title={copied ? 'Скопировано' : 'Скопировать номер'}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted hover:text-brand-dark"
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
+    </div>
+  )
+}
+
 /** Переключатель клиента в шапке открытого чата (0053): показывает, к кому
  * привязан текущий чат (или «Не привязан»), клик открывает поиск по клиентам
  * для смены/выбора привязки, не уходя из MAX. */
-function ChatClientSwitcher({ chat, onLinked }: { chat: MaxChatSummary | undefined; onLinked: () => void }) {
+function ChatClientSwitcher({
+  chat,
+  peer,
+  onLinked,
+}: {
+  chat: MaxChatSummary | undefined
+  peer: MaxDialogPeer | null
+  onLinked: () => void
+}) {
   const [open, setOpen] = useState(false)
   if (!chat) return null
 
@@ -464,7 +516,14 @@ function ChatClientSwitcher({ chat, onLinked }: { chat: MaxChatSummary | undefin
         {linked ? <UserCheck size={13} /> : <Link2 size={13} />}
         {linked ? chat.linkedClientName ?? 'Клиент' : 'Не привязан'}
       </button>
-      <LinkClientModal chatId={chat.id} open={open} onClose={() => setOpen(false)} onLinked={onLinked} />
+      <LinkClientModal
+        chatId={chat.id}
+        peer={peer}
+        chatTitle={chat.title}
+        open={open}
+        onClose={() => setOpen(false)}
+        onLinked={onLinked}
+      />
     </>
   )
 }

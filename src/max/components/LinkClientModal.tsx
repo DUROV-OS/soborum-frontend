@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react'
-import { User } from 'lucide-react'
+import { User, UserPlus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import * as clientsApi from '@/clients/api'
+import { CreateClientInitial, CreateClientModal } from '@/clients/components/CreateClientModal'
 import { Client } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { formatPhone } from '../phone'
+import { MaxDialogPeer } from '../types'
+
+/** Название привязки чата, созданного вместе с клиентом из MAX (0099). */
+const NEW_CLIENT_LINK_LABEL = 'С клиентом'
+
+/** Данные для формы «Новый клиент» из личного диалога: имя, номер (если MAX
+ * его отдал) и способ связи MAX — номер, а без него имя в MAX. */
+function initialFromChat(peer: MaxDialogPeer, title: string | null): CreateClientInitial {
+  const name = peer.name ?? title ?? ''
+  const phone = peer.phone ? formatPhone(peer.phone) : ''
+  const contact = phone || name
+  return { fullName: name, phone, contacts: contact ? [{ messenger: 'MAX', contact }] : undefined }
+}
 
 /** Обратная привязка (0053): выбор клиента, к которому привязывается открытый
  * чат MAX, с указанием названия привязки (различает несколько чатов одного
@@ -12,15 +28,23 @@ import { Modal } from '@/shared/ui/Modal'
  * (409) с предложением открепить его там. */
 export function LinkClientModal({
   chatId,
+  peer,
+  chatTitle,
   open,
   onClose,
   onLinked,
 }: {
   chatId: number
+  /** Собеседник личного диалога — для «Новый клиент из этого чата» (0099);
+   * у группы и «Избранного» null, и кнопки нет. */
+  peer: MaxDialogPeer | null
+  chatTitle: string | null
   open: boolean
   onClose: () => void
   onLinked: () => void
 }) {
+  const navigate = useNavigate()
+  const [creating, setCreating] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
@@ -49,6 +73,20 @@ export function LinkClientModal({
     return [c.full_name, c.phone, c.email].filter(Boolean).join(' ').toLowerCase().includes(q)
   })
 
+  /** Клиент из чата создан — сразу привязываем к нему этот чат и открываем
+   * карточку. Привязка не удалась — клиент остаётся, показываем причину. */
+  async function linkCreated(client: Client) {
+    try {
+      await clientsApi.createChatLink(client.id, chatId, NEW_CLIENT_LINK_LABEL)
+      onLinked()
+      onClose()
+      navigate(`/clients/${client.id}`)
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : 'неизвестная ошибка'
+      setError(`Клиент «${client.full_name}» создан, но чат к нему не привязан: ${reason}`)
+    }
+  }
+
   async function confirmLink() {
     if (!pendingClient) return
     const trimmed = label.trim()
@@ -71,67 +109,84 @@ export function LinkClientModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Привязать чат к клиенту" width="max-w-xl">
-      {pendingClient ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-[13px] text-ink">
-            Клиент «{pendingClient.full_name}» — укажите название привязки (например, «С клиентом»,
-            «С помощником»):
-          </p>
-          <Input
-            autoFocus
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Название привязки"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') confirmLink()
-            }}
-          />
-          {error && <p className="text-[12px] text-danger">{error}</p>}
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setPendingClient(null)} disabled={linkingId !== null}>
-              Назад
-            </Button>
-            <Button size="sm" onClick={confirmLink} disabled={linkingId !== null}>
-              {linkingId !== null ? 'Привязка…' : 'Привязать'}
-            </Button>
+    <>
+      <Modal open={open && !creating} onClose={onClose} title="Привязать чат к клиенту" width="max-w-xl">
+        {pendingClient ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-[13px] text-ink">
+              Клиент «{pendingClient.full_name}» — укажите название привязки (например, «С клиентом»,
+              «С помощником»):
+            </p>
+            <Input
+              autoFocus
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Название привязки"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') confirmLink()
+              }}
+            />
+            {error && <p className="text-[12px] text-danger">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setPendingClient(null)} disabled={linkingId !== null}>
+                Назад
+              </Button>
+              <Button size="sm" onClick={confirmLink} disabled={linkingId !== null}>
+                {linkingId !== null ? 'Привязка…' : 'Привязать'}
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по имени, телефону, email…"
-          />
-          {error && <p className="text-[12px] text-danger">{error}</p>}
-          <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
-            {loading && <p className="py-6 text-center text-[13px] text-muted">Загрузка клиентов…</p>}
-            {!loading && visible.length === 0 && (
-              <p className="py-6 text-center text-[13px] text-muted">Клиенты не найдены</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по имени, телефону, email…"
+            />
+            {error && <p className="text-[12px] text-danger">{error}</p>}
+            {peer && (
+              <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreating(true)}>
+                <UserPlus size={14} />
+                Новый клиент из этого чата
+              </Button>
             )}
-            {visible.map((client) => (
-              <button
-                key={client.id}
-                type="button"
-                onClick={() => {
-                  setPendingClient(client)
-                  setLabel('')
-                  setError(null)
-                }}
-                disabled={linkingId !== null}
-                className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-surface-muted disabled:opacity-50"
-              >
-                <User size={16} className="shrink-0 text-muted" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium text-ink">{client.full_name}</span>
-                  <span className="block truncate text-[12px] text-muted">{client.phone}</span>
-                </span>
-              </button>
-            ))}
+            <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
+              {loading && <p className="py-6 text-center text-[13px] text-muted">Загрузка клиентов…</p>}
+              {!loading && visible.length === 0 && (
+                <p className="py-6 text-center text-[13px] text-muted">Клиенты не найдены</p>
+              )}
+              {visible.map((client) => (
+                <button
+                  key={client.id}
+                  type="button"
+                  onClick={() => {
+                    setPendingClient(client)
+                    setLabel('')
+                    setError(null)
+                  }}
+                  disabled={linkingId !== null}
+                  className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-surface-muted disabled:opacity-50"
+                >
+                  <User size={16} className="shrink-0 text-muted" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-ink">{client.full_name}</span>
+                    <span className="block truncate text-[12px] text-muted">{client.phone}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+      </Modal>
+      {/* Форма клиента — вместо окна привязки, а не поверх него. */}
+      {open && creating && peer && (
+        <CreateClientModal
+          open
+          onClose={() => setCreating(false)}
+          initial={initialFromChat(peer, chatTitle)}
+          onCreated={linkCreated}
+        />
       )}
-    </Modal>
+    </>
   )
 }

@@ -7,17 +7,38 @@ import { Modal } from '@/shared/ui/Modal'
 import { ReferrerPicker } from '@/partners/components/ReferrerPicker'
 import { PartnerBrief } from '@/partners/types'
 import { useClientsStore } from '../store'
-import { ClientContact, MESSENGER_SUGGESTIONS } from '../types'
+import { Client, ClientContact, MESSENGER_SUGGESTIONS } from '../types'
 
 const MESSENGER_LIST_ID = 'messenger-suggestions'
 
-export function CreateClientModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** Начальные значения формы — например, из чата MAX (0099). Применяются при
+ * монтировании модалки, поэтому с ними её рендерят только пока она открыта. */
+export interface CreateClientInitial {
+  fullName?: string
+  phone?: string
+  contacts?: ClientContact[]
+}
+
+export function CreateClientModal({
+  open,
+  onClose,
+  initial,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  initial?: CreateClientInitial
+  /** Вместо перехода в карточку после создания — свой шаг (привязать чат и т.п.). */
+  onCreated?: (client: Client) => void | Promise<void>
+}) {
   const create = useClientsStore((s) => s.create)
   const navigate = useNavigate()
-  const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [fullName, setFullName] = useState(initial?.fullName ?? '')
+  const [phone, setPhone] = useState(initial?.phone ?? '')
   const [email, setEmail] = useState('')
-  const [contacts, setContacts] = useState<ClientContact[]>([{ messenger: 'Telegram', contact: '' }])
+  const [contacts, setContacts] = useState<ClientContact[]>(
+    initial?.contacts?.length ? initial.contacts : [{ messenger: 'Telegram', contact: '' }],
+  )
   // Вместо галочки «привело агентство» с текстом (0079-c) — ссылка на
   // партнёра из базы (0083-c): так у партнёра видно всех приведённых клиентов.
   const [referrer, setReferrer] = useState<PartnerBrief | null>(null)
@@ -53,9 +74,11 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
         via_agency: false,
         referrer_partner_id: referrer?.id ?? null,
       })
+      // свой шаг — пока форма ещё открыта и показывает «Сохранение…»
+      if (onCreated) await onCreated(client)
       reset()
       onClose()
-      navigate(`/clients/${client.id}`)
+      if (!onCreated) navigate(`/clients/${client.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось создать клиента')
     } finally {
