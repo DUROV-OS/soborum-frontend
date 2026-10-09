@@ -158,6 +158,14 @@ export interface ContractVerifier {
   full_name: string
 }
 
+/** Ответственный менеджер клиента (0080-a) — адресат уведомлений по нему
+ * (обновления по клиенту, сообщения в чатах MAX). Смена не трогает историю
+ * прошлых уведомлений — это просто текущее значение на объекте. */
+export interface ClientManager {
+  id: number
+  full_name: string
+}
+
 export interface ClientNote {
   id: number
   client_id: number
@@ -192,6 +200,9 @@ export interface Client {
   cycle_id: number
   stage: ClientStage
   created_at: string
+  /** Ответственный менеджер (0080-a) — `null`, если не назначен. */
+  manager_id: number | null
+  manager: ClientManager | null
   full_name: string
   phone: string
   email: string

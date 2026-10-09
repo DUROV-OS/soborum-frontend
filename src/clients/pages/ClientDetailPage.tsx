@@ -12,6 +12,7 @@ import { isStageManual, nextStageOf, stageLabel } from '../rules'
 import { ReadRow, Section } from '../components/PanelPrimitives'
 import { AiPlanOverlay } from '../components/AiPlanOverlay'
 import { DocumentPanel } from '../components/DocumentPanel'
+import { ManagerPanel } from '../components/ManagerPanel'
 import { SourcePanel } from '../components/SourcePanel'
 import { TasksPanel } from '../components/TasksPanel'
 import { PaymentPanel } from '../components/PaymentPanel'
@@ -140,6 +141,8 @@ export function ClientDetailPage() {
         </Section>
 
         <TasksPanel client={client} />
+
+        <ManagerPanel client={client} />
 
         <SourcePanel client={client} />
 

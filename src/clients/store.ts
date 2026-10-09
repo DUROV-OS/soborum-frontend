@@ -28,6 +28,7 @@ interface ClientsState {
   closeTask: (id: number, taskId: number, resolution: string, next?: ClientTaskInput) => Promise<ActionResult>
   updateDocuments: (id: number, patch: clientsApi.DocumentsUpdateInput) => Promise<ActionResult>
   updateHousesCount: (id: number, patch: clientsApi.HousesCountUpdateInput) => Promise<ActionResult>
+  updateManager: (id: number, managerId: number | null) => Promise<ActionResult>
   updatePayment: (id: number, isPaid: boolean) => Promise<ActionResult>
   setPaymentEditUnlocked: (id: number, unlocked: boolean) => Promise<ActionResult>
   createChatLink: (id: number, maxChatId: number, label: string) => Promise<ActionResult>
@@ -122,6 +123,7 @@ export const useClientsStore = create<ClientsState>((set, get) => {
       applyNoteMutation(id, () => clientsApi.closeClientTask(id, taskId, resolution, next)),
     updateDocuments: (id, patch) => applyClientMutation(() => clientsApi.updateDocuments(id, patch)),
     updateHousesCount: (id, patch) => applyClientMutation(() => clientsApi.updateHousesCount(id, patch)),
+    updateManager: (id, managerId) => applyClientMutation(() => clientsApi.updateManager(id, managerId)),
     updatePayment: (id, isPaid) => applyClientMutation(() => clientsApi.updatePayment(id, isPaid)),
     setPaymentEditUnlocked: (id, unlocked) =>
       applyClientMutation(() => clientsApi.setPaymentEditUnlocked(id, unlocked)),
