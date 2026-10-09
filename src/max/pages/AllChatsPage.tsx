@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Check, Copy, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Link2, Pencil, RefreshCw, Search, Send, UserCheck, UserPlus, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -7,10 +7,11 @@ import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { HelpButton } from '@/shared/ui/HelpButton'
+import { Input } from '@/shared/ui/Field'
 import { LoadingState } from '@/shared/ui/LoadingState'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
-import { editMessage, getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
+import { clearChatTitle, editMessage, getChat, listChats, sendMessage, sendMessageWithFile, setChatTitle } from '../api'
 import { MaxChatHistory, MaxChatSummary, MaxDialogPeer, MaxMessage } from '../types'
 import { formatPhone, phoneMatches } from '../phone'
 import { MaxComposerInput } from '../components/MaxComposerInput'
@@ -343,9 +344,14 @@ export function AllChatsPage() {
                 <ArrowLeft size={16} />
               </button>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[14px] font-medium text-ink">
-                  {history?.title ?? chats.find((c) => c.id === activeId)?.title ?? `Чат ${activeId}`}
-                </div>
+                <ChatTitleEditor
+                  chatId={activeId}
+                  title={history?.title ?? chats.find((c) => c.id === activeId)?.title ?? `Чат ${activeId}`}
+                  onRenamed={() => {
+                    loadChats()
+                    refreshHistory(activeId)
+                  }}
+                />
                 {history && <div className="text-[11px] text-muted">{history.count} сообщений</div>}
                 {history?.peer && <PeerPhone peer={history.peer} />}
               </div>
@@ -451,6 +457,123 @@ export function AllChatsPage() {
         title="Раздел «Все чаты»"
         pages={ONBOARDING_PAGES}
       />
+    </div>
+  )
+}
+
+/** Своё название чата в шапке (0106) — не меняет имя/название в самом MAX,
+ * только то, что показываем у нас. «Сбросить» всегда доступен и просто не
+ * делает ничего, если переопределения не было (бэк отдаёт 204 в обоих случаях). */
+function ChatTitleEditor({
+  chatId,
+  title,
+  onRenamed,
+}: {
+  chatId: number
+  title: string
+  onRenamed: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(title)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function startEdit() {
+    setValue(title)
+    setError(null)
+    setEditing(true)
+  }
+
+  async function save() {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      setError('Название не может быть пустым')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await setChatTitle(chatId, trimmed)
+      setEditing(false)
+      onRenamed()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось сохранить название')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function reset() {
+    setSaving(true)
+    setError(null)
+    try {
+      await clearChatTitle(chatId)
+      setEditing(false)
+      onRenamed()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось сбросить название')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1">
+          <Input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save()
+              if (e.key === 'Escape') setEditing(false)
+            }}
+            className="h-7 text-[13px]"
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            aria-label="Сохранить название"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted hover:text-brand-dark disabled:opacity-50"
+          >
+            <Check size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            aria-label="Отменить"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-muted hover:text-danger disabled:opacity-50"
+          >
+            <X size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={reset}
+            disabled={saving}
+            className="shrink-0 text-[11px] text-muted hover:text-brand-dark disabled:opacity-50"
+          >
+            Сбросить
+          </button>
+        </div>
+        {error && <p className="text-[12px] text-danger">{error}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="group flex items-center gap-1.5">
+      <div className="truncate text-[14px] font-medium text-ink">{title}</div>
+      <button
+        type="button"
+        onClick={startEdit}
+        aria-label="Переименовать чат"
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted opacity-0 hover:text-brand-dark group-hover:opacity-100"
+      >
+        <Pencil size={12} />
+      </button>
     </div>
   )
 }
