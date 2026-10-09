@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { Tabs } from '@/shared/ui/Tabs'
 import { sectionById, SectionId } from '@/shared/sections'
+import { NotificationSettingsTab } from '../components/NotificationSettingsTab'
 import { useNotificationsStore } from '../store'
 import { notificationTargetPath } from '../routing'
 import { Notification, NOTIFICATION_KIND_LABEL } from '../types'
@@ -51,10 +53,9 @@ function NotificationCard({ notification, onOpen }: { notification: Notification
 }
 
 /**
- * «Уведомления» (0080-d): лента личных уведомлений — прочитанные и
- * непрочитанные визуально разделены, клик по записи ведёт на связанный
- * объект и отмечает её прочитанной. Вкладка «Настройки» добавляется
- * следующим коммитом.
+ * «Уведомления» (0080-d): лента личных уведомлений (прочитанные/непрочитанные
+ * визуально разделены, клик ведёт на объект и отмечает прочитанным) + вкладка
+ * «Настройки» — мьют раздела целиком или конкретного объекта.
  */
 export function NotificationsPage() {
   const navigate = useNavigate()
@@ -62,6 +63,7 @@ export function NotificationsPage() {
   const load = useNotificationsStore((s) => s.load)
   const markRead = useNotificationsStore((s) => s.markRead)
   const markAllRead = useNotificationsStore((s) => s.markAllRead)
+  const [tab, setTab] = useState<'list' | 'settings'>('list')
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -103,7 +105,7 @@ export function NotificationsPage() {
             Личные уведомления по вашим клиентам, задачам, производству, монтажу и другим разделам.
           </p>
         </div>
-        {unread.length > 0 && (
+        {tab === 'list' && unread.length > 0 && (
           <Button size="sm" variant="secondary" className="shrink-0 whitespace-nowrap" onClick={handleMarkAllRead}>
             <CheckCheck size={14} />
             Отметить все прочитанными
@@ -111,10 +113,21 @@ export function NotificationsPage() {
         )}
       </div>
 
-      <div>
+      <Tabs
+        tabs={[
+          { key: 'list', label: 'Все уведомления' },
+          { key: 'settings', label: 'Настройки' },
+        ]}
+        activeKey={tab}
+        onChange={setTab}
+      />
+
+      <div className="mt-5">
         {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}
 
-        {loaded && notifications.length === 0 ? (
+        {tab === 'settings' ? (
+          <NotificationSettingsTab />
+        ) : loaded && notifications.length === 0 ? (
           <EmptyState icon={<Bell size={22} />} title="Уведомлений пока нет" />
         ) : (
           <div className="flex flex-col gap-6">
