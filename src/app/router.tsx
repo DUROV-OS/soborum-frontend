@@ -6,6 +6,7 @@ import { ClientDetailPage } from '@/clients/pages/ClientDetailPage'
 import { FeedbackAdminPage } from '@/feedback/pages/FeedbackAdminPage'
 import { FeedbackPage } from '@/feedback/pages/FeedbackPage'
 import { MyFeedbackPage } from '@/feedback/pages/MyFeedbackPage'
+import { NotificationsPage } from '@/notifications/pages/NotificationsPage'
 import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
 import { PartnerDetailPage } from '@/partners/pages/PartnerDetailPage'
 import { PartnersPage } from '@/partners/pages/PartnersPage'
@@ -66,6 +67,9 @@ export function AppRouter() {
             проблемах системы может любой вошедший сотрудник. */}
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/feedback/my" element={<MyFeedbackPage />} />
+        {/* «Уведомления» (0080-d) — своя лента, без AccessGate: доступна
+            каждому вошедшему, как «Мои заявки». */}
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route
           path="/feedback/all"
           element={
