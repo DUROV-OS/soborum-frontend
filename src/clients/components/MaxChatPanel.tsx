@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
 import { MaxAttachButton, MaxPendingFile } from '@/max/components/MaxFilePicker'
+import { ReadMark } from '@/max/components/ReadMark'
 import { ForwardMessageModal, MaxMessageActions } from '@/max/components/MaxMessageActions'
 import * as maxApi from '@/max/api'
 import { useMaxEvents } from '@/max/realtime'
@@ -401,6 +402,11 @@ function MessageBubble({
         <span className="mt-0.5 text-[11px] text-muted">
           {time}
           {msg.status === 'EDITED' ? ' · изменено' : ''}
+          {msg.readStatus && (
+            <span className="ml-1">
+              <ReadMark status={msg.readStatus} />
+            </span>
+          )}
           {actions && <span className="ml-1">{actions}</span>}
         </span>
       )}

@@ -4,6 +4,7 @@ import { Download, FileText, Loader2, Mic, Play } from 'lucide-react'
 import { getAttachmentUrl, getMediaUrl } from '../api'
 import { MaxAttach, MaxMessage } from '../types'
 import { Lightbox } from './Lightbox'
+import { ReadMark } from './ReadMark'
 
 function humanSize(bytes?: number): string | null {
   if (!bytes || bytes <= 0) return null
@@ -232,6 +233,11 @@ export function MaxMessageItem({
       <span className="px-1 text-[10px] text-muted">
         {message.time ? format(new Date(message.time), 'dd.MM HH:mm') : ''}
         {message.status ? ` · ${statusLabel(message.status)}` : ''}
+        {message.readStatus && (
+          <span className="ml-1">
+            <ReadMark status={message.readStatus} />
+          </span>
+        )}
         {actions && <span className="ml-1">{actions}</span>}
       </span>
     </div>
