@@ -14,6 +14,7 @@ import { editMessage, getChat, listChats, sendMessage, sendMessageWithFile } fro
 import { MaxChatHistory, MaxChatSummary, MaxDialogPeer, MaxMessage } from '../types'
 import { formatPhone, phoneMatches } from '../phone'
 import { MaxMessageItem } from '../components/MaxMessageItem'
+import { ReadMark } from '../components/ReadMark'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
 import { MaxAttachButton, MaxPendingFile } from '../components/MaxFilePicker'
@@ -303,7 +304,10 @@ export function AllChatsPage() {
                   <span className="shrink-0 text-[10px] text-muted">{relTime(c.lastEventTime)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[12px] text-muted">{previewText(c)}</span>
+                  <span className="flex min-w-0 items-center gap-1 text-[12px] text-muted">
+                    <ReadMark status={c.lastMessage?.readStatus} />
+                    <span className="truncate">{previewText(c)}</span>
+                  </span>
                   {c.unread > 0 && (
                     <span className="shrink-0 rounded-pill bg-brand px-1.5 py-0.5 text-[10px] font-medium text-white">
                       {c.unread}
