@@ -13,6 +13,7 @@ import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { editMessage, getChat, listChats, sendMessage, sendMessageWithFile } from '../api'
 import { MaxChatHistory, MaxChatSummary, MaxDialogPeer, MaxMessage } from '../types'
 import { formatPhone, phoneMatches } from '../phone'
+import { MaxComposerInput } from '../components/MaxComposerInput'
 import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
@@ -403,9 +404,9 @@ export function AllChatsPage() {
                     disabled={sending}
                   />
                 )}
-                <textarea
+                <MaxComposerInput
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={setDraft}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -413,9 +414,7 @@ export function AllChatsPage() {
                     }
                     if (e.key === 'Escape' && editing) cancelEdit()
                   }}
-                  rows={1}
                   placeholder="Сообщение…"
-                  className="max-h-32 min-h-[2.25rem] flex-1 resize-none rounded-sm border border-border bg-surface px-3 py-2 text-[13px] text-ink outline-none focus:border-brand/50"
                 />
                 <Button type="submit" size="sm" disabled={(!draft.trim() && !file) || sending}>
                   <Send size={14} />
