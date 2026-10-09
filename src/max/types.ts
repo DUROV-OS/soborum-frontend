@@ -79,6 +79,10 @@ export interface MaxChatSummary {
   /** Клиент (app.clients), к которому привязан чат — null, если не привязан. */
   linkedClientId: number | null
   linkedClientName: string | null
+  /** Партнёр (app.partners), к которому привязан чат — null, если не привязан
+   * (0105). Чат не может быть привязан и к клиенту, и к партнёру одновременно. */
+  linkedPartnerId: number | null
+  linkedPartnerName: string | null
   /** Номер собеседника личного диалога (`+79001234567`) — только если он есть
    * в контактах аккаунта MAX; у групп и остальных диалогов null (0099). */
   phone: string | null
