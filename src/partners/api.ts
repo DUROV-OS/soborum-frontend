@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { Partner, PartnerInput, PartnerNote, ReferredClient } from './types'
+import { Partner, PartnerChatLink, PartnerInput, PartnerNote, ReferredClient } from './types'
 
 const SECTION = 'partners'
 
@@ -42,4 +42,15 @@ export function addNote(id: number, text: string): Promise<PartnerNote> {
 
 export function deleteNote(id: number, noteId: number): Promise<void> {
   return apiRequest<void>({ section: SECTION, path: `/${id}/notes/${noteId}`, method: 'DELETE' })
+}
+
+/** POST /api/partners/:id/chat-links — привязать чат MAX к партнёру (0105),
+ * по образцу клиентской `createChatLink`. */
+export function createChatLink(id: number, maxChatId: number, label: string): Promise<PartnerChatLink> {
+  return apiRequest<PartnerChatLink>({
+    section: SECTION,
+    path: `/${id}/chat-links`,
+    method: 'POST',
+    body: { max_chat_id: maxChatId, label },
+  })
 }
