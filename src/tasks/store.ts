@@ -25,6 +25,17 @@ function reasonOf(error: unknown): string {
   return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
 }
 
+/**
+ * Статус задачи успел уйти вперёд на сервере (например, отчёт уже отправил
+ * другой исполнитель — 0103). Бэкенд отдаёт его в detail.current_status,
+ * чтобы карточку можно было поправить сразу, без отдельного GET-запроса.
+ */
+function staleStatusOf(error: unknown): TaskStatus | null {
+  if (!(error instanceof ApiError)) return null
+  const value = error.data?.current_status
+  return typeof value === 'string' ? (value as TaskStatus) : null
+}
+
 export const useTasksStore = create<TasksState>((set, get) => ({
   tasks: [],
   loading: true,
@@ -70,6 +81,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       set({ tasks: get().tasks.map((t) => (t.id === id ? updated : t)) })
       return { ok: true }
     } catch (error) {
+      const staleStatus = staleStatusOf(error)
+      if (staleStatus) set({ tasks: get().tasks.map((t) => (t.id === id ? { ...t, status: staleStatus } : t)) })
       return { ok: false, reason: reasonOf(error) }
     }
   },
