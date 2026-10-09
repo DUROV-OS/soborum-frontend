@@ -232,7 +232,11 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
 
         {error && <p className="text-[12px] text-danger">{error}</p>}
 
-        {canEdit && (reporting || task.status === 'in_review') && (
+        {/* Статус мог уйти вперёд, пока открыта форма сдачи — например,
+            задачу успел сдать другой исполнитель (0103). Форму сдачи
+            показываем только пока задача реально «в работе»; «на проверке»
+            открывает decide-ветку для проверяющего независимо от reporting. */}
+        {canEdit && ((reporting && task.status === 'in_progress') || task.status === 'in_review') && (
           <FormBox>
             <Field
               label={task.status === 'in_review' ? 'Комментарий проверяющего' : 'Что сделано по задаче'}
