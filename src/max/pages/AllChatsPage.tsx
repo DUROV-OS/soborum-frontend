@@ -462,7 +462,7 @@ function PeerPhone({ peer }: { peer: MaxDialogPeer }) {
   const [copied, setCopied] = useState(false)
 
   if (!peer.phone) {
-    return <div className="text-[11px] text-muted">Номер скрыт MAX — человека нет в контактах аккаунта</div>
+    return <div className="text-[11px] text-muted">Номер скрыт MAX — пользователь не раскрыл его через контакты</div>
   }
   const phone = peer.phone
 
