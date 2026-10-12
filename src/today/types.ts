@@ -1,3 +1,5 @@
+import { NotificationKind } from '@/notifications/types'
+
 export type WidgetTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info'
 
 export interface DashboardWidget {
@@ -63,5 +65,58 @@ export interface AktualnoeResponse {
   items: AktualnoeItem[]
   ai_configured: boolean
   /** true — подборка собрана без ИИ (топ по свежести, проценты по стадии) */
+  degraded: boolean
+}
+
+export type SummaryPeriod = 'day' | 'week'
+
+export interface PeriodMetric {
+  key: string
+  label: string
+  /** count — штуки, rub — рубли */
+  unit: 'count' | 'rub'
+  value: number
+  /** то же за предыдущий период такой же длины */
+  previous: number
+  /** рост — плохой знак (просрочки, списания): цвет дельты наоборот */
+  growth_is_bad: boolean
+}
+
+export interface PeriodSection {
+  section: string
+  title: string
+  metrics: PeriodMetric[]
+}
+
+/** GET /api/dashboard/today/summary/{day|week} — «Итоги дня»/«Итоги недели» (0027). */
+export interface PeriodSummary {
+  period: SummaryPeriod
+  label: string
+  /** с чем сравниваем: «вчера» / «предыдущие 7 дней» */
+  compare_label: string
+  start: string
+  end: string
+  generated_at: string
+  sections: PeriodSection[]
+}
+
+export interface MissedItem {
+  id: number
+  kind: NotificationKind
+  title: string
+  body?: string | null
+  object_type?: string | null
+  object_id?: number | null
+  created_at: string
+  /** до 8 слов от ИИ: почему это стоит открыть; пусто при отборе без ИИ */
+  reason: string
+}
+
+/** GET /api/dashboard/missed — блок «Вы могли пропустить» (0027). */
+export interface MissedResponse {
+  generated_at: string
+  items: MissedItem[]
+  ai_configured: boolean
+  /** true — отбор без ИИ (по приоритету повода и свежести) */
   degraded: boolean
 }

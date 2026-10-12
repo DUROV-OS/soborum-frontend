@@ -1,5 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
-import { AktualnoeResponse, SectionSignal, TodayDashboard } from './types'
+import { AktualnoeResponse, MissedResponse, PeriodSummary, SectionSignal, SummaryPeriod, TodayDashboard } from './types'
 
 /** GET /api/dashboard/today */
 export function getToday(reload = false): Promise<TodayDashboard> {
@@ -18,4 +18,14 @@ export function getSectionSignal(section: string, reload = false): Promise<Secti
 /** GET /api/dashboard/aktualnoe — блок «Актуальное», кеш на 12 часов */
 export function getAktualnoe(reload = false): Promise<AktualnoeResponse> {
   return apiRequest<AktualnoeResponse>({ section: 'dashboard', path: '/aktualnoe', query: { reload } })
+}
+
+/** GET /api/dashboard/today/summary/{period} — итоги за день или неделю по доступным разделам */
+export function getPeriodSummary(period: SummaryPeriod): Promise<PeriodSummary> {
+  return apiRequest<PeriodSummary>({ section: 'dashboard', path: `/today/summary/${period}` })
+}
+
+/** GET /api/dashboard/missed — «Вы могли пропустить»: важные непрочитанные уведомления, кеш на час */
+export function getMissed(reload = false): Promise<MissedResponse> {
+  return apiRequest<MissedResponse>({ section: 'dashboard', path: '/missed', query: { reload } })
 }
