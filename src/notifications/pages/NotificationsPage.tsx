@@ -4,16 +4,16 @@ import { Bell, CheckCheck } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Tabs } from '@/shared/ui/Tabs'
-import { sectionById, SectionId } from '@/shared/sections'
+import { sectionById } from '@/shared/sections'
 import { NotificationSettingsTab } from '../components/NotificationSettingsTab'
 import { useNotificationsStore } from '../store'
-import { notificationTargetPath } from '../routing'
+import { notificationSection, notificationTargetPath } from '../routing'
 import { Notification, NOTIFICATION_KIND_LABEL } from '../types'
 
 function sectionLabel(objectType: string | null): string | null {
   if (!objectType) return null
   try {
-    return sectionById(objectType as SectionId).label
+    return sectionById(notificationSection(objectType)).label
   } catch {
     return objectType
   }
@@ -55,7 +55,7 @@ function NotificationCard({ notification, onOpen }: { notification: Notification
 /**
  * «Уведомления» (0080-d): лента личных уведомлений (прочитанные/непрочитанные
  * визуально разделены, клик ведёт на объект и отмечает прочитанным) + вкладка
- * «Настройки» — мьют раздела целиком или конкретного объекта.
+ * «Настройки» — выключение раздела целиком или конкретного объекта.
  */
 export function NotificationsPage() {
   const navigate = useNavigate()

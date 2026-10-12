@@ -23,7 +23,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   )
   const loadMyFeedback = useFeedbackStore((s) => s.loadMine)
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
-  const loadUnreadNotifications = useNotificationsStore((s) => s.loadUnreadCount)
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname } = useLocation()
 
@@ -41,14 +40,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
   }, [loadMyFeedback])
-
-  // Бейдж непрочитанных уведомлений (0080-d) — тот же подход и интервал, что
-  // у «Моих заявок»: без push, обычный поллинг раз в минуту.
-  useEffect(() => {
-    loadUnreadNotifications().catch(() => {})
-    const timer = window.setInterval(() => loadUnreadNotifications().catch(() => {}), 60_000)
-    return () => window.clearInterval(timer)
-  }, [loadUnreadNotifications])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   // (MAX доступен всем вошедшим — значит хаб виден всегда).

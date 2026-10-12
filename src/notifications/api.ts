@@ -31,12 +31,12 @@ export function markAllRead(): Promise<UnreadCount> {
   return apiRequest<UnreadCount>({ section: SECTION, path: '/read-all', method: 'POST' })
 }
 
-/** GET /api/notifications/mutes — текущие мьюты (разделы целиком и точечные объекты). */
+/** GET /api/notifications/mutes — текущие выключения (разделы целиком и отдельные объекты). */
 export function listMutes(): Promise<NotificationMute[]> {
   return apiRequest<NotificationMute[]>({ section: SECTION, path: '/mutes' })
 }
 
-/** PUT /api/notifications/mutes — включить/снять мьют раздела (`objectId` не задан) или объекта. */
+/** PUT /api/notifications/mutes — выключить/включить раздел (`objectId` не задан) или объекта. */
 export function setMute(module: NotificationModule | string, objectId: number | null, muted: boolean): Promise<NotificationMute[]> {
   return apiRequest<NotificationMute[]>({
     section: SECTION,
