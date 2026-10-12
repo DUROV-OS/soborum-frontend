@@ -48,7 +48,12 @@ export interface MaxMessage {
   /** Пересланное сообщение (0098): свои text/attaches пустые, оригинал здесь.
    * Вложения оригинала скачиваются по id самого пересланного сообщения. */
   forwarded?: MaxForwarded | null
+  /** Исходящее (0101): `read` — собеседник (в группе — хоть кто-то) прочитал,
+   * `sent` — ещё нет. У входящих, служебных и «Избранного» — null. */
+  readStatus?: MaxReadStatus | null
 }
+
+export type MaxReadStatus = 'read' | 'sent'
 
 /** Оригинал пересланного сообщения (см. `_fmt_forwarded`). */
 export interface MaxForwarded {

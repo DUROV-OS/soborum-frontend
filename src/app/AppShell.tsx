@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { NotificationToasts } from '@/notifications/components/NotificationToasts'
+import { useNotificationPolling } from '@/notifications/hooks/useNotificationPolling'
 import { MeetingPanel } from '@/meeting/components/MeetingPanel'
 import { logClientEvent } from '@/shared/lib/clientLog'
 import { Sidebar } from './Sidebar'
@@ -8,6 +10,7 @@ import { Topbar } from './Topbar'
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  useNotificationPolling()
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -32,6 +35,7 @@ export function AppShell() {
         </main>
       </div>
       <MeetingPanel />
+      <NotificationToasts />
     </div>
   )
 }

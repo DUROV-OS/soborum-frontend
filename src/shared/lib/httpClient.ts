@@ -18,23 +18,38 @@ export function getToken(): string | null {
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  /**
+   * Доп. поля из `detail`, когда бэкенд отдаёт его не строкой, а объектом
+   * (например `{"detail": "...", "current_status": "in_review"}` у
+   * POST /tasks/:id/report — 0103). Пусто для обычных ответов вида «строка».
+   */
+  data: Record<string, unknown> | null
+  constructor(status: number, message: string, data: Record<string, unknown> | null = null) {
     super(message)
     this.status = status
+    this.data = data
+  }
+}
+
+async function extractError(response: Response): Promise<{ message: string; data: Record<string, unknown> | null }> {
+  try {
+    const body = await response.json()
+    if (typeof body.detail === 'string') return { message: body.detail, data: null }
+    if (Array.isArray(body.detail)) {
+      return { message: body.detail.map((e: { msg?: string }) => e.msg).join('; '), data: null }
+    }
+    if (body.detail && typeof body.detail === 'object') {
+      const { detail, ...rest } = body.detail as { detail?: string; [key: string]: unknown }
+      return { message: typeof detail === 'string' ? detail : response.statusText, data: rest }
+    }
+    return { message: response.statusText, data: null }
+  } catch {
+    return { message: response.statusText, data: null }
   }
 }
 
 async function extractErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = await response.json()
-    if (typeof body.detail === 'string') return body.detail
-    if (Array.isArray(body.detail)) {
-      return body.detail.map((e: { msg?: string }) => e.msg).join('; ')
-    }
-    return response.statusText
-  } catch {
-    return response.statusText
-  }
+  return (await extractError(response)).message
 }
 
 export interface RequestOptions {
@@ -77,14 +92,14 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
   })
 
   if (!response.ok) {
-    const message = await extractErrorMessage(response)
+    const { message, data } = await extractError(response)
     // Для «логов пользователя» в заявке 0075 — только метод, путь и код,
     // без тела запроса и ответа.
     logClientEvent(
       'api',
       `${options.method ?? 'GET'} ${API_BASE}/${options.section}${options.path} → ${response.status} ${message}`,
     )
-    throw new ApiError(response.status, message)
+    throw new ApiError(response.status, message, data)
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
