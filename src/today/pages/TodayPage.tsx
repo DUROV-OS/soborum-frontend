@@ -8,16 +8,38 @@ import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { StatWidget } from '@/shared/ui/StatWidget'
 import { AktualnoeCard } from '../components/AktualnoeCard'
+import { MissedBlock } from '../components/MissedBlock'
+import { PeriodSummaryPanel } from '../components/PeriodSummaryPanel'
 import { useTodayStore } from '../store'
+import { SummaryPeriod } from '../types'
+
+type PulseTab = 'now' | SummaryPeriod
+
+const TABS: { id: PulseTab; label: string }[] = [
+  { id: 'now', label: 'Сейчас' },
+  { id: 'day', label: 'Итоги дня' },
+  { id: 'week', label: 'Итоги недели' },
+]
 
 export function TodayPage() {
-  const { data, loading, error, load, aktualnoe, aktualnoeLoading } = useTodayStore()
+  const { data, loading, error, load, aktualnoe, aktualnoeLoading, summaries, summaryLoading, summaryError, loadSummary } = useTodayStore()
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const startDraft = useAiStore((s) => s.startDraft)
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
+  const [tab, setTab] = useState<PulseTab>('now')
 
   useEffect(() => { load() }, [load])
+
+  // Итоги подгружаются при первом открытии вкладки; `load(true)` их сбрасывает.
+  useEffect(() => {
+    if (tab !== 'now' && !summaries[tab] && !summaryLoading[tab] && !summaryError[tab]) loadSummary(tab)
+  }, [tab, summaries, summaryLoading, summaryError, loadSummary])
+
+  function reload() {
+    if (tab === 'now') load(true)
+    else loadSummary(tab)
+  }
 
   function askMarina(message = prompt) {
     if (!message.trim()) return
@@ -45,20 +67,39 @@ export function TodayPage() {
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-[34px]">Главное на сегодня<span className="text-brand">.</span></h1>
           <p className="mt-2 text-[13px] capitalize text-muted">{today}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => load(true)} disabled={loading}>
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные
-        </Button>
+        {tab === 'now' && (
+          <Button variant="secondary" size="sm" onClick={reload} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные
+          </Button>
+        )}
       </div>
 
-      {error && <EmptyState icon={<AlertCircle size={28} />} title="Сводка временно недоступна" description={error}
-        action={<Button size="sm" onClick={() => load()}>Повторить</Button>} />}
-      {loading && !data && <div role="status" className="rounded-2xl border border-border bg-surface px-6 py-12 text-[14px] text-muted">Собираем текущие показатели…</div>}
+      <div role="tablist" aria-label="Разделы Пульса" className="-mt-2 flex gap-1 border-b border-border">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" role="tab" id={`pulse-tab-${t.id}`} aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+            className={`-mb-px border-b-2 px-4 py-2.5 text-[14px] font-medium transition-colors ${tab === t.id ? 'border-brand text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {data && !error && <>
+      {tab !== 'now' && (
+        <div role="tabpanel" aria-labelledby={`pulse-tab-${tab}`}>
+          <PeriodSummaryPanel summary={summaries[tab]} loading={!!summaryLoading[tab]} error={summaryError[tab]} onReload={reload} />
+        </div>
+      )}
+
+      {tab === 'now' && error && <EmptyState icon={<AlertCircle size={28} />} title="Сводка временно недоступна" description={error}
+        action={<Button size="sm" onClick={() => load()}>Повторить</Button>} />}
+      {tab === 'now' && loading && !data && <div role="status" className="rounded-2xl border border-border bg-surface px-6 py-12 text-[14px] text-muted">Собираем текущие показатели…</div>}
+
+      {tab === 'now' && data && !error && <>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-3.5">
           <p className="flex items-start gap-2.5 text-[13px] text-ink"><CheckCheck size={17} className="mt-0.5 shrink-0 text-brand" />{data.summary}</p>
           <span className="shrink-0 text-[11px] text-muted">Данные на {new Date(data.generated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
+
+        <MissedBlock />
 
         {actions.length > 0 && (
           <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-labelledby="attention-title">
