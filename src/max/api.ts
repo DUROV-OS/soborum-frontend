@@ -1,4 +1,4 @@
-import { API_BASE, apiRequest, ApiError, getToken } from '@/shared/lib/httpClient'
+import { API_BASE, apiRequest, errorFromResponse, getToken } from '@/shared/lib/httpClient'
 import { MaxChatHistory, MaxChatList, MaxMediaUrl, MaxSendResult, MaxStartDialogResult } from './types'
 
 const SECTION = 'max'
@@ -98,15 +98,7 @@ export async function getAttachmentPreviewBlob(
   const res = await fetch(url.toString(), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  if (!res.ok) {
-    let detail = res.statusText
-    try {
-      detail = (await res.json()).detail ?? detail
-    } catch {
-      /* тело не JSON — оставляем statusText */
-    }
-    throw new ApiError(res.status, detail)
-  }
+  if (!res.ok) throw await errorFromResponse(res)
   return res.blob()
 }
 

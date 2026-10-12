@@ -1,4 +1,5 @@
 import { logClientEvent } from './clientLog'
+import { humanizeErrorText, staticHumanMessage } from './humanError'
 
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/$/, '')
 
@@ -21,27 +22,52 @@ export class ApiError extends Error {
   /** Разобранное JSON-тело ответа с ошибкой — для отказов с доп. полями рядом с
    * `detail` (например `code`/`available` у «не найден в Макс», 0083-d). */
   body?: Record<string, unknown>
-  constructor(status: number, message: string, body?: Record<string, unknown>) {
+  /** Исходный технический текст, если `message` — переписанная человеческая фраза (0049). */
+  rawMessage: string
+  constructor(status: number, message: string, body?: Record<string, unknown>, rawMessage = message) {
     super(message)
     this.status = status
     this.body = body
+    this.rawMessage = rawMessage
   }
 }
 
-async function extractErrorMessage(response: Response): Promise<string> {
-  return (await extractError(response)).message
-}
 
 async function extractError(response: Response): Promise<{ message: string; body?: Record<string, unknown> }> {
   try {
     const body = await response.json()
     if (typeof body.detail === 'string') return { message: body.detail, body }
     if (Array.isArray(body.detail)) {
-      return { message: body.detail.map((e: { msg?: string }) => e.msg).join('; '), body }
+      return { message: body.detail.map((e: { msg?: string }) => (e.msg ?? '').replace(/^Value error, /, '')).join('; '), body }
     }
     return { message: response.statusText, body }
   } catch {
     return { message: response.statusText }
+  }
+}
+
+/**
+ * ApiError из неуспешного ответа: `message` — читаемая фраза (при техническом
+ * тексте её пишет ИИ, см. humanError.ts), `rawMessage` — как пришло с сервера.
+ */
+export async function errorFromResponse(response: Response): Promise<ApiError> {
+  const { message, body } = await extractError(response)
+  const human = await humanizeErrorText(response.status, message, { apiBase: API_BASE, token })
+  return new ApiError(response.status, human, body, message)
+}
+
+/**
+ * `fetch`, у которого обрыв сети (`TypeError: Failed to fetch`) становится
+ * `ApiError` со статусом 0 и читаемым текстом. Отмена и таймаут
+ * (`AbortError`/`TimeoutError`) пробрасываются как есть — на них рассчитывают
+ * вызывающие.
+ */
+async function networkSafeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init)
+  } catch (error) {
+    if (error instanceof TypeError) throw new ApiError(0, staticHumanMessage(0), undefined, error.message)
+    throw error
   }
 }
 
@@ -77,7 +103,7 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
     body = JSON.stringify(options.body)
   }
 
-  const response = await fetch(buildUrl(options.section, options.path, options.query), {
+  const response = await networkSafeFetch(buildUrl(options.section, options.path, options.query), {
     method: options.method ?? 'GET',
     headers,
     body,
@@ -85,14 +111,14 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
   })
 
   if (!response.ok) {
-    const { message, body } = await extractError(response)
+    const error = await errorFromResponse(response)
     // Для «логов пользователя» в заявке 0075 — только метод, путь и код,
-    // без тела запроса и ответа.
+    // без тела запроса и ответа; в журнал идёт исходный технический текст.
     logClientEvent(
       'api',
-      `${options.method ?? 'GET'} ${API_BASE}/${options.section}${options.path} → ${response.status} ${message}`,
+      `${options.method ?? 'GET'} ${API_BASE}/${options.section}${options.path} → ${response.status} ${error.rawMessage}`,
     )
-    throw new ApiError(response.status, message, body)
+    throw error
   }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
@@ -117,14 +143,14 @@ export async function streamRequest(
   if (token) headers.Authorization = `Bearer ${token}`
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
 
-  const response = await fetch(buildUrl(options.section, options.path), {
+  const response = await networkSafeFetch(buildUrl(options.section, options.path), {
     method: 'POST',
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     signal: options.signal,
   })
 
-  if (!response.ok) throw new ApiError(response.status, await extractErrorMessage(response))
+  if (!response.ok) throw await errorFromResponse(response)
   if (!response.body) throw new ApiError(0, 'Стриминг не поддерживается этим браузером')
 
   const reader = response.body.getReader()
@@ -161,13 +187,13 @@ export async function streamRequest(
 
 /** POST /api/auth/login (application/x-www-form-urlencoded) */
 export async function login(email: string, password: string): Promise<string> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
+  const response = await networkSafeFetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ username: email, password }),
   })
   if (!response.ok) {
-    throw new ApiError(response.status, await extractErrorMessage(response))
+    throw await errorFromResponse(response)
   }
   const data = (await response.json()) as { access_token: string }
   return data.access_token
@@ -177,8 +203,8 @@ export async function login(email: string, password: string): Promise<string> {
 export async function downloadFile(section: string, path: string, filename: string): Promise<void> {
   const headers: Record<string, string> = {}
   if (token) headers.Authorization = `Bearer ${token}`
-  const response = await fetch(buildUrl(section, path), { headers })
-  if (!response.ok) throw new ApiError(response.status, await extractErrorMessage(response))
+  const response = await networkSafeFetch(buildUrl(section, path), { headers })
+  if (!response.ok) throw await errorFromResponse(response)
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -201,8 +227,8 @@ const API_ROOT = API_BASE.replace(/\/api$/, '')
 export async function downloadFileById(fileId: number, filename: string): Promise<void> {
   const headers: Record<string, string> = {}
   if (token) headers.Authorization = `Bearer ${token}`
-  const response = await fetch(`${API_ROOT}/files/${fileId}`, { headers })
-  if (!response.ok) throw new ApiError(response.status, await extractErrorMessage(response))
+  const response = await networkSafeFetch(`${API_ROOT}/files/${fileId}`, { headers })
+  if (!response.ok) throw await errorFromResponse(response)
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
