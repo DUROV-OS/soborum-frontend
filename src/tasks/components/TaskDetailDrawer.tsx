@@ -23,6 +23,7 @@ import {
   TaskStatus,
 } from '../types'
 import { stateTone } from './stateTone'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const setStatus = useTasksStore((s) => s.setStatus)
@@ -428,7 +429,7 @@ function ReportEditedMark({ taskId, report }: { taskId: number; report: TaskRepo
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить прежние версии')
+        if (!cancelled) setLoadError(plainErrorText(error, 'Не удалось загрузить прежние версии'))
       })
     return () => {
       cancelled = true

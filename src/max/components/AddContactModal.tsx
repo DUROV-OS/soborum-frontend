@@ -4,6 +4,7 @@ import { MaxStartDialogResult } from '../types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const FORM_ID = 'max-add-contact-form'
 
@@ -51,7 +52,7 @@ export function AddContactModal({
       onStarted(result)
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось найти номер в MAX')
+      setError(plainErrorText(err, 'Не удалось найти номер в MAX'))
     } finally {
       setSubmitting(false)
     }

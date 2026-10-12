@@ -9,6 +9,7 @@ import { NotificationSettingsTab } from '../components/NotificationSettingsTab'
 import { useNotificationsStore } from '../store'
 import { notificationTargetPath } from '../routing'
 import { Notification, NOTIFICATION_KIND_LABEL } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function sectionLabel(objectType: string | null): string | null {
   if (!objectType) return null
@@ -69,7 +70,7 @@ export function NotificationsPage() {
 
   useEffect(() => {
     load()
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить уведомления'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить уведомления')))
       .finally(() => setLoaded(true))
   }, [load])
 
@@ -78,7 +79,7 @@ export function NotificationsPage() {
     try {
       if (!notification.read_at) await markRead(notification.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отметить прочитанным')
+      setError(plainErrorText(e, 'Не удалось отметить прочитанным'))
     }
     const path = notificationTargetPath(notification.object_type, notification.object_id)
     if (path) navigate(path)
@@ -89,7 +90,7 @@ export function NotificationsPage() {
     try {
       await markAllRead()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отметить все прочитанными')
+      setError(plainErrorText(e, 'Не удалось отметить все прочитанными'))
     }
   }
 

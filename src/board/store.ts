@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { ApiError } from '@/shared/lib/httpClient'
 import * as boardApi from './api'
 import { buildIndexes, buildTourSteps } from './lib/tree'
 import { BoardDiscussionMessage, BoardNode, BoardNodeChange, BoardProposal } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 function sleep(ms: number): Promise<void> {

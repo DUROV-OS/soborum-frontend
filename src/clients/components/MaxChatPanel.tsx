@@ -3,7 +3,6 @@ import { Link2, MessageSquareText, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
-import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
@@ -14,14 +13,13 @@ import { useClientsStore } from '../store'
 import { CLIENT_CHAT_STATES, Client, ClientChatLink, ClientChatState } from '../types'
 import { MaxAttachList } from './MaxAttachments'
 import { Section } from './PanelPrimitives'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Запасной опрос ленты, пока WebSocket событий MAX не подключён, мс (0092). */
 const POLL_MS = 20000
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : 'Не удалось связаться с мессенджером MAX'
+  return plainErrorText(error, 'Не удалось связаться с мессенджером MAX')
 }
 
 export function MaxChatPanel({ client }: { client: Client }) {

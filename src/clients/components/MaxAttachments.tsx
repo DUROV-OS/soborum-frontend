@@ -1,17 +1,15 @@
 import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import { Download, Eye, Film, Link2, Loader2, Paperclip, Play } from 'lucide-react'
-import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import * as maxApi from '@/max/api'
 import { Lightbox } from '@/max/components/Lightbox'
 import { MaxAttach } from '@/max/types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /* ------------------------------------------------------------------ utils */
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : 'Не удалось получить вложение'
+  return plainErrorText(error, 'Не удалось получить вложение')
 }
 
 function formatBytes(n?: number): string {

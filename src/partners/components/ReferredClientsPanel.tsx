@@ -5,6 +5,7 @@ import { stageLabel } from '@/clients/rules'
 import { ClientStage } from '@/clients/types'
 import { listReferredClients } from '../api'
 import { ReferredClient } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Клиенты, у которых партнёр указан в «Кто рекомендовал» (0083-c) — «чьи» они. */
 export function ReferredClientsPanel({ partnerId }: { partnerId: number }) {
@@ -16,7 +17,7 @@ export function ReferredClientsPanel({ partnerId }: { partnerId: number }) {
     setClients(null)
     listReferredClients(partnerId)
       .then((rows) => !cancelled && setClients(rows))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Не удалось загрузить клиентов'))
+      .catch((e) => !cancelled && setError(plainErrorText(e, 'Не удалось загрузить клиентов')))
     return () => {
       cancelled = true
     }

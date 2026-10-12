@@ -6,6 +6,7 @@ import { Chip, ChipTone } from '@/shared/ui/Chip'
 import { Markdown } from '@/shared/ui/Markdown'
 import { getSectionAnalytics } from '../api'
 import { AnalyticsSection, SectionAnalyticsOut, SectionAnalyticsStatus } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Цвет обводки блока — свой на каждый раздел, чтобы резюме узнавалось с первого взгляда. */
 const SECTION_BORDER: Record<AnalyticsSection, string> = {
@@ -48,7 +49,7 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
     try {
       setData(await getSectionAnalytics(section, reload))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить ИИ-резюме')
+      setError(plainErrorText(e, 'Не удалось загрузить ИИ-резюме'))
     } finally {
       setLoading(false)
     }

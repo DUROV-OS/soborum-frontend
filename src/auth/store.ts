@@ -3,6 +3,7 @@ import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
 import { Account, AccessLevel, Role } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 interface AuthState {
   current: Account | null
@@ -51,7 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (current.role === 'admin') get().loadAccounts().catch(() => {})
       return true
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Не удалось войти' })
+      set({ error: plainErrorText(error, 'Не удалось войти') })
       return false
     }
   },

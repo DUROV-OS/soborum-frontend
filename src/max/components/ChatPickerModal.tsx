@@ -5,6 +5,7 @@ import { MaxChatSummary } from '@/max/types'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /**
  * Диалог выбора чата MAX с поиском по названию/участнику. Общий для всех
@@ -46,7 +47,7 @@ export function ChatPickerModal({
     maxApi
       .listChats()
       .then((res) => setChats(res.chats))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить чаты MAX'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить чаты MAX')))
       .finally(() => setLoading(false))
   }, [open])
 

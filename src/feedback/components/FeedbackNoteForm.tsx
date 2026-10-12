@@ -3,6 +3,7 @@ import { Button } from '@/shared/ui/Button'
 import { Textarea } from '@/shared/ui/Field'
 import { useFeedbackStore } from '../store'
 import { FEEDBACK_NOTE_LABEL, FeedbackNoteKind } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const MAX_CHARS = 5000
 
@@ -26,7 +27,7 @@ export function FeedbackNoteForm({ requestId, asAdmin = false }: { requestId: nu
       await addEvent(requestId, kind, text.trim())
       setText('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось добавить запись')
+      setError(plainErrorText(e, 'Не удалось добавить запись'))
     } finally {
       setSending(false)
     }

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { listClients } from '@/clients/api'
-import { ApiError } from '@/shared/lib/httpClient'
 import { DateFilter, dateFilterRange } from '@/shared/lib/dateFilter'
 import * as accountingApi from './api'
 import { MoneyMovementCreateInput, MoneyMovementUpdateInput } from './api'
@@ -19,6 +18,7 @@ import {
   Organization,
   PaymentImportResult,
 } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export interface ActionResult {
   ok: boolean
@@ -149,9 +149,7 @@ interface AccountingState {
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 function numericBounds(

@@ -11,6 +11,7 @@ import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { useAuthStore } from '../store'
 import { AdminsTab } from './AdminsTab'
 import { AccessLevel, Account, Role } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
   ['none', 'Нет доступа'],
@@ -75,7 +76,7 @@ export function AccessMatrixPage() {
   const onboarding = useSectionOnboarding('admin')
 
   useEffect(() => {
-    loadAccounts().catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить сотрудников'))
+    loadAccounts().catch((e) => setError(plainErrorText(e, 'Не удалось загрузить сотрудников')))
   }, [loadAccounts])
 
   const workers = accounts.filter((a) => a.role === 'worker')
@@ -95,7 +96,7 @@ export function AccessMatrixPage() {
       )
       setTab(role === 'admin' ? 'admins' : 'matrix')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось изменить роль')
+      setError(plainErrorText(e, 'Не удалось изменить роль'))
     }
   }
 
@@ -127,7 +128,7 @@ export function AccessMatrixPage() {
     try {
       await updateAccess(accountId, next)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось изменить доступ')
+      setError(plainErrorText(e, 'Не удалось изменить доступ'))
     }
   }
 
@@ -139,7 +140,7 @@ export function AccessMatrixPage() {
       await resetPassword(account.id)
       setNotice(`Пароль сотрудника «${account.full_name}» сброшен: password1234`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сбросить пароль')
+      setError(plainErrorText(e, 'Не удалось сбросить пароль'))
     }
   }
 
@@ -335,7 +336,7 @@ function CreateAccountModal({
       reset()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось создать сотрудника')
+      setError(plainErrorText(e, 'Не удалось создать сотрудника'))
     } finally {
       setSaving(false)
     }

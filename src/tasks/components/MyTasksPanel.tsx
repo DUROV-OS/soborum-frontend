@@ -4,6 +4,7 @@ import { useAuthStore } from '@/auth/store'
 import { getTaskPriorities } from '@/ai/api'
 import { PriorityTaskOut } from '@/ai/types'
 import { Task } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void }) {
   const hasAccess = useAuthStore((s) => s.hasAccess)
@@ -20,7 +21,7 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
       const res = await getTaskPriorities()
       setPriorities(res.priorities)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить приоритетные задачи')
+      setError(plainErrorText(e, 'Не удалось загрузить приоритетные задачи'))
     } finally {
       setLoading(false)
     }

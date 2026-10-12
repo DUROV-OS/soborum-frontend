@@ -5,6 +5,7 @@ import { Client } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Обратная привязка (0053): выбор клиента, к которому привязывается открытый
  * чат MAX, с указанием названия привязки (различает несколько чатов одного
@@ -39,7 +40,7 @@ export function LinkClientModal({
     clientsApi
       .listClients()
       .then(setClients)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить клиентов'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить клиентов')))
       .finally(() => setLoading(false))
   }, [open])
 
@@ -63,7 +64,7 @@ export function LinkClientModal({
       onLinked()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось привязать клиента')
+      setError(plainErrorText(e, 'Не удалось привязать клиента'))
       setPendingClient(null)
     } finally {
       setLinkingId(null)

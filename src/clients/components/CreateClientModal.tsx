@@ -8,6 +8,7 @@ import { ReferrerPicker } from '@/partners/components/ReferrerPicker'
 import { PartnerBrief } from '@/partners/types'
 import { useClientsStore } from '../store'
 import { ClientContact, MESSENGER_SUGGESTIONS } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const MESSENGER_LIST_ID = 'messenger-suggestions'
 
@@ -57,7 +58,7 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
       onClose()
       navigate(`/clients/${client.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось создать клиента')
+      setError(plainErrorText(e, 'Не удалось создать клиента'))
     } finally {
       setSaving(false)
     }

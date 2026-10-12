@@ -8,6 +8,7 @@ import { useWarehouseStore } from '../store'
 import { TechcardHouse, TechcardPreview, TechcardPreviewLine } from '../types'
 import { formatQty, localInputToIso, localNowInput, parseQty } from './OperationLinesEditor'
 import { SuggestInput } from './SuggestInput'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function lineState(line: TechcardPreviewLine, raw: string) {
   const qty = raw.trim() ? parseQty(raw) : 0
@@ -45,7 +46,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
     warehouseApi
       .techcardHouses()
       .then(setHouses)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить дома'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить дома')))
     warehouseApi
       .issueSuggestions('house')
       .then((s) => setSuggestions(s.received_by))
@@ -60,7 +61,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
       setPreview(data)
       setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(l.to_issue)])))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить техкарту')
+      setError(plainErrorText(e, 'Не удалось загрузить техкарту'))
     } finally {
       setLoading(false)
     }

@@ -2,9 +2,10 @@ import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
 import * as agentsApi from './api'
 import { AgentRun, AgentShift, AgentsStats } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить запрос'
+  return plainErrorText(error, 'Не удалось выполнить запрос')
 }
 
 interface AgentsState {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { ApiError } from '@/shared/lib/httpClient'
 import * as suppliersApi from './api'
 import { LeadTimeQuestionDraft, PriceListImportResult, Supplier } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export interface ActionResult {
   ok: boolean
@@ -9,7 +9,7 @@ export interface ActionResult {
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 interface SuppliersState {

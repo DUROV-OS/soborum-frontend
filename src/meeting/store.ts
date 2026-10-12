@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { ApiError } from '@/shared/lib/httpClient'
+import { plainErrorText } from '@/shared/lib/humanError'
 import { speakPrincess, splitVoiceReply, stopSpeaking } from '@/shared/lib/speechReply'
 import { chimeListening, chimeReady, chimeThinking } from './earcon'
 import { initVoiceFromStorage } from './voice'
@@ -74,8 +75,7 @@ function friendlyError(error: unknown): string {
       return 'Микрофон не найден. Подключите его и попробуйте снова.'
     }
   }
-  if (error instanceof ApiError || error instanceof Error) return error.message
-  return 'Не удалось выполнить действие в режиме «Совещание»'
+  return plainErrorText(error, 'Не удалось выполнить действие в режиме «Совещание»')
 }
 
 function otherSpeaker(speaker: string): string {

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import * as aiApi from '@/ai/api'
 import { applyStreamEvent, StreamBubble } from '@/ai/stream'
-import { ApiError, StreamEvent } from '@/shared/lib/httpClient'
+import { StreamEvent } from '@/shared/lib/httpClient'
 import { MessageOut, PendingActionOut } from '@/ai/types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const STORAGE_KEY = 'soborbum.consult.visible'
 
@@ -38,7 +39,7 @@ function reasonOf(error: unknown): string {
   if (error instanceof TypeError && /failed to fetch|networkerror|load failed/i.test(error.message)) {
     return 'Сеть оборвалась или сервер не ответил вовремя. Обновите страницу и повторите.'
   }
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось отправить'
+  return plainErrorText(error, 'Не удалось отправить')
 }
 
 function loadPersist(): PersistShape {

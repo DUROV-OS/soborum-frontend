@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { ApiError } from '@/shared/lib/httpClient'
 import * as clientsApi from './api'
 import { Client, ClientCreateInput, ClientSourceInput, ClientTaskInput, ContractDocument } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export interface ActionResult {
   ok: boolean
@@ -49,7 +49,7 @@ interface ClientsState {
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 export const useClientsStore = create<ClientsState>((set, get) => {

@@ -11,6 +11,7 @@ import { FeedbackTimeline } from '../components/FeedbackTimeline'
 import { fetchAttachment } from '../api'
 import { useFeedbackStore } from '../store'
 import { FEEDBACK_STATUS_LABEL, FeedbackRequest, FeedbackStatus, awaitsReply } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 type Filter = FeedbackStatus | 'open' | 'all'
 
@@ -36,7 +37,7 @@ export function FeedbackAdminPage() {
   const [feedOpen, setFeedOpen] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
-    load().catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки'))
+    load().catch((e) => setError(plainErrorText(e, 'Не удалось загрузить заявки')))
   }, [load])
 
   const visible = useMemo(
@@ -63,7 +64,7 @@ export function FeedbackAdminPage() {
       link.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось скачать файл')
+      setError(plainErrorText(e, 'Не удалось скачать файл'))
     }
   }
 
@@ -123,7 +124,7 @@ export function FeedbackAdminPage() {
                     value={request.status}
                     onChange={(e) =>
                       setStatus(request.id, e.target.value as FeedbackStatus).catch((err) =>
-                        setError(err instanceof Error ? err.message : 'Не удалось сменить статус'),
+                        setError(plainErrorText(err, 'Не удалось сменить статус')),
                       )
                     }
                     className="w-44"

@@ -13,6 +13,7 @@ import {
   MovementReason,
 } from '../types'
 import { formatQty } from './OperationLinesEditor'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const PAGE_SIZE = 200
 
@@ -59,7 +60,7 @@ export function JournalPanel() {
       setRows((prev) => (offset === 0 ? page : [...prev, ...page]))
       setHasMore(page.length === PAGE_SIZE)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить журнал')
+      setError(plainErrorText(e, 'Не удалось загрузить журнал'))
     } finally {
       setLoading(false)
     }

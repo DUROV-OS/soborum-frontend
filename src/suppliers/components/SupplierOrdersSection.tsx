@@ -10,10 +10,10 @@ import {
   SupplierOrderItem,
   SupplierOrderStatus,
 } from '@/accounting/types'
-import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Field, Input, Textarea } from '@/shared/ui/Field'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 // Статус только вперёд, как у проводок (0011-d, статус-степпер — 0039).
 const NEXT_STATUS: Record<SupplierOrderStatus, SupplierOrderStatus | null> = {
@@ -27,7 +27,7 @@ function money(amount: number): string {
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 const EMPTY_ITEM: SupplierOrderItem = { material: '', category: null, quantity: 1, unit_price: 0 }

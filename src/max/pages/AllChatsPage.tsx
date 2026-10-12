@@ -3,7 +3,6 @@ import { ArrowLeft, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from '
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { HelpButton } from '@/shared/ui/HelpButton'
@@ -16,6 +15,7 @@ import { MaxMessageItem } from '../components/MaxMessageItem'
 import { LinkClientModal } from '../components/LinkClientModal'
 import { AddContactModal } from '../components/AddContactModal'
 import { useMaxEvents } from '../realtime'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -99,7 +99,7 @@ export function AllChatsPage() {
       setChats(res.chats)
       setChatsError(null)
     } catch (err) {
-      if (!silent) setChatsError(err instanceof ApiError ? err.message : 'Не удалось загрузить чаты')
+      if (!silent) setChatsError(plainErrorText(err, 'Не удалось загрузить чаты'))
     } finally {
       if (!silent) setChatsLoading(false)
     }
@@ -139,7 +139,7 @@ export function AllChatsPage() {
         if (!cancelled) setHistory(res)
       })
       .catch((err) => {
-        if (!cancelled) setHistoryError(err instanceof ApiError ? err.message : 'Не удалось загрузить переписку')
+        if (!cancelled) setHistoryError(plainErrorText(err, 'Не удалось загрузить переписку'))
       })
       .finally(() => {
         if (!cancelled) setHistoryLoading(false)
@@ -181,7 +181,7 @@ export function AllChatsPage() {
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
     } catch (err) {
-      setHistoryError(err instanceof ApiError ? err.message : 'Не удалось отправить сообщение')
+      setHistoryError(plainErrorText(err, 'Не удалось отправить сообщение'))
     } finally {
       setSending(false)
     }

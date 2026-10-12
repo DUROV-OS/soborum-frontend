@@ -3,6 +3,7 @@ import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { useAuthStore } from '../store'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const changePassword = useAuthStore((s) => s.changePassword)
@@ -36,7 +37,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
       await changePassword(currentPassword, newPassword)
       handleClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сменить пароль')
+      setError(plainErrorText(e, 'Не удалось сменить пароль'))
     } finally {
       setSaving(false)
     }

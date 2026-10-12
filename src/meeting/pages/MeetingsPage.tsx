@@ -24,6 +24,7 @@ import {
 import { NotesView } from '../components/NotesView'
 import { useMeetingStore } from '../store'
 import { MeetingDetailOut, MeetingOut } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Эффективная дата встречи: указанная человеком (occurred_at) либо начало записи. */
 function meetingWhen(meeting: Pick<MeetingOut, 'started_at' | 'occurred_at'>): Date {
@@ -119,7 +120,7 @@ function MeetingList() {
     // перезагружаем список, когда совещание сохранилось
     listMeetings()
       .then(setMeetings)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить совещания'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить совещания')))
   }, [phase])
 
   async function handleDelete(id: number, title: string) {
@@ -130,7 +131,7 @@ function MeetingList() {
       await deleteMeeting(id)
       setMeetings((list) => (list ? list.filter((m) => m.id !== id) : list))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось удалить совещание')
+      setError(plainErrorText(e, 'Не удалось удалить совещание'))
     } finally {
       setRemoving(null)
     }
@@ -213,7 +214,7 @@ function MeetingAudio({ meetingId, hasAudio }: { meetingId: number; hasAudio: bo
         setSrc(url)
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Не удалось загрузить запись')
+        if (!cancelled) setError(plainErrorText(e, 'Не удалось загрузить запись'))
       })
     return () => {
       cancelled = true
@@ -245,7 +246,7 @@ function AskMarina({ meetingId, aiEnabled }: { meetingId: number; aiEnabled: boo
       const res = await askMeeting(meetingId, q)
       setAnswer(res.answer_markdown)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось получить ответ')
+      setError(plainErrorText(err, 'Не удалось получить ответ'))
     } finally {
       setPending(false)
     }
@@ -387,7 +388,7 @@ function MeetingDetailHeader({
       onPatched({ title: updated.title })
       setEditing(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось переименовать')
+      setError(plainErrorText(e, 'Не удалось переименовать'))
     } finally {
       setBusy(false)
     }
@@ -401,7 +402,7 @@ function MeetingDetailHeader({
       await deleteMeeting(meeting.id)
       navigate('/meetings', { replace: true })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось удалить')
+      setError(plainErrorText(e, 'Не удалось удалить'))
       setBusy(false)
     }
   }
@@ -530,7 +531,7 @@ function MeetingCircumstances({
       })
       setEditing(false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сохранить')
+      setError(plainErrorText(e, 'Не удалось сохранить'))
     } finally {
       setBusy(false)
     }
@@ -670,7 +671,7 @@ function MeetingDetail({ id }: { id: number }) {
     setError(null)
     getMeeting(id)
       .then(setMeeting)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Совещание не найдено'))
+      .catch((e) => setError(plainErrorText(e, 'Совещание не найдено')))
   }, [id])
 
   return (

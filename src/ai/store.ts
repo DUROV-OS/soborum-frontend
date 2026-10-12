@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ApiError, StreamEvent } from '@/shared/lib/httpClient'
+import { StreamEvent } from '@/shared/lib/httpClient'
 import * as aiApi from './api'
 import { applyStreamEvent, StreamBubble } from './stream'
 import {
@@ -14,12 +14,13 @@ import {
   GrowthProposalOut,
   PendingActionOut,
 } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function reasonOf(error: unknown): string {
   if (error instanceof TypeError && /failed to fetch|networkerror|load failed/i.test(error.message)) {
     return 'Сеть оборвалась или сервер не ответил вовремя. Обновите страницу и повторите.'
   }
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 interface AiState {

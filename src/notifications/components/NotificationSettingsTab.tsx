@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BellOff } from 'lucide-react'
 import { useNotificationsStore } from '../store'
 import { MUTABLE_MODULES, moduleLabel } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /**
  * Вкладка «Настройки» на странице уведомлений (0080-d): мьют раздела
@@ -17,7 +18,7 @@ export function NotificationSettingsTab() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadMutes().catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить настройки'))
+    loadMutes().catch((e) => setError(plainErrorText(e, 'Не удалось загрузить настройки')))
   }, [loadMutes])
 
   const moduleMuted = new Set(mutes.filter((m) => m.object_id === null).map((m) => m.module))
@@ -28,7 +29,7 @@ export function NotificationSettingsTab() {
     try {
       await setMute(moduleId, null, muted)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось изменить настройку')
+      setError(plainErrorText(e, 'Не удалось изменить настройку'))
     }
   }
 
@@ -37,7 +38,7 @@ export function NotificationSettingsTab() {
     try {
       await setMute(moduleId, objectId, false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось снять мьют')
+      setError(plainErrorText(e, 'Не удалось снять мьют'))
     }
   }
 

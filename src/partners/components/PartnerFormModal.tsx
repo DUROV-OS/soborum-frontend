@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import { usePartnersStore } from '../store'
 import { Partner, PARTNER_CATEGORIES, PartnerCategory, PartnerContact, PartnerInput } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const MESSENGER_LIST_ID = 'partner-messenger-suggestions'
 const CITY_LIST_ID = 'partner-city-suggestions'
@@ -104,7 +105,7 @@ export function PartnerFormModal({
       if (onCreated) onCreated(created)
       else navigate(`/partners/${created.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось добавить партнёра')
+      setError(plainErrorText(e, 'Не удалось добавить партнёра'))
     } finally {
       setSaving(false)
     }

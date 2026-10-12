@@ -4,6 +4,7 @@ import { useAuthStore } from '@/auth/store'
 import { getDailyPlan } from '@/ai/api'
 import { DailyPlanItemOut } from '@/ai/types'
 import { Task } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => void }) {
   const hasAccess = useAuthStore((s) => s.hasAccess)
@@ -20,7 +21,7 @@ export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => voi
       const res = await getDailyPlan(reload)
       setPlan(res.plan)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить план на день')
+      setError(plainErrorText(e, 'Не удалось загрузить план на день'))
     } finally {
       setLoading(false)
     }

@@ -5,6 +5,7 @@ import { Button } from '@/shared/ui/Button'
 import { Field, Select, Textarea } from '@/shared/ui/Field'
 import { SECTIONS, SectionId } from '@/shared/sections'
 import { useFeedbackStore } from '../store'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const MAX_SCREENSHOTS = 5
 
@@ -67,7 +68,7 @@ export function FeedbackPage() {
       setFiles([])
       setNotice('Заявка отправлена. Статус, ответы администратора и изменения по ней — в разделе «Мои заявки».')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось отправить заявку')
+      setError(plainErrorText(e, 'Не удалось отправить заявку'))
     } finally {
       setSending(false)
     }

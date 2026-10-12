@@ -1,10 +1,10 @@
 import { create } from 'zustand'
-import { ApiError } from '@/shared/lib/httpClient'
 import * as todayApi from './api'
 import { AktualnoeResponse, MissedResponse, PeriodSummary, SummaryPeriod, TodayDashboard } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось загрузить сводку'
+  return plainErrorText(error, 'Не удалось загрузить сводку')
 }
 
 interface TodayState {

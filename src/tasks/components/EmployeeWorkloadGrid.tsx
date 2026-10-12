@@ -3,6 +3,7 @@ import { AlertCircle, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { getWorkload } from '../api'
 import { Chip, ChipTone } from '@/shared/ui/Chip'
 import { Workload, WorkloadLevel } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const LEVEL_LABEL: Record<WorkloadLevel, string> = {
   low: 'Низкая загрузка',
@@ -47,7 +48,7 @@ export function EmployeeWorkloadGrid() {
     try {
       setRows(await getWorkload())
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить загруженность сотрудников')
+      setError(plainErrorText(e, 'Не удалось загрузить загруженность сотрудников'))
     } finally {
       setLoading(false)
     }

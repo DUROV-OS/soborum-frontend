@@ -21,6 +21,7 @@ import {
   TemplateBlockMaterial,
   TemplateBlockTask,
 } from '../stageTemplateTypes'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 const STATUS_LABEL: Record<ProductionStageTemplate['status'], string> = {
   draft: 'Черновик',
@@ -114,7 +115,7 @@ export function StageTemplateReviewPage() {
           : `Заполнено нормативов: ${result.filled}.`,
       )
     } catch (e) {
-      setFillMessage(e instanceof Error ? e.message : 'Не удалось заполнить нормативы из КР')
+      setFillMessage(plainErrorText(e, 'Не удалось заполнить нормативы из КР'))
     } finally {
       setFilling(false)
     }

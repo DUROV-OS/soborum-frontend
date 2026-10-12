@@ -5,6 +5,7 @@ import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { GrowthProposalOut } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 /** Карточка одного предложения Марины по разделу «Развитие» (задача 0036-b) —
  * по образцу скриншота Арсения: бейдж, заголовок, описание проблемы и три
@@ -29,7 +30,7 @@ export function GrowthProposalCard({
     try {
       await onPrepareTask(proposal.id)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось подготовить задачу')
+      setError(plainErrorText(e, 'Не удалось подготовить задачу'))
     } finally {
       setPreparing(false)
     }

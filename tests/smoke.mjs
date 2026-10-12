@@ -50,6 +50,9 @@ const documentsClient = {
   house_model: null, contract_appendix_file: null, ar_file: null, kr_file: null, payment_edit_unlocked: false, tasks: [],
 }
 let lastDocumentsPatchBody = null
+// 0049: имитация технической ошибки Пульса и ответа ИИ-переводчика ошибок
+let todayFailure = null
+let humanizerAnswer = null
 const aiClient = {
   id: 23, cycle_id: 23, stage: 'lead', created_at: '2026-08-01T08:00:00Z',
   full_name: 'Волкова Волкова', phone: '+7 900 222-22-22', email: 'client23@example.test',
@@ -108,7 +111,9 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
     if (url.pathname === '/api/tasks/') requests.push(`TASKS-QUERY ${url.search}`)
     let body
     let status = 200
-    if (url.pathname === '/api/auth/me') body = user
+    if (url.pathname === '/api/ai/humanize-error') body = { text: humanizerAnswer }
+    else if (url.pathname === '/api/dashboard/today' && todayFailure) { status = todayFailure.status; body = { detail: todayFailure.detail } }
+    else if (url.pathname === '/api/auth/me') body = user
     else if (url.pathname === '/api/auth/users' && route.request().method() === 'GET') body = [admin, worker]
     else if (url.pathname === '/api/auth/users/2/access') { status = 403; body = { detail: 'Изменение доступа отклонено сервером' } }
     else if (url.pathname === '/api/dashboard/today') body = user.role === 'admin' ? overview : { ...overview, actions: [], widgets: overview.widgets.filter(w => w.section === 'production'), summary: 'По доступным данным отклонений для очереди внимания нет.' }
@@ -224,6 +229,21 @@ try {
   assert(!owner.requests.some(request => request.includes('/ask')))
   assert.equal(await owner.page.getByRole('button', { name: 'Автоматически', exact: true }).count(), 0)
   checks.push('Today works without AI and opens an unsent draft with A0/A2 controls')
+  todayFailure = { status: 500, detail: 'Internal Server Error' }
+  humanizerAnswer = 'Сервер не справился, повторите позже'
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByText('Сервер не справился, повторите позже', { exact: true }).waitFor()
+  assert.equal(await owner.page.getByText('Internal Server Error').count(), 0)
+  checks.push('Technical 500 error is shown as the AI-written phrase, not as "Internal Server Error" (0049)')
+  humanizerAnswer = null
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByText('Сервер сейчас не справляется. Повторите позже.', { exact: true }).waitFor()
+  checks.push('Without an AI phrase the technical error falls back to the static status-based text (0049)')
+  todayFailure = { status: 409, detail: 'Нельзя закрыть цикл без оплаты остатка' }
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByText('Нельзя закрыть цикл без оплаты остатка', { exact: true }).waitFor()
+  checks.push('An already readable backend message is shown as is, without calling the AI (0049)')
+  todayFailure = null
   await owner.page.goto(baseURL + '/today')
   await owner.page.getByRole('heading', { name: 'Вы могли пропустить' }).waitFor()
   await owner.page.getByText('срок сорван, блок стоит', { exact: true }).waitFor()

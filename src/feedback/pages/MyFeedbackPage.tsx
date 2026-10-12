@@ -10,6 +10,7 @@ import { FeedbackNoteForm } from '../components/FeedbackNoteForm'
 import { FeedbackTimeline } from '../components/FeedbackTimeline'
 import { useFeedbackStore } from '../store'
 import { FEEDBACK_STATUS_LABEL, FEEDBACK_STATUS_TONE, FeedbackRequest } from '../types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 function updatesLabel(n: number) {
   const mod10 = n % 10
@@ -38,7 +39,7 @@ export function MyFeedbackPage() {
 
   useEffect(() => {
     loadMine()
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки'))
+      .catch((e) => setError(plainErrorText(e, 'Не удалось загрузить заявки')))
       .finally(() => setLoaded(true))
   }, [loadMine])
 
@@ -49,7 +50,7 @@ export function MyFeedbackPage() {
     }
     setOpen((prev) => ({ ...prev, [request.id]: request.unseen_updates }))
     if (request.unseen_updates > 0) {
-      markSeen(request.id).catch((e) => setError(e instanceof Error ? e.message : 'Не удалось отметить прочитанной'))
+      markSeen(request.id).catch((e) => setError(plainErrorText(e, 'Не удалось отметить прочитанной')))
     }
   }
 

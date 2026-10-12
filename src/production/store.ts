@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { ApiError } from '@/shared/lib/httpClient'
 import * as productionApi from './api'
 import { ProductionListItem, Block, Production } from './types'
+import { plainErrorText } from '@/shared/lib/humanError'
 
 export interface ActionResult {
   ok: boolean
@@ -29,7 +29,7 @@ interface ProductionState {
 }
 
 function reasonOf(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error ? error.message : 'Не удалось выполнить действие'
+  return plainErrorText(error, 'Не удалось выполнить действие')
 }
 
 export const useProductionStore = create<ProductionState>((set, get) => ({
