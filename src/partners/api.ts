@@ -1,5 +1,5 @@
-import { apiRequest } from '@/shared/lib/httpClient'
-import { Partner, PartnerChatLink, PartnerInput, PartnerNote, ReferredClient } from './types'
+import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
+import { Partner, PartnerCategory, PartnerChatLink, PartnerInput, PartnerNote, ReferredClient } from './types'
 
 const SECTION = 'partners'
 
@@ -53,4 +53,22 @@ export function createChatLink(id: number, maxChatId: number, label: string): Pr
     method: 'POST',
     body: { max_chat_id: maxChatId, label },
   })
+}
+
+export interface PartnersExportFilters {
+  category?: PartnerCategory
+  city?: string
+  search?: string
+}
+
+/** GET /api/partners/export.xlsx — скачивает Excel с партнёрами (0110). Фильтры
+ * те же, что у списка: выгружается ровно то, что видно на странице. */
+export function exportPartners(filters: PartnersExportFilters = {}): Promise<void> {
+  const params = new URLSearchParams()
+  if (filters.category) params.set('category', filters.category)
+  if (filters.city?.trim()) params.set('city', filters.city.trim())
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  const query = params.toString()
+  const today = new Date().toLocaleDateString('sv-SE') // ГГГГ-ММ-ДД в локальном времени
+  return downloadFile(SECTION, `/export.xlsx${query ? `?${query}` : ''}`, `partners-${today}.xlsx`)
 }
