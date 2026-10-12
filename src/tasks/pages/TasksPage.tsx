@@ -158,7 +158,16 @@ export function TasksPage() {
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const [creating, setCreating] = useState(false)
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
-  const [selected, setSelected] = useState<Task | null>(null)
+  // Хранит задачу, по которой открыли карточку, а не только её id: панели
+  // «Мои задачи»/«План дня» берут задачи не из этого стора (0103), и для них
+  // нужен снэпшот как запасной вариант. Когда задача есть в `tasks`, карточка
+  // показывает актуальную версию из стора, а не замороженный на момент клика
+  // снэпшот — иначе после неудачной сдачи (статус ушёл вперёд) форма сдачи
+  // продолжала бы показывать устаревшее состояние и падать тем же 400 снова.
+  const [selectedSnapshot, setSelected] = useState<Task | null>(null)
+  const selected = selectedSnapshot
+    ? tasks.find((t) => t.id === selectedSnapshot.id) ?? selectedSnapshot
+    : null
   // Вход со счётчика Пульса: /tasks?scope=all|mine&status=open (0084-h) —
   // вкладка из scope, на доске только открытые задачи, клиентские фильтры
   // сброшены, чтобы карточек было ровно столько, сколько в счётчике.

@@ -47,6 +47,32 @@ const COLUMNS: DataTableColumn<Partner>[] = [
   { header: 'Город', accessor: (p) => p.city, sortValue: (p) => p.city },
   { header: 'Телефон', accessor: (p) => p.phone ?? '—' },
   {
+    header: 'Комментарий',
+    className: 'max-w-[200px]',
+    accessor: (p) =>
+      p.comment ? (
+        <span className="line-clamp-2 text-[13px] text-ink" title={p.comment}>
+          {p.comment}
+        </span>
+      ) : (
+        '—'
+      ),
+  },
+  {
+    header: 'Договорённости',
+    className: 'max-w-[220px]',
+    accessor: (p) => {
+      const latest = p.notes[0]
+      if (!latest) return '—'
+      return (
+        <div title={latest.text}>
+          <div className="line-clamp-2 text-[13px] text-ink">{latest.text}</div>
+          <div className="mt-0.5 text-[11px] text-muted">{new Date(latest.created_at).toLocaleDateString('ru-RU')}</div>
+        </div>
+      )
+    },
+  },
+  {
     header: 'Добавлен',
     accessor: (p) => new Date(p.created_at).toLocaleDateString('ru-RU'),
     sortValue: (p) => new Date(p.created_at),

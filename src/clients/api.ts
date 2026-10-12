@@ -99,6 +99,18 @@ export function updateHousesCount(id: number, patch: HousesCountUpdateInput): Pr
   return apiRequest<Client>({ section: SECTION, path: `/${id}/houses-count`, method: 'PATCH', body: patch })
 }
 
+/** PATCH /api/clients/:id/manager — назначить/сменить/снять ответственного
+ * менеджера (0080-a); `null` снимает менеджера. Те же права, что на смену
+ * стадии клиента. */
+export function updateManager(id: number, managerId: number | null): Promise<Client> {
+  return apiRequest<Client>({
+    section: SECTION,
+    path: `/${id}/manager`,
+    method: 'PATCH',
+    body: { manager_id: managerId },
+  })
+}
+
 /** POST /api/clients/:id/chat-links — привязать ещё один чат MAX к клиенту (0053). */
 export function createChatLink(id: number, maxChatId: number, label: string): Promise<ClientChatLink> {
   return apiRequest<ClientChatLink>({
