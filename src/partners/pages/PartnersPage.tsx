@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Handshake, Plus, Search, X } from 'lucide-react'
+import { Download, Handshake, Plus, Search, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -8,6 +8,7 @@ import { DataTable, DataTableColumn } from '@/shared/ui/DataTable'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
+import { exportPartners } from '../api'
 import { usePartnersStore } from '../store'
 import { categoryLabel, Partner, PARTNER_CATEGORIES, PartnerCategory } from '../types'
 import { PartnerFormModal } from '../components/PartnerFormModal'
@@ -92,6 +93,7 @@ export function PartnersPage() {
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     load()
@@ -112,6 +114,14 @@ export function PartnersPage() {
     { key: 'ALL' as CategoryTab, label: `Все · ${countOf('ALL')}` },
     ...PARTNER_CATEGORIES.map((c) => ({ key: c.key as CategoryTab, label: `${c.plural} · ${countOf(c.key)}` })),
   ]
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await exportPartners()
+    } finally {
+      setExporting(false)
+    }
+  }
   const filtering = Boolean(city || query.trim() || tab !== 'ALL')
 
   return (
@@ -152,6 +162,10 @@ export function PartnersPage() {
               </option>
             ))}
           </Select>
+          <Button variant="secondary" onClick={handleExport} disabled={exporting || loading}>
+            <Download size={16} />
+            {exporting ? 'Готовлю файл…' : 'Экспорт в Excel'}
+          </Button>
           {canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
