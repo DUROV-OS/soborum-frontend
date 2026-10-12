@@ -4,9 +4,9 @@ import { useNotificationsStore } from '../store'
 import { MUTABLE_MODULES, moduleLabel } from '../types'
 
 /**
- * Вкладка «Настройки» на странице уведомлений (0080-d): мьют раздела
- * целиком (переключатель) и список точечных мьютов объектов со снятием.
- * Добавление точечного мьюта прямо из карточки объекта (клиент/производство/
+ * Вкладка «Настройки» на странице уведомлений (0080-d): выключение раздела
+ * целиком (переключатель) и список выключенных объектов со снятием.
+ * Выключение объекта прямо из карточки объекта (клиент/производство/
  * пост/проводка) — следующий шаг, не вошедший в эту задачу (см. журнал
  * 0080-d): здесь только список и снятие через то же API `PUT /mutes`.
  */
@@ -37,7 +37,7 @@ export function NotificationSettingsTab() {
     try {
       await setMute(moduleId, objectId, false)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось снять мьют')
+      setError(e instanceof Error ? e.message : 'Не удалось включить уведомления')
     }
   }
 
@@ -74,13 +74,13 @@ export function NotificationSettingsTab() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-[14px] font-medium text-ink">Точечные мьюты</h2>
+        <h2 className="mb-2 text-[14px] font-medium text-ink">Выключено</h2>
         <p className="mb-3 text-[12px] text-muted">
-          Конкретные объекты, по которым вы отключили уведомления (замьючиваются из карточки объекта).
+          Конкретные объекты, по которым вы отключили уведомления (выключаются из карточки объекта).
         </p>
         {objectMutes.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted">
-            Точечных мьютов нет.
+            Ничего не выключено.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -97,7 +97,7 @@ export function NotificationSettingsTab() {
                   onClick={() => removeObjectMute(m.module, m.object_id as number)}
                   className="rounded-pill border border-border px-2.5 py-1 text-[12px] text-ink hover:border-brand/40"
                 >
-                  Снять мьют
+                  Включить снова
                 </button>
               </li>
             ))}

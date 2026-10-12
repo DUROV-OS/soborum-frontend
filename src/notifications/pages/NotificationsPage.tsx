@@ -55,7 +55,7 @@ function NotificationCard({ notification, onOpen }: { notification: Notification
 /**
  * «Уведомления» (0080-d): лента личных уведомлений (прочитанные/непрочитанные
  * визуально разделены, клик ведёт на объект и отмечает прочитанным) + вкладка
- * «Настройки» — мьют раздела целиком или конкретного объекта.
+ * «Настройки» — выключение раздела целиком или конкретного объекта.
  */
 export function NotificationsPage() {
   const navigate = useNavigate()

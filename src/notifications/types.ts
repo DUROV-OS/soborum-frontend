@@ -56,7 +56,7 @@ export type NotificationModule =
   | 'board'
   | 'accounting'
 
-/** Разделы, которыми можно мьютить уведомления целиком — реальные `Module`,
+/** Разделы, которыми можно выключать уведомления целиком — реальные `Module`,
  * без псевдо-разделов фронта (`tasks_all`, `admin`, `today` и т.д.). */
 export const MUTABLE_MODULES: { id: NotificationModule; label: string }[] = [
   { id: 'clients', label: 'Клиенты' },
