@@ -120,6 +120,26 @@ async function openAs(user, route = '/today', viewport = { width: 1440, height: 
           { cycle_id: 13, client_name: 'Сидоров С.', stage: 'Монтаж', percent: 85, phrase: 'финишная отделка' },
         ] }
       : { generated_at: '2026-09-05T09:30:00Z', ai_configured: false, degraded: false, items: [] }
+    else if (url.pathname === '/api/dashboard/missed') body = user.role === 'admin'
+      ? { generated_at: '2026-09-05T09:30:00Z', ai_configured: true, degraded: false, items: [
+          { id: 901, kind: 'task_overdue', title: 'Задача «Собрать блок №3» просрочена', body: null, object_type: 'task', object_id: 502, created_at: new Date(Date.now() - 5 * 3600_000).toISOString(), reason: 'срок сорван, блок стоит' },
+          { id: 902, kind: 'money_movement_update', title: 'Проводка на 120 000 ₽ проведена', body: null, object_type: 'money_movement', object_id: 5, created_at: new Date(Date.now() - 30 * 3600_000).toISOString(), reason: '' },
+        ] }
+      : { generated_at: '2026-09-05T09:30:00Z', ai_configured: false, degraded: false, items: [] }
+    else if (url.pathname === '/api/dashboard/today/summary/day' || url.pathname === '/api/dashboard/today/summary/week') {
+      const week = url.pathname.endsWith('/week')
+      body = { period: week ? 'week' : 'day', label: week ? 'Последние 7 дней, 30 августа — 5 сентября' : 'Сегодня, 5 сентября', compare_label: week ? 'предыдущие 7 дней' : 'вчера',
+        start: '2026-09-04T21:00:00Z', end: '2026-09-05T21:00:00Z', generated_at: '2026-09-05T09:30:00Z',
+        sections: [
+          { section: 'tasks', title: 'Задачи', metrics: [
+            { key: 'tasks_closed', label: 'Закрыто задач', unit: 'count', value: week ? 14 : 3, previous: week ? 9 : 3, growth_is_bad: false },
+            { key: 'tasks_overdue', label: 'Срок вышел, не закрыты', unit: 'count', value: week ? 5 : 2, previous: week ? 1 : 0, growth_is_bad: true },
+          ] },
+          { section: 'accounting', title: 'Бухгалтерия', metrics: [
+            { key: 'income_rub', label: 'Поступления', unit: 'rub', value: week ? 1250000 : 300000, previous: 0, growth_is_bad: false },
+          ] },
+        ] }
+    }
     else if (url.pathname === '/api/agents/stats') body = agentStats
     else if (url.pathname === '/api/tasks/') body = [
       // задача-ссылка смены стадии клиента: без дедлайна, создана давно —
@@ -204,6 +224,22 @@ try {
   assert(!owner.requests.some(request => request.includes('/ask')))
   assert.equal(await owner.page.getByRole('button', { name: 'Автоматически', exact: true }).count(), 0)
   checks.push('Today works without AI and opens an unsent draft with A0/A2 controls')
+  await owner.page.goto(baseURL + '/today')
+  await owner.page.getByRole('heading', { name: 'Вы могли пропустить' }).waitFor()
+  await owner.page.getByText('срок сорван, блок стоит', { exact: true }).waitFor()
+  assert(await owner.page.getByText('Проводка на 120 000 ₽ проведена', { exact: true }).isVisible())
+  checks.push('Pulse shows the "Вы могли пропустить" block with the AI reason for each notification (0027)')
+  await owner.page.getByRole('tab', { name: 'Итоги дня' }).click()
+  await owner.page.getByText('Сегодня, 5 сентября', { exact: false }).waitFor()
+  assert(await owner.page.getByText('Закрыто задач', { exact: true }).isVisible())
+  assert.equal(await owner.page.getByRole('heading', { name: 'Вы могли пропустить' }).count(), 0)
+  await owner.page.getByRole('tab', { name: 'Итоги недели' }).click()
+  await owner.page.getByText('Последние 7 дней, 30 августа — 5 сентября', { exact: false }).waitFor()
+  assert(await owner.page.getByText('1 250 000 ₽', { exact: true }).isVisible())
+  await owner.page.screenshot({ path: path.join(artifactDir, 'durov-os-pulse-week.png'), fullPage: true })
+  await owner.page.getByRole('tab', { name: 'Сейчас' }).click()
+  await owner.page.getByRole('heading', { name: 'Вы могли пропустить' }).waitFor()
+  checks.push('Pulse tabs "Итоги дня" / "Итоги недели" show period metrics and "Сейчас" keeps the current view (0027)')
   await owner.page.goto(baseURL + '/agents')
   await owner.page.getByRole('heading', { name: 'Агенты.' }).waitFor()
   await owner.page.getByRole('tab', { name: 'Панель' }).click()
