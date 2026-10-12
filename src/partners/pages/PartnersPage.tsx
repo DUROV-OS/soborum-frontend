@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Handshake, Plus, Search, X } from 'lucide-react'
+import { Download, Handshake, Plus, Search, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -8,6 +8,7 @@ import { DataTable, DataTableColumn } from '@/shared/ui/DataTable'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input, Select } from '@/shared/ui/Field'
 import { Tabs } from '@/shared/ui/Tabs'
+import { exportPartners } from '../api'
 import { usePartnersStore } from '../store'
 import { categoryLabel, Partner, PARTNER_CATEGORIES, PartnerCategory } from '../types'
 import { PartnerFormModal } from '../components/PartnerFormModal'
@@ -92,6 +93,8 @@ export function PartnersPage() {
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -112,26 +115,39 @@ export function PartnersPage() {
     { key: 'ALL' as CategoryTab, label: `Все · ${countOf('ALL')}` },
     ...PARTNER_CATEGORIES.map((c) => ({ key: c.key as CategoryTab, label: `${c.plural} · ${countOf(c.key)}` })),
   ]
+  // Выгружаем ровно то, что на экране: вкладка категории, город и поиск уходят
+  // на бэкенд теми же параметрами, что у списка.
+  const handleExport = async () => {
+    setExporting(true)
+    setExportError(null)
+    try {
+      await exportPartners({ category: tab === 'ALL' ? undefined : tab, city, search: query })
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Не удалось скачать файл')
+    } finally {
+      setExporting(false)
+    }
+  }
   const filtering = Boolean(city || query.trim() || tab !== 'ALL')
 
   return (
     <div>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3">
         <div>
           <h1 className="text-[20px] font-medium text-ink">База партнёров</h1>
           <p className="mt-1 text-[13px] text-muted">
             Все, кого мы нашли для сотрудничества: коммерция, агентства, риэлторы и специалисты по земле
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Имя, организация, телефон"
               aria-label="Поиск партнёра"
-              className="w-60 pl-8 pr-8"
+              className="w-72 pl-8 pr-8"
             />
             {query && (
               <button
@@ -152,6 +168,10 @@ export function PartnersPage() {
               </option>
             ))}
           </Select>
+          <Button variant="secondary" onClick={handleExport} disabled={exporting || loading}>
+            <Download size={16} />
+            {exporting ? 'Готовлю файл…' : 'Экспорт в Excel'}
+          </Button>
           {canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
@@ -160,6 +180,12 @@ export function PartnersPage() {
           )}
         </div>
       </div>
+
+      {exportError && (
+        <p role="alert" className="mb-3 text-[13px] text-danger">
+          Не удалось скачать Excel: {exportError}
+        </p>
+      )}
 
       <div className="mb-4">
         <Tabs tabs={tabs} activeKey={tab} onChange={setTab} />
