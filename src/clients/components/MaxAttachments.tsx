@@ -531,7 +531,7 @@ function UnknownAttach({ attach }: { attach: MaxAttach }) {
   return (
     <Placeholder
       icon={<Paperclip size={13} />}
-      text={attach.name ?? attach.title ?? `Вложение${attach.type ? ` (${attach.type})` : ''}`}
+      text={attach.name ?? attach.title ?? 'Вложение'}
     />
   )
 }
