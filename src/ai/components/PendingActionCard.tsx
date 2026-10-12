@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Check, ShieldCheck, X } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
+import { toolFieldLabel, toolFieldValue } from '../lib/toolInputLabels'
 import { PendingActionOut } from '../types'
 
-function formatInput(input: Record<string, unknown>): { key: string; value: string }[] {
+function formatInput(input: Record<string, unknown>): { key: string; label: string; value: string }[] {
   return Object.entries(input).map(([key, value]) => ({
     key,
-    value: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+    label: toolFieldLabel(key),
+    value: toolFieldValue(key, value),
   }))
 }
 
@@ -56,9 +58,9 @@ export function PendingActionCard({
       </p>}
       {fields.length > 0 && (
         <dl className="mb-3 flex max-h-72 flex-col gap-2 overflow-y-auto">
-          {fields.map(({ key, value }) => (
+          {fields.map(({ key, label, value }) => (
             <div key={key} className="min-w-0 text-[12px]">
-              <dt className="shrink-0 text-muted">{key}:</dt>
+              <dt className="shrink-0 text-muted">{label}:</dt>
               <dd className="min-w-0 whitespace-pre-wrap break-words text-ink">{value}</dd>
             </div>
           ))}
