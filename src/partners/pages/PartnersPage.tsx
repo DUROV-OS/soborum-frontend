@@ -132,22 +132,22 @@ export function PartnersPage() {
 
   return (
     <div>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex flex-col gap-3">
         <div>
           <h1 className="text-[20px] font-medium text-ink">База партнёров</h1>
           <p className="mt-1 text-[13px] text-muted">
             Все, кого мы нашли для сотрудничества: коммерция, агентства, риэлторы и специалисты по земле
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Имя, организация, телефон"
               aria-label="Поиск партнёра"
-              className="w-60 pl-8 pr-8"
+              className="w-72 pl-8 pr-8"
             />
             {query && (
               <button
