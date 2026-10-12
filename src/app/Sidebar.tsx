@@ -4,10 +4,11 @@ import { ArrowUpRight, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { useFeedbackStore } from '@/feedback/store'
 import { awaitsReply } from '@/feedback/types'
+import { useNotificationsStore } from '@/notifications/store'
 import { SECTIONS, SectionId, WORK_SECTION_IDS } from '@/shared/sections'
 
 /** Верхнеуровневое меню — единым списком, без подгрупп. */
-const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'feedback_my', 'feedback_admin', 'admin']
+const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'notifications', 'feedback_my', 'feedback_admin', 'admin']
 
 /** Пути разделов из хаба «Работа» — по ним «Работа» тоже считается активной. */
 const WORK_PATHS = ['/work', ...WORK_SECTION_IDS.map((id) => SECTIONS.find((s) => s.id === id)!.path)]
@@ -22,6 +23,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   )
   const loadMyFeedback = useFeedbackStore((s) => s.loadMine)
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
+  const loadUnreadNotifications = useNotificationsStore((s) => s.loadUnreadCount)
+  const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname } = useLocation()
 
   // Счётчик новых заявок в пункте «Заявки» (0075-c) — только администратору,
@@ -38,6 +41,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
   }, [loadMyFeedback])
+
+  // Бейдж непрочитанных уведомлений (0080-d) — тот же подход и интервал, что
+  // у «Моих заявок»: без push, обычный поллинг раз в минуту.
+  useEffect(() => {
+    loadUnreadNotifications().catch(() => {})
+    const timer = window.setInterval(() => loadUnreadNotifications().catch(() => {}), 60_000)
+    return () => window.clearInterval(timer)
+  }, [loadUnreadNotifications])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   // (MAX доступен всем вошедшим — значит хаб виден всегда).
@@ -84,6 +95,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                   {section.id === 'feedback_admin' && newFeedbackCount > 0 && (
                     <span className="rounded-pill bg-brand px-2 py-0.5 text-[12px] font-medium text-white">
                       {newFeedbackCount}
+                    </span>
+                  )}
+                  {section.id === 'notifications' && unreadNotificationsCount > 0 && (
+                    <span
+                      className="rounded-pill bg-brand px-2 py-0.5 text-[12px] font-medium text-white"
+                      title="Непрочитанные уведомления"
+                    >
+                      {unreadNotificationsCount}
                     </span>
                   )}
                   {section.id === 'feedback_my' && unseenFeedbackCount > 0 && (

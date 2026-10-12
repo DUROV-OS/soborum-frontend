@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bell,
   Boxes,
   Briefcase,
   Calculator,
@@ -37,6 +38,10 @@ import {
  * 'feedback_my' — фронтовое: раздел «Мои заявки» (0090) — свои заявки со
  * статусом, комментариями администратора и изменениями в системе. Доступен
  * каждому вошедшему, как подача заявки.
+ * 'notifications' — фронтовое: раздел «Уведомления» (0080-d) — личная лента
+ * уведомлений и их настройки (мьют раздела/объекта). На бэкенде это
+ * /api/notifications, своего Module нет — доступен каждому вошедшему, как
+ * «Мои заявки», в матрице доступа не назначается.
  * 'agents' — тоже фронтовое: операционная команда из восьми ролей, не Module
  * на бэкенде. Доступен каждому вошедшему, как «Пульс».
  * 'chats' — фронтовое: все чаты мессенджера MAX (oneme). Данные MAX общие
@@ -79,6 +84,7 @@ export type SectionId =
   | 'suppliers'
   | 'feedback_admin'
   | 'feedback_my'
+  | 'notifications'
 
 export interface SectionMeta {
   id: SectionId
@@ -111,6 +117,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
   { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },
+  { id: 'notifications', label: 'Уведомления', path: '/notifications', icon: Bell, notAssignable: true },
   { id: 'feedback_my', label: 'Мои заявки', path: '/feedback/my', icon: MessageSquareText, notAssignable: true },
   { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },
   { id: 'admin', label: 'Доступ', path: '/admin', icon: ShieldCheck, adminOnly: true },
