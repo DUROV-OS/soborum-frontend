@@ -94,6 +94,7 @@ export function PartnersPage() {
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     load()
@@ -114,10 +115,15 @@ export function PartnersPage() {
     { key: 'ALL' as CategoryTab, label: `Все · ${countOf('ALL')}` },
     ...PARTNER_CATEGORIES.map((c) => ({ key: c.key as CategoryTab, label: `${c.plural} · ${countOf(c.key)}` })),
   ]
+  // Выгружаем ровно то, что на экране: вкладка категории, город и поиск уходят
+  // на бэкенд теми же параметрами, что у списка.
   const handleExport = async () => {
     setExporting(true)
+    setExportError(null)
     try {
-      await exportPartners()
+      await exportPartners({ category: tab === 'ALL' ? undefined : tab, city, search: query })
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Не удалось скачать файл')
     } finally {
       setExporting(false)
     }
@@ -174,6 +180,12 @@ export function PartnersPage() {
           )}
         </div>
       </div>
+
+      {exportError && (
+        <p role="alert" className="mb-3 text-[13px] text-danger">
+          Не удалось скачать Excel: {exportError}
+        </p>
+      )}
 
       <div className="mb-4">
         <Tabs tabs={tabs} activeKey={tab} onChange={setTab} />
