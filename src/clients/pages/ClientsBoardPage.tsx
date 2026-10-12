@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Building2, CalendarClock, Contact, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Building2, CalendarClock, Contact, Plus, Search, User, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -210,6 +210,12 @@ function ClientCard({ client }: { client: Client }) {
     <div>
       <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
       <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
+      {/* Ответственный менеджер (0080-a) — адресат уведомлений по клиенту,
+          виден сразу на доске, не только в карточке. */}
+      <div className="mt-2 flex max-w-full items-center gap-1 text-[11px] text-muted">
+        <User size={11} className="shrink-0" />
+        <span className="truncate">Менеджер: {client.manager?.full_name ?? 'не назначен'}</span>
+      </div>
       {client.referrer && (
         <div className="mt-2 flex max-w-full items-center gap-1 text-[11px] text-muted">
           <Contact size={11} className="shrink-0" />

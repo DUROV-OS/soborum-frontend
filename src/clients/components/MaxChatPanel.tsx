@@ -5,9 +5,11 @@ import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
-import { Select, Textarea } from '@/shared/ui/Field'
+import { Select } from '@/shared/ui/Field'
 import { ChatPickerModal } from '@/max/components/ChatPickerModal'
+import { MaxComposerInput } from '@/max/components/MaxComposerInput'
 import { MaxAttachButton, MaxPendingFile } from '@/max/components/MaxFilePicker'
+import { ReadMark } from '@/max/components/ReadMark'
 import { ForwardMessageModal, MaxMessageActions } from '@/max/components/MaxMessageActions'
 import * as maxApi from '@/max/api'
 import { useMaxEvents } from '@/max/realtime'
@@ -317,10 +319,10 @@ function ChatThread({
             disabled={sending}
           />
         )}
-        <Textarea
-          rows={2}
+        <MaxComposerInput
+          minRows={2}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
@@ -401,6 +403,11 @@ function MessageBubble({
         <span className="mt-0.5 text-[11px] text-muted">
           {time}
           {msg.status === 'EDITED' ? ' · изменено' : ''}
+          {msg.readStatus && (
+            <span className="ml-1">
+              <ReadMark status={msg.readStatus} />
+            </span>
+          )}
           {actions && <span className="ml-1">{actions}</span>}
         </span>
       )}
