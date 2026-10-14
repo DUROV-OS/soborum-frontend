@@ -120,6 +120,12 @@ export interface ClientTaskReport {
   created_at: string
 }
 
+/** Сотрудник в выборе исполнителя задачи по клиенту (GET /api/clients/assignees). */
+export interface ClientAssignee {
+  id: number
+  full_name: string
+}
+
 export interface ClientTaskInput {
   title: string
   description?: string | null

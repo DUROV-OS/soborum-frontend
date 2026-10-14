@@ -4,6 +4,7 @@ import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { deadlineLabel, isOpen } from '../taskDeadline'
+import { useAssignees } from '../useAssignees'
 import { Client, ClientTask } from '../types'
 import { Section } from './PanelPrimitives'
 import { CloseTaskForm, CreateTaskForm, ShiftDeadlineForm } from './TaskForms'
@@ -80,6 +81,13 @@ export function TasksPanel({ client }: { client: Client }) {
 function OpenTaskRow({ client, task, canEdit }: { client: Client; task: ClientTask; canEdit: boolean }) {
   const [action, setAction] = useState<'none' | 'shift' | 'close'>('none')
   const label = deadlineLabel(task.deadline)
+  const { assignees } = useAssignees()
+  const names = task.assignee_ids
+    .map((id) => assignees.find((a) => a.id === id)?.full_name)
+    .filter((name): name is string => Boolean(name))
+  const time = task.deadline
+    ? new Date(task.deadline).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    : null
 
   return (
     <div
@@ -97,9 +105,11 @@ function OpenTaskRow({ client, task, canEdit }: { client: Client; task: ClientTa
           >
             {label.overdue ? <AlertTriangle size={12} /> : <CalendarClock size={12} />}
             {label.text}
+            {time ? `, ${time}` : ''}
           </span>
         )}
       </div>
+      {names.length > 0 && <p className="mt-0.5 text-[12px] text-muted">Исполнитель: {names.join(', ')}</p>}
       {task.description && <p className="mt-1 text-[12px] text-muted">{task.description}</p>}
       {task.blocking && (
         <p className="mt-1 text-[11px] text-muted">Блокирует перевод клиента на следующую стадию</p>
