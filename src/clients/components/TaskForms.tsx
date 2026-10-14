@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useAuthStore } from '@/auth/store'
 import { Button } from '@/shared/ui/Button'
-import { Field, Input, Textarea } from '@/shared/ui/Field'
+import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { useClientsStore } from '../store'
+import { useAssignees } from '../useAssignees'
 import { Client, ClientTask, ClientTaskInput, CLIENT_TASK_SUGGESTIONS } from '../types'
 
 const SUGGESTIONS_LIST_ID = 'client-task-suggestions'
@@ -35,6 +37,10 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [day, setDay] = useState(defaultDeadline())
+  const currentId = useAuthStore((s) => s.current?.id ?? null)
+  const { assignees } = useAssignees()
+  // По умолчанию — менеджер клиента, а если его нет — тот, кто ставит задачу.
+  const [assigneeId, setAssigneeId] = useState<number | null>(client.manager_id ?? currentId)
   const [blocking, setBlocking] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +52,7 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
       title: title.trim(),
       description: description.trim() || null,
       deadline: toIso(day),
+      assignee_ids: assigneeId ? [assigneeId] : undefined,
       blocking,
     })
     setSaving(false)
@@ -69,6 +76,23 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
       </Field>
       <Field label="Подробности" hint="Необязательно">
         <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+      </Field>
+      <Field label="Исполнитель">
+        <Select
+          value={assigneeId ?? ''}
+          onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : null)}
+          aria-label="Исполнитель"
+        >
+          {assigneeId !== null && !assignees.some((a) => a.id === assigneeId) && (
+            <option value={assigneeId}>{assigneeId === currentId ? 'Я' : 'Менеджер клиента'}</option>
+          )}
+          {assigneeId === null && <option value="">Я</option>}
+          {assignees.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.full_name}
+            </option>
+          ))}
+        </Select>
       </Field>
       <Field label="Срок" required>
         <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />

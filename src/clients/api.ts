@@ -4,6 +4,7 @@ import {
   ClientChatLink,
   ClientChatState,
   ClientCreateInput,
+  ClientAssignee,
   ClientNote,
   ClientSourceInput,
   ClientTask,
@@ -250,4 +251,11 @@ export function deleteClient(id: number): Promise<void> {
 /** POST /api/clients/:id/transition */
 export function advanceStage(id: number): Promise<Client> {
   return apiRequest<Client>({ section: SECTION, path: `/${id}/transition`, method: 'POST' })
+}
+
+/** GET /api/clients/assignees — сотрудники, на которых можно поставить задачу
+ * по клиенту (0111-c). Доступен всем, кто редактирует клиентов, в отличие от
+ * списка пользователей, который отдаётся только администратору. */
+export function listAssignees(): Promise<ClientAssignee[]> {
+  return apiRequest<ClientAssignee[]>({ section: SECTION, path: '/assignees' })
 }
