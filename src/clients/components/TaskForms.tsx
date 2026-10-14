@@ -16,11 +16,28 @@ function defaultDeadline(): string {
   return date.toISOString().slice(0, 10)
 }
 
-function toIso(day: string): string {
-  // Конец рабочего дня по местному времени — иначе «сегодня» приезжает
-  // полуночью и метка срока сразу показывает просрочку.
-  return new Date(`${day}T18:00:00`).toISOString()
+/** Время по умолчанию — конец рабочего дня: иначе «сегодня» приезжает полуночью
+ * и метка срока сразу показывает просрочку. */
+const DEFAULT_TIME = '18:00'
+
+function toIso(day: string, time: string = DEFAULT_TIME): string {
+  return new Date(`${day}T${time || DEFAULT_TIME}:00`).toISOString()
 }
+
+/** Дата и время срока по местному времени (ISO с сервера — в UTC). */
+function localDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('sv-SE')
+}
+
+function localTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
+function isInPast(day: string, time: string): boolean {
+  return new Date(`${day}T${time || DEFAULT_TIME}:00`).getTime() < Date.now()
+}
+
+const PAST_DEADLINE = 'Срок уже прошёл — выберите дату и время в будущем'
 
 function Suggestions() {
   return (
@@ -37,6 +54,7 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [day, setDay] = useState(defaultDeadline())
+  const [time, setTime] = useState(DEFAULT_TIME)
   const currentId = useAuthStore((s) => s.current?.id ?? null)
   const { assignees } = useAssignees()
   // По умолчанию — менеджер клиента, а если его нет — тот, кто ставит задачу.
@@ -47,11 +65,16 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
 
   async function submit() {
     if (!title.trim() || !day) return
+    if (isInPast(day, time)) {
+      setError(PAST_DEADLINE)
+      return
+    }
+    setError(null)
     setSaving(true)
     const result = await createTask(client.id, {
       title: title.trim(),
       description: description.trim() || null,
-      deadline: toIso(day),
+      deadline: toIso(day, time),
       assignee_ids: assigneeId ? [assigneeId] : undefined,
       blocking,
     })
@@ -94,9 +117,14 @@ export function CreateTaskForm({ client, onDone }: { client: Client; onDone: () 
           ))}
         </Select>
       </Field>
-      <Field label="Срок" required>
-        <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Срок" required>
+          <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+        </Field>
+        <Field label="Время" required>
+          <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        </Field>
+      </div>
       <label className="flex items-center gap-2 text-[13px] text-ink">
         <input
           type="checkbox"
@@ -129,15 +157,21 @@ export function ShiftDeadlineForm({
   onDone: () => void
 }) {
   const shiftTaskDeadline = useClientsStore((s) => s.shiftTaskDeadline)
-  const [day, setDay] = useState(task.deadline ? task.deadline.slice(0, 10) : defaultDeadline())
+  const [day, setDay] = useState(task.deadline ? localDay(task.deadline) : defaultDeadline())
+  const [time, setTime] = useState(task.deadline ? localTime(task.deadline) : DEFAULT_TIME)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function submit() {
     if (!reason.trim() || !day) return
+    if (isInPast(day, time)) {
+      setError(PAST_DEADLINE)
+      return
+    }
+    setError(null)
     setSaving(true)
-    const result = await shiftTaskDeadline(client.id, task.id, toIso(day), reason.trim())
+    const result = await shiftTaskDeadline(client.id, task.id, toIso(day, time), reason.trim())
     setSaving(false)
     if (result.ok) {
       onDone()
@@ -148,9 +182,14 @@ export function ShiftDeadlineForm({
 
   return (
     <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
-      <Field label="Новый срок" required>
-        <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Новый срок" required>
+          <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} />
+        </Field>
+        <Field label="Время" required>
+          <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        </Field>
+      </div>
       <Field label="Причина переноса" required hint="По ней потом видно, почему клиент стоит">
         <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Клиент в отпуске" />
       </Field>
@@ -181,6 +220,7 @@ export function CloseTaskForm({
   const [withNext, setWithNext] = useState(false)
   const [nextTitle, setNextTitle] = useState('')
   const [nextDay, setNextDay] = useState(defaultDeadline())
+  const [nextTime, setNextTime] = useState(DEFAULT_TIME)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -188,8 +228,13 @@ export function CloseTaskForm({
 
   async function submit() {
     if (!resolution.trim() || !nextReady) return
+    if (withNext && isInPast(nextDay, nextTime)) {
+      setError(PAST_DEADLINE)
+      return
+    }
+    setError(null)
     const next: ClientTaskInput | undefined = withNext
-      ? { title: nextTitle.trim(), deadline: toIso(nextDay), blocking: true }
+      ? { title: nextTitle.trim(), deadline: toIso(nextDay, nextTime), blocking: true }
       : undefined
     setSaving(true)
     const result = await closeTask(client.id, task.id, resolution.trim(), next)
@@ -233,6 +278,9 @@ export function CloseTaskForm({
           </Field>
           <Field label="Срок" required>
             <Input type="date" value={nextDay} onChange={(e) => setNextDay(e.target.value)} />
+          </Field>
+          <Field label="Время" required>
+            <Input type="time" value={nextTime} onChange={(e) => setNextTime(e.target.value)} />
           </Field>
         </div>
       )}
