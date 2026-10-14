@@ -22,15 +22,27 @@ interface FormState {
   comment: string
 }
 
-function initialState(partner?: Partner): FormState {
+/** Начальные значения формы — например, из чата MAX (0105), по образцу
+ * `CreateClientInitial` у клиента. Категорию и город оттуда не вывести —
+ * сотрудник дозаполняет их сам. */
+export interface PartnerFormInitial {
+  name?: string
+  phone?: string
+  contacts?: PartnerContact[]
+}
+
+function initialState(partner?: Partner, initial?: PartnerFormInitial): FormState {
   return {
     category: partner?.category ?? '',
-    name: partner?.name ?? '',
+    name: partner?.name ?? initial?.name ?? '',
     city: partner?.city ?? '',
     organization: partner?.organization ?? '',
-    phone: partner?.phone ?? '',
+    phone: partner?.phone ?? initial?.phone ?? '',
     email: partner?.email ?? '',
-    contacts: partner?.contacts.length ? partner.contacts : [{ messenger: 'Telegram', contact: '' }],
+    contacts:
+      partner?.contacts.length || initial?.contacts?.length
+        ? (partner?.contacts ?? initial?.contacts ?? [])
+        : [{ messenger: 'Telegram', contact: '' }],
     comment: partner?.comment ?? '',
   }
 }
@@ -42,29 +54,33 @@ export function PartnerFormModal({
   open,
   onClose,
   partner,
+  initial,
   onCreated,
 }: {
   open: boolean
   onClose: () => void
   partner?: Partner
+  /** Подставить имя/телефон/способ связи при создании — например, из чата MAX (0105). */
+  initial?: PartnerFormInitial
   /** Если задан — после добавления партнёр отдаётся сюда, а не открывается его
-   * карточка: так форму зовут из «Кто рекомендовал» при создании клиента (0083-c). */
+   * карточка: так форму зовут из «Кто рекомендовал» при создании клиента (0083-c)
+   * и из чата MAX (0105). */
   onCreated?: (partner: Partner) => void
 }) {
   const create = usePartnersStore((s) => s.create)
   const update = usePartnersStore((s) => s.update)
   const cities = usePartnersStore((s) => s.cities)
   const navigate = useNavigate()
-  const [form, setForm] = useState<FormState>(() => initialState(partner))
+  const [form, setForm] = useState<FormState>(() => initialState(partner, initial))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
-      setForm(initialState(partner))
+      setForm(initialState(partner, initial))
       setError(null)
     }
-  }, [open, partner])
+  }, [open, partner, initial])
 
   const valid = Boolean(form.category && form.name.trim() && form.city.trim())
 

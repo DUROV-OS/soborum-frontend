@@ -507,7 +507,13 @@ function ChatClientSwitcher({
   const [open, setOpen] = useState(false)
   if (!chat) return null
 
-  const linked = chat.linkedClientId != null
+  const linkedClient = chat.linkedClientId != null
+  const linkedPartner = chat.linkedPartnerId != null
+  const label = linkedClient
+    ? chat.linkedClientName ?? 'Клиент'
+    : linkedPartner
+      ? `Партнёр ${chat.linkedPartnerName ?? ''}`.trim()
+      : 'Не привязан'
 
   return (
     <>
@@ -516,8 +522,8 @@ function ChatClientSwitcher({
         onClick={() => setOpen(true)}
         className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
       >
-        {linked ? <UserCheck size={13} /> : <Link2 size={13} />}
-        {linked ? chat.linkedClientName ?? 'Клиент' : 'Не привязан'}
+        {linkedClient || linkedPartner ? <UserCheck size={13} /> : <Link2 size={13} />}
+        {label}
       </button>
       <LinkClientModal
         chatId={chat.id}

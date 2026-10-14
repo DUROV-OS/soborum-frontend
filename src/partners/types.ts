@@ -47,6 +47,15 @@ export interface PartnerNote {
   created_at: string
 }
 
+/** Привязка партнёра к чату MAX (0105), по образцу `ClientChatLink` клиента. */
+export interface PartnerChatLink {
+  id: number
+  partner_id: number
+  max_chat_id: number
+  label: string
+  created_at: string
+}
+
 export interface Partner {
   id: number
   category: PartnerCategory
@@ -61,6 +70,7 @@ export interface Partner {
   created_at: string
   updated_at: string | null
   notes: PartnerNote[]
+  chat_links: PartnerChatLink[]
 }
 
 export interface PartnerInput {

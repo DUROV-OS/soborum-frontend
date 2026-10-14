@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import * as clientsApi from '@/clients/api'
 import { CreateClientInitial, CreateClientModal } from '@/clients/components/CreateClientModal'
 import { Client } from '@/clients/types'
+import * as partnersApi from '@/partners/api'
+import { PartnerFormInitial, PartnerFormModal } from '@/partners/components/PartnerFormModal'
+import { Partner } from '@/partners/types'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
@@ -12,14 +15,29 @@ import { MaxDialogPeer } from '../types'
 
 /** Название привязки чата, созданного вместе с клиентом из MAX (0099). */
 const NEW_CLIENT_LINK_LABEL = 'С клиентом'
+/** Название привязки чата, созданного вместе с партнёром из MAX (0105). */
+const NEW_PARTNER_LINK_LABEL = 'С партнёром'
 
-/** Данные для формы «Новый клиент» из личного диалога: имя, номер (если MAX
- * его отдал) и способ связи MAX — номер, а без него имя в MAX. */
-function initialFromChat(peer: MaxDialogPeer, title: string | null): CreateClientInitial {
+/** Способ связи MAX для новой карточки из личного диалога: номер, а без него
+ * имя собеседника в MAX (общее для клиента и партнёра, 0099/0105). */
+function maxContactFromPeer(peer: MaxDialogPeer, title: string | null): { name: string; phone: string; contact: string } {
   const name = peer.name ?? title ?? ''
   const phone = peer.phone ? formatPhone(peer.phone) : ''
   const contact = phone || name
+  return { name, phone, contact }
+}
+
+/** Данные для формы «Новый клиент» из личного диалога (0099). */
+function initialClientFromChat(peer: MaxDialogPeer, title: string | null): CreateClientInitial {
+  const { name, phone, contact } = maxContactFromPeer(peer, title)
   return { fullName: name, phone, contacts: contact ? [{ messenger: 'MAX', contact }] : undefined }
+}
+
+/** Данные для формы «Новый партнёр» из личного диалога (0105) — категорию и
+ * город оттуда не вывести, их дозаполняет сотрудник. */
+function initialPartnerFromChat(peer: MaxDialogPeer, title: string | null): PartnerFormInitial {
+  const { name, phone, contact } = maxContactFromPeer(peer, title)
+  return { name, phone, contacts: contact ? [{ messenger: 'MAX', contact }] : undefined }
 }
 
 /** Обратная привязка (0053): выбор клиента, к которому привязывается открытый
@@ -45,6 +63,7 @@ export function LinkClientModal({
 }) {
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
+  const [creatingPartner, setCreatingPartner] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState('')
@@ -87,6 +106,21 @@ export function LinkClientModal({
     }
   }
 
+  /** То же самое для партнёра (0105) — новая карточка сразу привязывается к
+   * этому чату; если привязка не удалась (чат уже занят), партнёр остаётся
+   * созданным отдельно. */
+  async function linkCreatedPartner(partner: Partner) {
+    try {
+      await partnersApi.createChatLink(partner.id, chatId, NEW_PARTNER_LINK_LABEL)
+      onLinked()
+      onClose()
+      navigate(`/partners/${partner.id}`)
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : 'неизвестная ошибка'
+      setError(`Партнёр «${partner.name}» создан, но чат к нему не привязан: ${reason}`)
+    }
+  }
+
   async function confirmLink() {
     if (!pendingClient) return
     const trimmed = label.trim()
@@ -110,7 +144,7 @@ export function LinkClientModal({
 
   return (
     <>
-      <Modal open={open && !creating} onClose={onClose} title="Привязать чат к клиенту" width="max-w-xl">
+      <Modal open={open && !creating && !creatingPartner} onClose={onClose} title="Привязать чат" width="max-w-xl">
         {pendingClient ? (
           <div className="flex flex-col gap-3">
             <p className="text-[13px] text-ink">
@@ -145,10 +179,16 @@ export function LinkClientModal({
             />
             {error && <p className="text-[12px] text-danger">{error}</p>}
             {peer && (
-              <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreating(true)}>
-                <UserPlus size={14} />
-                Новый клиент из этого чата
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreating(true)}>
+                  <UserPlus size={14} />
+                  Новый клиент из этого чата
+                </Button>
+                <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreatingPartner(true)}>
+                  <UserPlus size={14} />
+                  Новый партнёр из этого чата
+                </Button>
+              </div>
             )}
             <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
               {loading && <p className="py-6 text-center text-[13px] text-muted">Загрузка клиентов…</p>}
@@ -183,8 +223,17 @@ export function LinkClientModal({
         <CreateClientModal
           open
           onClose={() => setCreating(false)}
-          initial={initialFromChat(peer, chatTitle)}
+          initial={initialClientFromChat(peer, chatTitle)}
           onCreated={linkCreated}
+        />
+      )}
+      {/* Форма партнёра — то же самое (0105). */}
+      {open && creatingPartner && peer && (
+        <PartnerFormModal
+          open
+          onClose={() => setCreatingPartner(false)}
+          initial={initialPartnerFromChat(peer, chatTitle)}
+          onCreated={linkCreatedPartner}
         />
       )}
     </>
