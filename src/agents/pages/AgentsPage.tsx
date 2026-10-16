@@ -6,6 +6,7 @@ import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { Tabs } from '@/shared/ui/Tabs'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { AdminAgentsPanel } from '../components/AdminAgentsPanel'
+import { AutonomyPanel } from '../components/AutonomyPanel'
 import { AgentConstellation } from '../components/AgentConstellation'
 import { AgentPassportCard } from '../components/AgentPassportCard'
 import { PlanLists } from '../components/PlanLists'
@@ -140,7 +141,12 @@ export function AgentsPage() {
         </div>
       )}
 
-      {tab === 'panel' && isAdmin && <AdminAgentsPanel />}
+      {tab === 'panel' && isAdmin && (
+        <div className="space-y-8">
+          <AutonomyPanel />
+          <AdminAgentsPanel />
+        </div>
+      )}
 
       <OnboardingDialog
         open={onboarding.open}

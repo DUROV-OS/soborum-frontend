@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/lib/httpClient'
+import { AgentWatch, AutoRun, AutonomyState } from './autonomyTypes'
 import { AgentRun, AgentShift, AgentsStats, ShiftApproval } from './types'
 
 export function createAgentRun(text: string): Promise<AgentRun> {
@@ -32,4 +33,20 @@ export function decideApproval(
     method: 'POST',
     body: { status, subject_hash: subjectHash },
   })
+}
+
+export function getAutonomyState(): Promise<AutonomyState> {
+  return apiRequest<AutonomyState>({ section: 'agents', path: '/autonomy/state' })
+}
+
+export function runAutonomy(): Promise<AutoRun> {
+  return apiRequest<AutoRun>({ section: 'agents', path: '/autonomy/run', method: 'POST' })
+}
+
+export function resolveAutonomyWatch(id: number): Promise<AgentWatch> {
+  return apiRequest<AgentWatch>({ section: 'agents', path: `/autonomy/watchlist/${id}/resolve`, method: 'POST' })
+}
+
+export function closeAutonomyProposals(): Promise<{ closed: number }> {
+  return apiRequest<{ closed: number }>({ section: 'agents', path: '/autonomy/proposals/close', method: 'POST' })
 }
