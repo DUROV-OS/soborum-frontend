@@ -26,6 +26,7 @@ export type TaskLinkType =
   | 'warehouse_request'
   | 'warehouse_shortage'
   | 'growth_proposal'
+  | 'agent_proposal'
 
 /** Кто оставил запись: сдача исполнителя или решение проверяющего (0077),
  * либо служебная запись о назначении проверяющего по политике (0084-f). */

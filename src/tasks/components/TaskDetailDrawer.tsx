@@ -24,6 +24,7 @@ import {
 } from '../types'
 import { stateTone } from './stateTone'
 import { plainErrorText } from '@/shared/lib/humanError'
+import { MaxApprovalActions } from './MaxApprovalActions'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const setStatus = useTasksStore((s) => s.setStatus)
@@ -143,6 +144,8 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
     <Drawer open={!!task} onClose={onClose} title={task.title} subtitle={<Chip tone={stateTone(task.status)}>{stateLabel}</Chip>}>
       <div className="flex flex-col gap-5">
         {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
+
+        <MaxApprovalActions task={task} onDone={onClose} />
 
         {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
         {task.link_type === 'client_stage' && task.link_id !== null && (
