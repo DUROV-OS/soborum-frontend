@@ -47,6 +47,8 @@ export interface SectionSignal {
    * checked=true и action=null. */
   clear_text: string | null
   generated_at: string
+  /** Что автономный агент сам сделал в разделе за сутки (0112). */
+  agent_note?: string | null
 }
 
 export interface AktualnoeItem {
