@@ -46,3 +46,7 @@ export function runAutonomy(): Promise<AutoRun> {
 export function resolveAutonomyWatch(id: number): Promise<AgentWatch> {
   return apiRequest<AgentWatch>({ section: 'agents', path: `/autonomy/watchlist/${id}/resolve`, method: 'POST' })
 }
+
+export function closeAutonomyProposals(): Promise<{ closed: number }> {
+  return apiRequest<{ closed: number }>({ section: 'agents', path: '/autonomy/proposals/close', method: 'POST' })
+}

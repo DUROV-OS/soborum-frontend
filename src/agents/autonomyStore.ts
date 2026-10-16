@@ -15,6 +15,7 @@ interface AutonomyStore {
   load: () => Promise<void>
   run: () => Promise<void>
   resolveWatch: (id: number) => Promise<void>
+  closeProposals: () => Promise<void>
 }
 
 export const useAutonomyStore = create<AutonomyStore>((set) => ({
@@ -45,6 +46,15 @@ export const useAutonomyStore = create<AutonomyStore>((set) => ({
   resolveWatch: async (id) => {
     try {
       await agentsApi.resolveAutonomyWatch(id)
+      set({ state: await agentsApi.getAutonomyState() })
+    } catch (error) {
+      set({ error: reasonOf(error) })
+    }
+  },
+
+  closeProposals: async () => {
+    try {
+      await agentsApi.closeAutonomyProposals()
       set({ state: await agentsApi.getAutonomyState() })
     } catch (error) {
       set({ error: reasonOf(error) })

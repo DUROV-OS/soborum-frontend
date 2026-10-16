@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
@@ -26,6 +26,8 @@ export function AutonomyPanel() {
   const load = useAutonomyStore((s) => s.load)
   const run = useAutonomyStore((s) => s.run)
   const resolveWatch = useAutonomyStore((s) => s.resolveWatch)
+  const closeProposals = useAutonomyStore((s) => s.closeProposals)
+  const [confirmClose, setConfirmClose] = useState(false)
 
   useEffect(() => {
     load()
@@ -83,6 +85,40 @@ export function AutonomyPanel() {
           </button>
         </div>
       </section>
+
+      {state.pending_proposals > 0 && (
+        <section className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface px-5 py-4 sm:px-6">
+          <p className="flex-1 text-[13px] text-ink">
+            Карточек агента «на согласование»: {state.pending_proposals}. Закрытие переводит их в «выполнено» с пометкой,
+            ничего не удаляется.
+          </p>
+          {confirmClose ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmClose(false)
+                  void closeProposals()
+                }}
+                className="rounded-md bg-danger px-3 py-2 text-[13px] font-medium text-white"
+              >
+                Да, закрыть все {state.pending_proposals}
+              </button>
+              <button type="button" onClick={() => setConfirmClose(false)} className="text-[13px] text-muted">
+                Отмена
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmClose(true)}
+              className="rounded-md border border-border px-3 py-2 text-[13px] font-medium text-ink"
+            >
+              Закрыть все предложения агента
+            </button>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatWidget
