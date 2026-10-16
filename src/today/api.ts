@@ -25,7 +25,7 @@ export function getPeriodSummary(period: SummaryPeriod): Promise<PeriodSummary> 
   return apiRequest<PeriodSummary>({ section: 'dashboard', path: `/today/summary/${period}` })
 }
 
-/** GET /api/dashboard/missed — «Вы могли пропустить»: важные непрочитанные уведомления, кеш на час */
+/** GET /api/dashboard/missed — «Вы могли пропустить»: важные непрочитанные уведомления, кеш на 6 часов */
 export function getMissed(reload = false): Promise<MissedResponse> {
   return apiRequest<MissedResponse>({ section: 'dashboard', path: '/missed', query: { reload } })
 }

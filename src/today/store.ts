@@ -25,7 +25,7 @@ interface TodayState {
   dropMissed: (id: number) => void
 }
 
-export const useTodayStore = create<TodayState>((set) => ({
+export const useTodayStore = create<TodayState>((set, get) => ({
   data: null,
   loading: true,
   error: null,
@@ -38,7 +38,12 @@ export const useTodayStore = create<TodayState>((set) => ({
   summaryError: {},
 
   load: async (reload = false) => {
-    set({ loading: true, error: null, data: null, aktualnoeLoading: true, missedLoading: true, summaries: {} })
+    // «Вы могли пропустить» не сбрасываем при повторном входе на экран: показываем
+    // прежний ответ и обновляем его тихо (на бэке он кешируется на 6 часов).
+    set({
+      loading: true, error: null, data: null, aktualnoeLoading: true,
+      missedLoading: get().missed === null, summaries: {},
+    })
 
     // Блок «Актуальное» грузится независимо: его сбой не должен ломать «Сегодня».
     todayApi
@@ -50,7 +55,7 @@ export const useTodayStore = create<TodayState>((set) => ({
     todayApi
       .getMissed(reload)
       .then((missed) => set({ missed, missedLoading: false }))
-      .catch(() => set({ missed: null, missedLoading: false }))
+      .catch(() => set((state) => ({ missed: state.missed, missedLoading: false })))
 
     try {
       const data = await todayApi.getToday(reload)
