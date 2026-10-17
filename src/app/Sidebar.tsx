@@ -8,7 +8,7 @@ import { useNotificationsStore } from '@/notifications/store'
 import { SECTIONS, SectionId, WORK_SECTION_IDS } from '@/shared/sections'
 
 /** Верхнеуровневое меню — единым списком, без подгрупп. */
-const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'notifications', 'feedback_my', 'feedback_admin', 'admin']
+const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'agents', 'ai_proposals', 'notifications', 'feedback_my', 'feedback_admin', 'admin']
 
 /** Пути разделов из хаба «Работа» — по ним «Работа» тоже считается активной. */
 const WORK_PATHS = ['/work', ...WORK_SECTION_IDS.map((id) => SECTIONS.find((s) => s.id === id)!.path)]

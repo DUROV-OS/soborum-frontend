@@ -168,6 +168,7 @@ function WorkTile({
   const [action, setAction] = useState<DashboardAction | null>(null)
   const [checked, setChecked] = useState(false)
   const [clearText, setClearText] = useState<string | null>(null)
+  const [agentNote, setAgentNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -179,6 +180,7 @@ function WorkTile({
           setAction(signal.action)
           setChecked(signal.checked)
           setClearText(signal.clear_text)
+          setAgentNote(signal.agent_note ?? null)
         }
       })
       .catch(() => {
@@ -186,6 +188,7 @@ function WorkTile({
           setAction(null)
           setChecked(false)
           setClearText(null)
+          setAgentNote(null)
         }
       })
       .finally(() => {
@@ -239,6 +242,13 @@ function WorkTile({
           <CircleCheck size={14} className={`mt-1 shrink-0 ${HEAT_TEXT.green}`} />
           <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>
         </div>
+      )}
+
+      {!loading && agentNote && (
+        <p className="mt-3 flex items-start gap-1.5 text-[12px] leading-relaxed text-muted">
+          <Sparkles size={12} className="mt-0.5 shrink-0 text-ai-accent" />
+          {agentNote}
+        </p>
       )}
     </NavLink>
   )

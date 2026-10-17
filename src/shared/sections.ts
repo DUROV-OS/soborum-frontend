@@ -1,4 +1,5 @@
 import {
+  Bot,
   Activity,
   Bell,
   Boxes,
@@ -78,6 +79,7 @@ export type SectionId =
   | 'work'
   | 'board'
   | 'agents'
+  | 'ai_proposals'
   | 'chats'
   | 'meetings'
   | 'accounting'
@@ -111,6 +113,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'tasks', label: 'Задачи', path: '/tasks', icon: ClipboardList },
   { id: 'tasks_all', label: 'Все задачи', path: '/tasks', icon: Layers },
   { id: 'board', label: 'Совет директоров', path: '/board', icon: Landmark },
+  { id: 'ai_proposals', label: 'Предложения ИИ', path: '/ai-proposals', icon: Bot, adminOnly: true },
   { id: 'agents', label: 'Агенты', path: '/agents', icon: Network, notAssignable: true },
   { id: 'chats', label: 'MAX', path: '/chats', icon: MessagesSquare, notAssignable: true },
   { id: 'ai', label: 'Марина', path: '/ai', icon: Sparkles },

@@ -150,7 +150,9 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 ]
 
 export function TasksPage() {
-  const tasks = useTasksStore((s) => s.tasks)
+  const allTasks = useTasksStore((s) => s.tasks)
+  // Предложения агента живут в своём разделе «Предложения ИИ», в общий борд не попадают.
+  const tasks = useMemo(() => allTasks.filter((t) => t.link_type !== 'agent_proposal'), [allTasks])
   const loading = useTasksStore((s) => s.loading)
   const load = useTasksStore((s) => s.load)
   const claim = useTasksStore((s) => s.claim)
