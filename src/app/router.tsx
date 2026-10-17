@@ -29,6 +29,7 @@ import { WarehousePage } from '@/warehouse/pages/WarehousePage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
+import { AgentProposalsPage } from '@/agents/pages/AgentProposalsPage'
 import { AgentsPage } from '@/agents/pages/AgentsPage'
 import { AllChatsPage } from '@/max/pages/AllChatsPage'
 import { WorkPage } from '@/work/pages/WorkPage'
@@ -243,6 +244,14 @@ export function AppRouter() {
           element={
             <AccessGate section="board">
               <BoardPage />
+            </AccessGate>
+          }
+        />
+        <Route
+          path="/ai-proposals"
+          element={
+            <AccessGate section="ai_proposals">
+              <AgentProposalsPage />
             </AccessGate>
           }
         />
