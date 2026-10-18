@@ -213,6 +213,13 @@ export interface Client {
   phone: string
   email: string
   contacts: ClientContact[]
+  /** Заявка с сайта (0111): откуда пришёл лид и что написал клиент — `null` у лидов,
+   * заведённых вручную. */
+  lead_source: string | null
+  lead_message: string | null
+  /** Заявка с сайта ещё не обработана (0111-b) — доска её подсвечивает, пока
+   * сотрудник не нажмёт «Взять в работу» или не начнёт работу с лидом. */
+  lead_unprocessed: boolean
   /** Источник клиента (0079-c): у прямого клиента via_agency = false и пустые agency_*. */
   via_agency: boolean
   agency_name: string | null
@@ -277,6 +284,15 @@ export interface ClientSourceInput {
   agency_contact?: string | null
   /** Источник уходит целиком: не переданный рекомендатель = «рекомендателя нет». */
   referrer_partner_id?: number | null
+}
+
+/** Правка базовых данных (0111-b): частичная, не переданное поле не меняется.
+ * 409 — телефон/почта уже у другого клиента, 422 — пустое ФИО или нет ни телефона, ни почты. */
+export interface ClientBasicInput {
+  full_name?: string
+  phone?: string
+  email?: string
+  contacts?: ClientContact[]
 }
 
 export interface ClientCreateInput extends ClientSourceInput {
