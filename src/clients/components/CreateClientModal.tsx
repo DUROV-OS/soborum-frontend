@@ -84,8 +84,8 @@ export function CreateClientModal({ open, onClose }: { open: boolean; onClose: (
       }
     >
       <p className="mb-4 text-[13px] text-muted">
-        После создания базовые данные нельзя изменить. Исключение — «Кто рекомендовал»: если это
-        выяснится позже, рекомендателя можно указать прямо в карточке.
+        Данные можно поправить и дозаполнить позже прямо в карточке клиента — в том числе «Кто
+        рекомендовал», если это выяснится не сразу.
       </p>
       <datalist id={MESSENGER_LIST_ID}>
         {MESSENGER_SUGGESTIONS.map((m) => (
