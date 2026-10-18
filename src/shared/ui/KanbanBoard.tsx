@@ -5,6 +5,8 @@ export interface KanbanColumn<K extends string> {
   key: K
   label: string
   hint?: string
+  /** Необязательная метка рядом с названием колонки — например, счётчик новых заявок. */
+  badge?: ReactNode
 }
 
 export function KanbanBoard<T, K extends string>({
@@ -18,6 +20,7 @@ export function KanbanBoard<T, K extends string>({
   focusKey = null,
   sortItem,
   scrollColumns = false,
+  cardClassName,
 }: {
   columns: KanbanColumn<K>[]
   items: T[]
@@ -36,6 +39,8 @@ export function KanbanBoard<T, K extends string>({
    * прокрутки вместо скролла всей страницы; заголовок остаётся закреплён.
    * По умолчанию выключено — поведение не меняется. */
   scrollColumns?: boolean
+  /** Дополнительные классы карточки (например, подсветка) — по умолчанию нет. */
+  cardClassName?: (item: T) => string | undefined
 }) {
   const [openKey, setOpenKey] = useState<K | null>(columns[0]?.key ?? null)
 
@@ -63,7 +68,9 @@ export function KanbanBoard<T, K extends string>({
               onCardClick?.(item)
             }
           }}
-          className="cursor-pointer rounded-md border border-border bg-surface p-3 text-left transition-colors hover:border-brand/40"
+          className={`cursor-pointer rounded-md border p-3 text-left transition-colors ${
+            cardClassName?.(item) ?? 'border-border bg-surface hover:border-brand/40'
+          }`}
         >
           {renderCard(item)}
         </div>
@@ -85,7 +92,10 @@ export function KanbanBoard<T, K extends string>({
             className={`flex w-72 shrink-0 flex-col ${scrollColumns ? 'max-h-[calc(100vh-14rem)]' : ''}`}
           >
             <div className="mb-3 flex shrink-0 items-baseline justify-between px-1">
-              <h3 className="text-[13px] font-medium text-ink">{column.label}</h3>
+              <h3 className="flex items-center gap-2 text-[13px] font-medium text-ink">
+                {column.label}
+                {column.badge}
+              </h3>
               <span className="tabular text-[12px] text-muted">{columnItems.length}</span>
             </div>
             <div className={`flex flex-col gap-2 ${scrollColumns ? 'min-h-0 overflow-y-auto pr-0.5' : ''}`}>
@@ -106,7 +116,10 @@ export function KanbanBoard<T, K extends string>({
                 className="flex w-full items-center justify-between px-3 py-3"
                 aria-expanded={isOpen}
               >
-                <span className="text-[13px] font-medium text-ink">{column.label}</span>
+                <span className="flex items-center gap-2 text-[13px] font-medium text-ink">
+                  {column.label}
+                  {column.badge}
+                </span>
                 <span className="flex items-center gap-2">
                   <span className="tabular text-[12px] text-muted">{columnItems.length}</span>
                   <ChevronDown

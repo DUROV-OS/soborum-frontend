@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Building2, CalendarClock, Contact, Plus, Search, User, X } from 'lucide-react'
+import { AlertTriangle, Building2, CalendarClock, Contact, Globe, Plus, Search, User, X } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -25,6 +25,16 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
         Каждая колонка — стадия пути клиента, от первого обращения до принятого дома. Карточка клиента
         находится в той колонке, которая соответствует его текущей стадии. Колонок восемь — доска
         прокручивается вбок.
+      </p>
+    ),
+  },
+  {
+    title: 'Заявки с сайта',
+    body: (
+      <p>
+        Заявка, оставленная на сайте, сама становится лидом: карточка подсвечена меткой «Новая заявка с сайта», а в
+        заголовке колонки «Лид» виден счётчик необработанных. Откройте карточку и нажмите «Взять в работу» — или просто
+        поставьте задачу, напишите клиенту или переведите его на следующую стадию: подсветка снимется сама.
       </p>
     ),
   },
@@ -121,6 +131,25 @@ export function ClientsBoardPage() {
   const filtered =
     searchResults ?? clients.filter((c) => matchesDateFilter(c.created_at, range))
 
+  // Счётчик необработанных заявок с сайта (0111-b) — в заголовке колонки «Лид»,
+  // считается по видимым карточкам: поиск и фильтр по периоду его не обманывают.
+  const unprocessed = filtered.filter((c) => c.lead_unprocessed).length
+  const columns = CLIENT_STAGES.map((stage) =>
+    stage.key === 'lead' && unprocessed > 0
+      ? {
+          ...stage,
+          badge: (
+            <span
+              title="Новые заявки с сайта, которые ещё не взяты в работу"
+              className="rounded-pill bg-brand px-2 py-0.5 text-[11px] font-medium text-white"
+            >
+              {unprocessed} нов.
+            </span>
+          ),
+        }
+      : stage,
+  )
+
   return (
     <div>
       <SectionAnalyticsCard section="clients" />
@@ -176,13 +205,18 @@ export function ClientsBoardPage() {
       )}
 
       <KanbanBoard
-        columns={CLIENT_STAGES}
+        columns={columns}
         items={filtered}
         keyOf={(c) => String(c.id)}
         columnOf={(c) => c.stage}
         onCardClick={(c) => navigate(`/clients/${c.id}`)}
         loading={loading || searching}
         focusKey={advancedStage}
+        cardClassName={(c) =>
+          c.lead_unprocessed
+            ? 'border-brand bg-brand/5 ring-1 ring-brand/30 hover:border-brand-dark'
+            : undefined
+        }
         renderCard={(client) => <ClientCard client={client} />}
       />
 
@@ -208,8 +242,14 @@ function ClientCard({ client }: { client: Client }) {
 
   return (
     <div>
+      {client.lead_unprocessed && (
+        <div className="mb-1.5 inline-flex items-center gap-1 rounded-pill bg-brand px-2 py-0.5 text-[11px] font-medium text-white">
+          <Globe size={11} className="shrink-0" />
+          Новая заявка с сайта
+        </div>
+      )}
       <div className="text-[13px] font-medium text-ink">{client.full_name}</div>
-      <div className="mt-0.5 text-[12px] text-muted">{client.phone}</div>
+      <div className="mt-0.5 text-[12px] text-muted">{client.phone || client.email}</div>
       {/* Ответственный менеджер (0080-a) — адресат уведомлений по клиенту,
           виден сразу на доске, не только в карточке. */}
       <div className="mt-2 flex max-w-full items-center gap-1 text-[11px] text-muted">

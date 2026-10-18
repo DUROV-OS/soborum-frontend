@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import * as clientsApi from './api'
-import { Client, ClientCreateInput, ClientSourceInput, ClientTaskInput, ContractDocument } from './types'
+import { Client, ClientBasicInput, ClientCreateInput, ClientSourceInput, ClientTaskInput, ContractDocument } from './types'
 import { plainErrorText } from '@/shared/lib/humanError'
 
 export interface ActionResult {
@@ -23,6 +23,8 @@ interface ClientsState {
   load: () => Promise<void>
   create: (input: ClientCreateInput) => Promise<Client>
   updateSource: (id: number, patch: ClientSourceInput) => Promise<ActionResult>
+  updateBasic: (id: number, patch: ClientBasicInput) => Promise<ActionResult>
+  takeLead: (id: number) => Promise<ActionResult>
   createTask: (id: number, input: ClientTaskInput) => Promise<ActionResult>
   shiftTaskDeadline: (id: number, taskId: number, deadline: string, reason: string) => Promise<ActionResult>
   closeTask: (id: number, taskId: number, resolution: string, next?: ClientTaskInput) => Promise<ActionResult>
@@ -114,6 +116,8 @@ export const useClientsStore = create<ClientsState>((set, get) => {
     },
 
     updateSource: (id, patch) => applyClientMutation(() => clientsApi.updateSource(id, patch)),
+    updateBasic: (id, patch) => applyClientMutation(() => clientsApi.updateBasic(id, patch)),
+    takeLead: (id) => applyClientMutation(() => clientsApi.takeLead(id)),
     // Эндпоинты задач отвечают самой задачей, а не клиентом — поэтому клиента
     // после них перечитываем целиком (applyNoteMutation делает ровно это).
     createTask: (id, input) => applyNoteMutation(id, () => clientsApi.createClientTask(id, input)),
