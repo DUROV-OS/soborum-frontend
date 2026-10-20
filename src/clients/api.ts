@@ -1,6 +1,7 @@
 import { apiRequest } from '@/shared/lib/httpClient'
 import {
   Client,
+  ClientBasicInput,
   ClientChatLink,
   ClientChatState,
   ClientCreateInput,
@@ -110,6 +111,16 @@ export function updateManager(id: number, managerId: number | null): Promise<Cli
     method: 'PATCH',
     body: { manager_id: managerId },
   })
+}
+
+/** PATCH /api/clients/:id/basic — дозаполнить ФИО, телефон, почту и способы связи (0111-b). */
+export function updateBasic(id: number, patch: ClientBasicInput): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/basic`, method: 'PATCH', body: patch })
+}
+
+/** POST /api/clients/:id/take — «Взять в работу»: снять подсветку новой заявки с сайта (0111-b). */
+export function takeLead(id: number): Promise<Client> {
+  return apiRequest<Client>({ section: SECTION, path: `/${id}/take`, method: 'POST' })
 }
 
 /** POST /api/clients/:id/chat-links — привязать ещё один чат MAX к клиенту (0053). */

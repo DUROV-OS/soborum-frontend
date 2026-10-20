@@ -9,7 +9,8 @@ import { Stepper } from '@/shared/ui/Stepper'
 import { useClientsStore } from '../store'
 import { CLIENT_STAGES } from '../types'
 import { isStageManual, nextStageOf, stageLabel } from '../rules'
-import { ReadRow, Section } from '../components/PanelPrimitives'
+import { BasicDataPanel } from '../components/BasicDataPanel'
+import { LeadRequestPanel } from '../components/LeadRequestPanel'
 import { DocumentPanel } from '../components/DocumentPanel'
 import { ManagerPanel } from '../components/ManagerPanel'
 import { SourcePanel } from '../components/SourcePanel'
@@ -119,15 +120,9 @@ export function ClientDetailPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <Section title="Базовые данные">
-          <ReadRow label="Телефон" value={client.phone} />
-          <ReadRow label="Почта" value={client.email} />
-          {client.contacts.length > 0
-            ? client.contacts.map((c, i) => (
-                <ReadRow key={i} label={c.messenger} value={c.contact} />
-              ))
-            : <ReadRow label="Способы связи" value={undefined} />}
-        </Section>
+        <LeadRequestPanel client={client} />
+
+        <BasicDataPanel client={client} />
 
         <TasksPanel client={client} />
 
