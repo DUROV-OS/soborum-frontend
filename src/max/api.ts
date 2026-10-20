@@ -200,3 +200,14 @@ export function getMediaUrl(
     query: { chat_id: chatId, message_id: messageId, media_id: mediaId },
   })
 }
+
+/** PUT /api/max/chats/:chatId/title — своё название чата в системе (0106),
+ * не меняет имя/название в самом MAX. */
+export function setChatTitle(chatId: number, title: string): Promise<{ chatId: number; title: string }> {
+  return apiRequest({ section: SECTION, path: `/chats/${chatId}/title`, method: 'PUT', body: { title } })
+}
+
+/** DELETE /api/max/chats/:chatId/title — вернуть название из MAX (0106). */
+export function clearChatTitle(chatId: number): Promise<void> {
+  return apiRequest({ section: SECTION, path: `/chats/${chatId}/title`, method: 'DELETE' })
+}
