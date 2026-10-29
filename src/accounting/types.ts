@@ -102,6 +102,7 @@ export interface Counterparty {
 
 export interface MoneyMovement {
   id: number
+  purchase_return_id?: number | null
   direction: MoneyDirection
   subkind: MoneySubkind
   amount: number

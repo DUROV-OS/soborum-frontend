@@ -10,6 +10,7 @@ import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
+import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 
 type Item = {
   material: string
@@ -32,6 +33,10 @@ type Order = {
   pending_payment: number
   available_payment: number
   unpaid: number
+  net_total?: number
+  return_credit?: number
+  refund_received?: number
+  overpaid?: number
   version: number
   archived: boolean
   status: string
@@ -78,7 +83,9 @@ export function PurchasingPage() {
         .catch((e) => setError(e.message))
   }, [])
   const [catalog, setCatalog] = useState<Catalog>({ suppliers: [], materials: [], accounts: [] })
-  const [tab, setTab] = useState('orders'),
+  const [tab, setTab] = useState(
+      new URLSearchParams(window.location.search).has('return') ? 'returns' : 'orders',
+    ),
     [archive, setArchive] = useState('active'),
     [query, setQuery] = useState(''),
     [offset, setOffset] = useState(0)
@@ -90,6 +97,7 @@ export function PurchasingPage() {
     [revision, setRevision] = useState(0),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true)
+  const [returningReceiptId, setReturningReceiptId] = useState<number | null>(null)
   const [editing, setEditing] = useState<{ row?: Order } | null>(null),
     [receiving, setReceiving] = useState<{ row?: Order } | null>(null),
     [paying, setPaying] = useState<Order | null>(null)
@@ -104,6 +112,10 @@ export function PurchasingPage() {
       .catch((e) => setError(e.message))
   }, [])
   useEffect(() => {
+    if (tab === 'returns') {
+      setLoading(false)
+      return
+    }
     let current = true
     setLoading(true)
     const timer = setTimeout(() => {
@@ -187,6 +199,7 @@ export function PurchasingPage() {
         tabs={[
           { key: 'orders', label: 'Заказы поставщикам' },
           { key: 'receipts', label: 'Приёмки' },
+          { key: 'returns', label: 'Возвраты поставщикам' },
         ]}
       />
       {tab === 'orders' && (
@@ -214,7 +227,14 @@ export function PurchasingPage() {
           </Select>
         </div>
       )}
-      {tab === 'orders' ? (
+      {tab === 'returns' ? (
+        <PurchaseReturnsPanel
+          catalog={catalog}
+          canEdit={canEdit}
+          canArchive={canArchive}
+          canCancel={canArchive && accessLevelAtLeast(warehouse, 'full')}
+        />
+      ) : tab === 'orders' ? (
         <DataTable
           rows={orders.items}
           keyOf={(r) => String(r.id)}
@@ -250,27 +270,29 @@ export function PurchasingPage() {
           ]}
         />
       )}
-      <div className="mt-4 flex justify-between gap-3 text-sm">
-        <span className="text-muted">
-          {total ? offset + 1 : 0}–{Math.min(offset + 50, total)} из {total}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            disabled={!offset || loading}
-            onClick={() => setOffset((v) => Math.max(0, v - 50))}
-          >
-            Назад
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={offset + 50 >= total || loading}
-            onClick={() => setOffset((v) => v + 50)}
-          >
-            Далее
-          </Button>
+      {tab !== 'returns' && (
+        <div className="mt-4 flex justify-between gap-3 text-sm">
+          <span className="text-muted">
+            {total ? offset + 1 : 0}–{Math.min(offset + 50, total)} из {total}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              disabled={!offset || loading}
+              onClick={() => setOffset((v) => Math.max(0, v - 50))}
+            >
+              Назад
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={offset + 50 >= total || loading}
+              onClick={() => setOffset((v) => v + 50)}
+            >
+              Далее
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       <Drawer
         open={!!selected}
         onClose={() => setSelected(null)}
@@ -324,6 +346,14 @@ export function PurchasingPage() {
                 Оплачено: {money(selected.paid)} · На согласовании: {money(selected.pending_payment)}
               </p>
               <p>Осталось оплатить: {money(selected.unpaid)}</p>
+              {!!selected.return_credit && (
+                <p>
+                  Возвращено поставщику: {money(selected.return_credit)} · Стоимость после возвратов:{' '}
+                  {money(selected.net_total || 0)}
+                </p>
+              )}
+              {!!selected.refund_received && <p>Получено обратно: {money(selected.refund_received)}</p>}
+              {!!selected.overpaid && <p>Переплата: {money(selected.overpaid)}</p>}
               {selected.expected_at && (
                 <p>Плановая поставка: {new Date(selected.expected_at).toLocaleDateString('ru-RU')}</p>
               )}
@@ -374,6 +404,9 @@ export function PurchasingPage() {
               {status[selectedReceipt.status]}
             </p>
             <p>{catalog.suppliers.find((s) => s.id === selectedReceipt.supplier_id)?.name}</p>
+            {canEdit && canReceive && selectedReceipt.status === 'posted' && (
+              <Button onClick={() => setReturningReceiptId(selectedReceipt.id)}>Вернуть поставщику</Button>
+            )}
             {selectedReceipt.source_id && (
               <p className="text-muted">
                 Документ перенесён из МоегоСклада. Остатки по нему учтены при переносе.
@@ -392,6 +425,19 @@ export function PurchasingPage() {
           </div>
         )}
       </Drawer>
+      {returningReceiptId && (
+        <PurchaseReturnEditor
+          receiptId={returningReceiptId}
+          catalog={catalog}
+          onClose={() => setReturningReceiptId(null)}
+          onSaved={() => {
+            setReturningReceiptId(null)
+            setSelectedReceipt(null)
+            setTab('returns')
+            setRevision((v) => v + 1)
+          }}
+        />
+      )}
       {editing && (
         <OrderEditor
           row={editing.row}
