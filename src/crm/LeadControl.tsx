@@ -9,7 +9,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
-import { Field, Input } from '@/shared/ui/Field'
+import { Field, Input, Select } from '@/shared/ui/Field'
 import { Entry } from './api'
 
 type Signal = {
@@ -44,6 +44,7 @@ export function LeadControl({
   const ai = useAccessLevel('ai')
   const [report, setReport] = useState<Report>(empty)
   const [loading, setLoading] = useState(true)
+  const [reason, setReason] = useState('')
   const [open, setOpen] = useState(false),
     [offset, setOffset] = useState(0),
     [error, setError] = useState('')
@@ -54,7 +55,7 @@ export function LeadControl({
     let current = true
     setLoading(true)
     setError('')
-    apiRequest<Report>({ section: 'crm', path: '/attention', query: { offset } })
+    apiRequest<Report>({ section: 'crm', path: '/attention', query: { offset, reason: reason || undefined } })
       .then((r) => {
         if (current) setReport(r)
       })
@@ -67,7 +68,7 @@ export function LeadControl({
     return () => {
       current = false
     }
-  }, [revision, offset, version])
+  }, [revision, offset, version, reason])
   const entry = async (signal: Signal, task = false) => {
     try {
       const row = await apiRequest<Entry>({ section: 'crm', path: `/entries/${signal.entry_id}` })
@@ -124,6 +125,7 @@ export function LeadControl({
               disabled={loading}
               onClick={() => {
                 setOffset(0)
+                setReason('')
                 setVersion((v) => v + 1)
                 setOpen(true)
               }}
@@ -182,6 +184,22 @@ export function LeadControl({
               Настроить контроль
             </Button>
           )}
+          <Select
+            aria-label="Причина внимания"
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value)
+              setOffset(0)
+            }}
+          >
+            <option value="">Все причины</option>
+            <option value="inquiry">Входящие обращения</option>
+            <option value="overdue">Просроченные задачи</option>
+            <option value="no_next_step">Без следующего шага</option>
+            <option value="no_deadline">Без срока</option>
+            <option value="no_owner">Без ответственного</option>
+            <option value="idle">Нет активности</option>
+          </Select>
           <DataTable
             loading={loading}
             rows={report.items}
