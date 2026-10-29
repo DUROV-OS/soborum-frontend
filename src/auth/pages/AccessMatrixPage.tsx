@@ -10,7 +10,7 @@ import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { useAuthStore } from '../store'
 import { AdminsTab } from './AdminsTab'
-import { AccessLevel, Account, Role } from '../types'
+import { AccessLevel, Account, JobRole, Role } from '../types'
 
 const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
   ['none', 'Нет доступа'],
@@ -67,6 +67,7 @@ export function AccessMatrixPage() {
   const updateAccess = useAuthStore((s) => s.updateAccess)
   const addAccount = useAuthStore((s) => s.addAccount)
   const setAccountRole = useAuthStore((s) => s.setAccountRole)
+  const setJobRole = useAuthStore((s) => s.setJobRole)
   const resetPassword = useAuthStore((s) => s.resetPassword)
   const [tab, setTab] = useState<'matrix' | 'admins'>('matrix')
   const [creating, setCreating] = useState(false)
@@ -131,6 +132,14 @@ export function AccessMatrixPage() {
     }
   }
 
+  async function changeJob(account: Account, value: string) {
+    setError(null); setNotice(null)
+    try {
+      await setJobRole(account.id, value ? value as JobRole : null)
+      setNotice(`Должность «${account.full_name}» сохранена. Права доступа не изменились.`)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось изменить должность') }
+  }
+
   async function handleResetPassword(account: { id: number; full_name: string }) {
     if (!window.confirm(`Сбросить пароль сотрудника «${account.full_name}» до default-пароля?`)) return
     setError(null)
@@ -184,6 +193,12 @@ export function AccessMatrixPage() {
 
       {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}
       {notice && <p className="mb-4 rounded-md bg-success-bg p-2.5 text-[13px] text-success">{notice}</p>}
+
+      <section className="mb-5 rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-[16px] font-semibold text-ink">Должности и рабочие экраны</h2>
+        <p className="mt-1 text-[12px] text-muted">Выбор должности определяет шаблон экрана. Права назначаются отдельно в матрице доступа.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{accounts.map((account) => <label key={account.id} className="rounded-xl border border-border p-3 text-[13px] text-ink"><span className="block font-medium">{account.full_name}</span><Select aria-label={`Должность: ${account.full_name}`} value={account.job_role ?? ''} onChange={(event) => void changeJob(account, event.target.value)} className="mt-2 w-full"><option value="">Не назначена</option><option value="director">Руководитель</option><option value="manager">Менеджер</option><option value="accountant">Бухгалтер</option></Select></label>)}</div>
+      </section>
 
       {tab === 'admins' ? (
         <AdminsTab

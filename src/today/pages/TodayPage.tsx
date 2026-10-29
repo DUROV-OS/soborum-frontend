@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertCircle, ArrowRight, CheckCheck, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -10,8 +10,7 @@ import { StatWidget } from '@/shared/ui/StatWidget'
 import { AktualnoeCard } from '../components/AktualnoeCard'
 import { useTodayStore } from '../store'
 import { PersonalWorkspace } from '../components/PersonalWorkspace'
-
-type Workspace = 'general' | 'director' | 'manager'
+import { defaults, WorkspacePreferences, WorkspaceSettings } from '../components/WorkspaceSettings'
 
 export function TodayPage() {
   const userId = useAuthStore((s) => s.current?.id)
@@ -21,23 +20,16 @@ export function TodayPage() {
 function TodayContent({ userId }: { userId: number }) {
   const { data, loading, error, load, aktualnoe, aktualnoeLoading } = useTodayStore()
   const hasAccess = useAuthStore((s) => s.hasAccess)
+  const jobRole = useAuthStore((s) => s.current?.job_role ?? null)
   const startDraft = useAiStore((s) => s.startDraft)
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
-  const [workspace, setWorkspace] = useState<Workspace>(() => {
-    try {
-      const value = localStorage.getItem(`durov.today.view.${userId}`)
-      return value === 'director' || value === 'manager' ? value : 'general'
-    } catch { return 'general' }
-  })
+  const [settings, setSettings] = useState<WorkspacePreferences>(() => defaults(jobRole ?? 'general'))
+  const workspace = settings.view
   const [refresh, setRefresh] = useState(0)
+  const applySettings = useCallback((value: WorkspacePreferences) => setSettings(value), [])
 
   useEffect(() => { if (workspace !== 'manager') load() }, [load, workspace])
-
-  function selectWorkspace(value: Workspace) {
-    setWorkspace(value)
-    try { localStorage.setItem(`durov.today.view.${userId}`, value) } catch { /* Выбор работает и без сохранения. */ }
-  }
 
   function refreshPage() {
     setRefresh((value) => value + 1)
@@ -56,11 +48,11 @@ function TodayContent({ userId }: { userId: number }) {
   }
 
   const today = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
-  const actions = (data?.actions ?? []).filter((action) => workspace !== 'director' || (action.section !== 'crm' && !action.href.startsWith('/crm') && action.id !== 'clients:leads_stuck_over_14_days'))
-  const widgets = data?.widgets ?? []
+  const actions = (data?.actions ?? []).filter((action) => settings.sections.includes(action.section as typeof settings.sections[number]) && (workspace !== 'director' || (action.section !== 'crm' && !action.href.startsWith('/crm') && action.id !== 'clients:leads_stuck_over_14_days')))
+  const widgets = (data?.widgets ?? []).filter((widget) => settings.sections.includes(widget.section as typeof settings.sections[number]))
   const aktualnoeItems = aktualnoe?.items ?? []
-  const showAktualnoe = aktualnoeLoading || aktualnoeItems.length > 0
-  const rowTwoCols = showAktualnoe && hasAccess('ai')
+  const showAktualnoe = settings.blocks.includes('aktualnoe') && (aktualnoeLoading || aktualnoeItems.length > 0)
+  const rowTwoCols = showAktualnoe && settings.blocks.includes('marina') && hasAccess('ai')
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-7 pb-6">
@@ -75,16 +67,9 @@ function TodayContent({ userId }: { userId: number }) {
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
-        <p className="text-[13px] font-semibold text-ink">Рабочий экран</p>
-        <p className="mt-1 text-[12px] text-muted">Выберите удобный обзор. Права доступа при этом не меняются; выбор сохраняется в этом браузере.</p>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Рабочий экран">
-          {([['general', 'Общий'], ['director', 'Руководитель'], ['manager', 'Менеджер']] as const).map(([value, label]) =>
-            <button key={value} type="button" aria-pressed={workspace === value} onClick={() => selectWorkspace(value)} className={`rounded-lg border px-4 py-2 text-[13px] font-medium ${workspace === value ? 'border-brand bg-brand text-white' : 'border-border bg-surface text-ink hover:bg-surface-muted'}`}>{label}</button>)}
-        </div>
-      </div>
+      <WorkspaceSettings userId={userId} jobRole={jobRole} onApply={applySettings} />
 
-      {workspace !== 'general' && <PersonalWorkspace userId={userId} manager={workspace === 'manager'} refresh={refresh} />}
+      {(settings.blocks.includes('personal_tasks') || (workspace === 'manager' && settings.blocks.includes('my_clients'))) && <PersonalWorkspace userId={userId} manager={workspace === 'manager' && settings.blocks.includes('my_clients')} showTasks={settings.blocks.includes('personal_tasks')} refresh={refresh} />}
 
       {workspace !== 'manager' && <>
       {error && <EmptyState icon={<AlertCircle size={28} />} title="Сводка временно недоступна" description={error}
@@ -93,11 +78,11 @@ function TodayContent({ userId }: { userId: number }) {
 
       {data && !error && <>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-3.5">
-          <p className="flex items-start gap-2.5 text-[13px] text-ink"><CheckCheck size={17} className="mt-0.5 shrink-0 text-brand" />{workspace === 'director' ? `Вопросов в обзоре: ${actions.length}` : data.summary}</p>
+          <p className="flex items-start gap-2.5 text-[13px] text-ink"><CheckCheck size={17} className="mt-0.5 shrink-0 text-brand" />{`Вопросов в выбранных направлениях: ${actions.length}`}</p>
           <span className="shrink-0 text-[11px] text-muted">Данные на {new Date(data.generated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
 
-        {actions.length > 0 && (
+        {settings.blocks.includes('attention') && actions.length > 0 && (
           <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-labelledby="attention-title">
             <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-5 sm:px-6">
               <div><h2 id="attention-title" className="text-[18px] font-semibold tracking-tight text-ink">Требует внимания</h2>
@@ -141,7 +126,7 @@ function TodayContent({ userId }: { userId: number }) {
             </section>
           )}
 
-          {hasAccess('ai') && <section className="flex flex-col rounded-2xl border border-ai/30 bg-ai-bg p-5 text-ink sm:p-6" aria-labelledby="marina-title">
+          {settings.blocks.includes('marina') && hasAccess('ai') && <section className="flex flex-col rounded-2xl border border-ai/30 bg-ai-bg p-5 text-ink sm:p-6" aria-labelledby="marina-title">
             <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-ai/15"><Sparkles size={22} className="text-ai-accent" /></div>
               <div><h2 id="marina-title" className="text-[21px] font-medium tracking-tight">Марина</h2><p className="text-[12px] text-muted">Ваш AI-помощник</p></div></div>
             <p className="mb-5 mt-6 text-[19px] font-medium leading-snug tracking-tight">С чего начнём?<br /><span className="text-muted">Задайте вопрос о работе компании.</span></p>
@@ -159,7 +144,7 @@ function TodayContent({ userId }: { userId: number }) {
           </section>}
         </div>
 
-        <section aria-labelledby="metrics-title">
+        {settings.blocks.includes('metrics') && <section aria-labelledby="metrics-title">
           <h2 id="metrics-title" className="mb-4 text-[18px] font-semibold tracking-tight text-ink">Показатели по разделам</h2>
           {widgets.length === 0 ? <EmptyState title="Рабочие разделы пока не назначены" description="Администратор может назначить доступ в разделе «Доступ»." /> :
             <div className="grid grid-cols-3 gap-3">
@@ -175,7 +160,7 @@ function TodayContent({ userId }: { userId: number }) {
                 />
               })}
             </div>}
-        </section>
+        </section>}
       </>}
       </>}
     </div>

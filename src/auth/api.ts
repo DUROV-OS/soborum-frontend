@@ -1,6 +1,6 @@
 import { apiRequest, login as loginRequest, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
-import { Account, AccessLevel, Role } from './types'
+import { Account, AccessLevel, JobRole, Role } from './types'
 
 const SECTION = 'auth'
 
@@ -79,4 +79,8 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
     method: 'POST',
     body: { current_password: currentPassword, new_password: newPassword },
   })
+}
+
+export function updateJobRole(id: number, job_role: JobRole | null): Promise<Account> {
+  return apiRequest<Account>({ section: SECTION, path: `/users/${id}`, method: 'PATCH', body: { job_role } })
 }

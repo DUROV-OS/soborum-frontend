@@ -1,6 +1,7 @@
 import { SectionId } from '@/shared/sections'
 
 export type Role = 'admin' | 'worker'
+export type JobRole = 'director' | 'manager' | 'accountant'
 
 /** 4 уровня доступа к разделу (задача 0052). Порядок значим — `LEVEL_ORDER`
  * ниже используется для сравнения «достаточно ли уровня». */
@@ -19,6 +20,7 @@ export interface Account {
   full_name: string
   role: Role
   is_active: boolean
+  job_role?: JobRole | null
   created_at: string
   /** Только разделы, поддержанные бэком (`Module`) — не весь `SectionId`
    * (фронтовые псевдо-разделы вроде 'today'/'agents' сюда не попадают). */

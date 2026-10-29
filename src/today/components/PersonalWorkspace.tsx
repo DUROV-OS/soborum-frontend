@@ -7,7 +7,7 @@ import { Client } from '@/clients/types'
 import { listTasks } from '@/tasks/api'
 import { TASK_STATES, Task } from '@/tasks/types'
 
-export function PersonalWorkspace({ userId, manager, refresh }: { userId: number; manager: boolean; refresh: number }) {
+export function PersonalWorkspace({ userId, manager, showTasks, refresh }: { userId: number; manager: boolean; showTasks: boolean; refresh: number }) {
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const navigate = useNavigate()
   const canTasks = hasAccess('tasks')
@@ -21,11 +21,11 @@ export function PersonalWorkspace({ userId, manager, refresh }: { userId: number
   useEffect(() => {
     let active = true
     setTasks(null); setTaskError(false)
-    if (canTasks) listTasks({ scope: 'mine', status: 'open' }).then((items) => {
+    if (canTasks && showTasks) listTasks({ scope: 'mine', status: 'open' }).then((items) => {
       if (active) setTasks(items.filter((task) => task.assignees.some((person) => person.id === userId) || task.reviewers.some((person) => person.id === userId)))
     }).catch(() => { if (active) setTaskError(true) })
     return () => { active = false }
-  }, [userId, canTasks, refresh, retry])
+  }, [userId, canTasks, showTasks, refresh, retry])
 
   useEffect(() => {
     let active = true
@@ -42,14 +42,14 @@ export function PersonalWorkspace({ userId, manager, refresh }: { userId: number
   const retryButton = <button type="button" onClick={() => setRetry((value) => value + 1)} className="mt-2 text-[13px] font-medium text-brand">Повторить</button>
 
   return <div className="grid gap-5 lg:grid-cols-2">
-    <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="personal-tasks-title">
+    {showTasks && <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="personal-tasks-title">
       <div className="flex items-start justify-between gap-3"><div>
         <h2 id="personal-tasks-title" className="text-[18px] font-semibold text-ink">Мои задачи</h2>
         <p className="mt-1 text-[12px] text-muted">Вы исполнитель или проверяющий; свободные задачи не включены.</p>
       </div>{tasks && <span className="rounded-lg bg-surface-muted px-3 py-1 text-[18px] font-semibold">{tasks.length}</span>}</div>
       {!canTasks ? <p className="mt-4 text-[13px] text-muted">Доступ к задачам не назначен.</p> : taskError ? <div role="alert" className="mt-4 text-[13px] text-muted">Не удалось загрузить задачи. {retryButton}</div> : !tasks ? <p role="status" className="mt-4 text-[13px] text-muted">Загружаем задачи…</p> : sortedTasks.length === 0 ? <p className="mt-4 text-[13px] text-muted">Открытых назначенных задач нет.</p> : <ul className="mt-4 divide-y divide-border">{sortedTasks.slice(0, 5).map((task) => <li key={task.id} className="py-3"><p className="text-[13px] font-medium text-ink">{task.title}</p><p className="mt-1 text-[12px] text-muted">{TASK_STATES.find((state) => state.key === task.status)?.label}{deadlineLabel(task.deadline) ? ` · ${deadlineLabel(task.deadline)?.text}` : ' · срок не указан'}</p></li>)}</ul>}
       {canTasks && <button type="button" onClick={() => navigate('/tasks?scope=mine&status=open')} className="mt-4 text-[13px] font-medium text-brand">Открыть задачи →</button>}
-    </section>
+    </section>}
     {manager && <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="personal-clients-title">
       <div className="flex items-start justify-between gap-3"><div><h2 id="personal-clients-title" className="text-[18px] font-semibold text-ink">Мои клиенты</h2><p className="mt-1 text-[12px] text-muted">Активные клиенты, закреплённые за вами, и ваши следующие задачи по ним.</p></div>{clients && <span className="rounded-lg bg-surface-muted px-3 py-1 text-[18px] font-semibold">{clients.length}</span>}</div>
       {!canClients ? <p className="mt-4 text-[13px] text-muted">Доступ к клиентам не назначен.</p> : clientError ? <div role="alert" className="mt-4 text-[13px] text-muted">Не удалось загрузить клиентов. {retryButton}</div> : !clients ? <p role="status" className="mt-4 text-[13px] text-muted">Загружаем клиентов…</p> : clients.length === 0 ? <p className="mt-4 text-[13px] text-muted">Активных клиентов, закреплённых за вами, пока нет.</p> : nextContacts.length === 0 ? <p className="mt-4 text-[13px] text-muted">Назначенных вам открытых задач по этим клиентам нет.</p> : <ul className="mt-4 divide-y divide-border">{nextContacts.slice(0, 5).map(({ client, task }) => <li key={client.id}><button type="button" onClick={() => navigate(`/clients/${client.id}`)} className="w-full py-3 text-left"><span className="block text-[13px] font-medium text-ink">{client.full_name} · {task?.title}</span><span className="mt-1 block text-[12px] text-muted">{deadlineLabel(task?.deadline ?? null)?.text ?? 'Срок не указан'}</span></button></li>)}</ul>}
