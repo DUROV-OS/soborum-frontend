@@ -6,6 +6,7 @@ import { useFeedbackStore } from '@/feedback/store'
 import { awaitsReply } from '@/feedback/types'
 import { useNotificationsStore } from '@/notifications/store'
 import { SECTIONS, SectionId, WORK_SECTION_IDS } from '@/shared/sections'
+import { InstallAppButton } from '@/shared/mobile/InstallApp'
 
 /** Верхнеуровневое меню — единым списком, без подгрупп. */
 const MENU: SectionId[] = ['today', 'tasks', 'work', 'ai', 'board', 'agents', 'ai_proposals', 'notifications', 'feedback_my', 'feedback_admin', 'admin']
@@ -54,7 +55,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   return (
     <aside
       aria-label="Главное меню"
-      className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+      className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
     >
       <div className="flex h-24 shrink-0 items-center justify-between px-7">
         <NavLink to="/today" onClick={onClose} className="text-[24px] font-semibold tracking-tight">
@@ -110,6 +111,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             )
           })}
         </ul>
+        <div className="mt-5"><InstallAppButton dark /></div>
       </nav>
       <div className="m-5 rounded-xl border border-white/15 p-4">
         <p className="text-[13px] font-medium text-white/85">Больше времени на главное</p>
