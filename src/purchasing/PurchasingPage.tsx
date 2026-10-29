@@ -11,6 +11,7 @@ import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
+import { AutomaticReview } from './AutomaticReview'
 
 type Item = {
   material: string
@@ -368,6 +369,7 @@ export function PurchasingPage() {
                 { header: 'Цена', accessor: (r) => money(r.unit_price) },
               ]}
             />
+            <AutomaticReview orderId={selected.id} />
             {selected.comment && <p className="whitespace-pre-wrap">{selected.comment}</p>}
             <h3 className="font-medium">Приёмки по заказу</h3>
             {orderReceipts.length ? (
