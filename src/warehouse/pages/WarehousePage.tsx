@@ -23,8 +23,9 @@ import { JournalPanel } from '../components/JournalPanel'
 import { InventoryOperationModal } from '../components/InventoryOperationModal'
 import { TechcardIssueModal } from '../components/TechcardIssueModal'
 import { ManualIssueModal } from '../components/ManualIssueModal'
+import { StockDocumentsPanel } from '../components/StockDocumentsPanel'
 
-type Tab = 'materials' | 'requests' | 'history'
+type Tab = 'materials' | 'requests' | 'history' | 'documents'
 
 type SortKey = 'name' | 'stock_desc' | 'stock_asc' | 'threshold_desc'
 
@@ -37,12 +38,12 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
-    title: 'Три вкладки склада',
+    title: 'Работа со складом',
     body: (
       <p>
         «Материалы» — остатки на складе, «Заявки на проверку» — запросы от производства, ожидающие вашего
         решения, «Журнал операций» — все приходы и расходы: когда, куда, кто получил и сколько осталось на
-        складе после операции. Переключайтесь между ними вкладками под заголовком.
+        складе после операции. «Перемещения и пересчёт» хранит документы перемещения между складами и инвентаризации.
       </p>
     ),
   },
@@ -83,8 +84,8 @@ export function WarehousePage() {
   const materials = useWarehouseStore((s) => s.materials)
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
-  const [params] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'requests' ? 'requests' : 'materials')
+  const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'requests' ? 'requests' : params.get('tab') === 'documents' ? 'documents' : 'materials')
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)
@@ -189,9 +190,10 @@ export function WarehousePage() {
             { key: 'materials', label: 'Материалы' },
             { key: 'requests', label: 'Заявки на проверку' },
             { key: 'history', label: 'Журнал операций' },
+            { key: 'documents', label: 'Перемещения и пересчёт' },
           ]}
           activeKey={tab}
-          onChange={setTab}
+          onChange={(next) => { setTab(next); const query = new URLSearchParams(params); query.set('tab', next); setParams(query, {replace:true}) }}
         />
       </div>
 
@@ -268,6 +270,7 @@ export function WarehousePage() {
 
       {tab === 'requests' && <RequestApprovalQueue />}
       {tab === 'history' && <JournalPanel />}
+      {tab === 'documents' && <StockDocumentsPanel />}
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
