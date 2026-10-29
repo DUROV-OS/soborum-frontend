@@ -18,6 +18,9 @@ export interface Material {
   unit: string
   is_fractional: boolean
   quantity_in_stock: number
+  reserved_quantity?: number
+  available_quantity?: number
+  reservation_shortage?: number
   purchase_price: number
   threshold: number
   /** Характеристики (0078) — все необязательные, у старых материалов пустые. */
@@ -49,6 +52,7 @@ export type MovementReason =
   | 'transfer_out'
   | 'count_gain'
   | 'count_loss'
+  | 'purchase_return'
 
 export interface StockMovement {
   id: number
@@ -91,11 +95,12 @@ export const MOVEMENT_REASON_LABEL: Record<MovementReason, string> = {
   transfer_out: 'Перемещение · расход',
   count_gain: 'Инвентаризация · излишек',
   count_loss: 'Инвентаризация · недостача',
+  purchase_return: 'Возврат поставщику',
 }
 
 // --- Документы операций склада и журнал (0088) ---
 
-export type OperationKind = 'receipt' | 'write_off' | 'issue_techcard' | 'issue_manual' | 'transfer_in' | 'transfer_out' | 'count_gain' | 'count_loss'
+export type OperationKind = 'receipt' | 'write_off' | 'issue_techcard' | 'issue_manual' | 'transfer_in' | 'transfer_out' | 'count_gain' | 'count_loss' | 'purchase_return'
 
 export type DestinationKind = 'house' | 'object' | 'workshop' | 'rework'
 
@@ -108,7 +113,7 @@ export const DESTINATION_KIND_LABEL: Record<DestinationKind, string> = {
 
 /** Причины, которые попадают в журнал (меняют остаток), — для фильтра. */
 export const JOURNAL_REASONS: MovementReason[] = [
-  'transfer_in', 'transfer_out', 'count_gain', 'count_loss',
+  'transfer_in', 'transfer_out', 'count_gain', 'count_loss', 'purchase_return',
   'supply',
   'receipt',
   'issued',
@@ -199,6 +204,7 @@ export interface TechcardPreviewLine {
   requested: number
   to_issue: number
   in_stock: number
+  available_quantity?: number
   balance_after: number
   shortage: boolean
   blocks: { block_id: number; block_name: string; to_issue: number }[]

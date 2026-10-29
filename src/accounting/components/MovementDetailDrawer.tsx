@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { ExternalLink, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
 import { FileAsset } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
@@ -127,8 +128,9 @@ export function MovementDetailDrawer({
               )
             }
           />
-          <Row label="Тип источника" value={SOURCE_KIND_LABEL[movement.source_kind]} />
+          <Row label="Тип источника" value={movement.purchase_return_id ? 'Возврат поставщику' : SOURCE_KIND_LABEL[movement.source_kind]} />
           {movement.source_label && <Row label="Источник" value={movement.source_label} />}
+          {movement.purchase_return_id && <Row label="Возврат поставщику" value={<Link className="text-brand-dark underline" to={'/purchasing?return='+movement.purchase_return_id}>Документ № {movement.purchase_return_id}</Link>} />}
           <Row label="Создана" value={new Date(movement.created_at).toLocaleString('ru-RU')} />
           {movement.posted_at && (
             <Row label="Проведена" value={new Date(movement.posted_at).toLocaleString('ru-RU')} />

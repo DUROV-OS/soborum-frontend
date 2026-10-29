@@ -22,7 +22,7 @@ export function RequestApprovalQueue() {
     try {
       const data = await api.listPendingRequests()
       setRows(data)
-      setQuantities(Object.fromEntries(data.map((row) => [row.id, formatQty(Math.max(0, Math.min(row.quantity, row.in_stock)))])))
+      setQuantities(Object.fromEntries(data.map((row) => [row.id, formatQty(Math.max(0, Math.min(row.quantity, row.available_quantity??row.in_stock)))])))
       setError(null)
     } catch {
       setRows(null)
@@ -52,12 +52,14 @@ export function RequestApprovalQueue() {
     {rows?.length === 0 && <EmptyState title="Нет заявок на выдачу" description="Запросы от производства появятся здесь." />}
     {rows?.map((row) => {
       const quantity = parseQty(quantities[row.id] ?? '')
-      const valid = Number.isFinite(quantity) && quantity > 0 && quantity <= row.quantity && quantity <= row.in_stock && (row.is_fractional || Number.isInteger(quantity))
+      const available=row.available_quantity??row.in_stock
+      const valid = Number.isFinite(quantity) && quantity > 0 && quantity <= row.quantity && quantity <= available && (row.is_fractional || Number.isInteger(quantity))
       return <div key={row.id} className="rounded-xl border border-border bg-surface p-4">
         <p className="text-[14px] font-medium text-ink">{row.material_title} · {row.production_name}</p>
         <p className="mt-1 text-[12px] text-muted">Этап: {row.block_name} · Запросил: {row.requested_by}</p>
         <p className="mt-1 text-[12px] text-muted">Осталось по заявке: {formatQty(row.quantity)} {row.unit} · На складе: {formatQty(row.in_stock)} {row.unit}</p>
-        {row.in_stock < row.quantity && <p className="mt-1 text-[12px] text-warning">Не хватает {formatQty(row.quantity - row.in_stock)} {row.unit}; доступное можно выдать частично.</p>}
+        <p className="mt-1 text-[12px] text-muted">Доступно этому дому: {formatQty(available)} {row.unit}</p>
+        {available < row.quantity && <p className="mt-1 text-[12px] text-warning">Не хватает {formatQty(row.quantity - available)} {row.unit}; доступное можно выдать частично.</p>}
         {canEdit && <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-[12px] text-muted">К выдаче<Input aria-label={`К выдаче: ${row.material_title}`} className="mt-1 w-32" inputMode="decimal" value={quantities[row.id] ?? ''} onChange={(e) => setQuantities({ ...quantities, [row.id]: e.target.value })} /></label><Button size="sm" disabled={busy || !valid} onClick={() => void decide(row, 'approve')}>Выдать</Button><Button size="sm" variant="secondary" disabled={busy} onClick={() => void decide(row, 'reject')}>Отклонить</Button></div>}
       </div>
     })}
