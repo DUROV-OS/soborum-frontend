@@ -989,4 +989,3 @@ function PaymentEditor({
     </Modal>
   )
 }
-
