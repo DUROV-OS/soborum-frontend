@@ -6,6 +6,7 @@ import { MeetingPanel } from '@/meeting/components/MeetingPanel'
 import { logClientEvent } from '@/shared/lib/clientLog'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { WorkflowBar } from './WorkflowBar'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -31,6 +32,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="mobile-safe-content flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
+          <WorkflowBar />
           <Outlet />
         </main>
       </div>

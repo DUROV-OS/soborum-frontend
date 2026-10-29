@@ -180,7 +180,7 @@ try {
   assert.equal(await employee.page.getByRole('heading', { name: 'Марина', exact: true }).count(), 0)
   await employee.page.getByRole('navigation').getByRole('link', { name: 'Работа', exact: true }).click()
   await employee.page.getByRole('heading', { name: 'Работа', exact: true }).waitFor()
-  await employee.page.getByRole('link', { name: /Производство/ }).click()
+  await employee.page.getByRole('main').getByRole('link', { name: /Дома в производстве/ }).click()
   await employee.page.getByRole('button', { name: 'Заказ №11' }).waitFor()
   assert(employee.requests.includes('GET /api/production/'))
   assert(!employee.requests.some(request => request.includes('/api/cycles')))

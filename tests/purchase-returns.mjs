@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
 const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }),
@@ -106,7 +107,7 @@ try {
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
   })
-  await page.goto('http://127.0.0.1:5173/purchasing', { waitUntil: 'networkidle' })
+  await page.goto(base + '/purchasing', { waitUntil: 'networkidle' })
   await page.getByRole('tab', { name: 'Приёмки', exact: true }).click()
   await page.getByText('№ ПР-10', { exact: true }).click()
   await page.getByRole('button', { name: 'Вернуть поставщику', exact: true }).click()
@@ -128,7 +129,7 @@ try {
   await dialog.getByRole('button', { name: 'Вернуть из архива', exact: true }).waitFor()
   assert.ok(created && refunded && archived)
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('http://127.0.0.1:5173/purchasing?return=1', { waitUntil: 'networkidle' })
+  await page.goto(base + '/purchasing?return=1', { waitUntil: 'networkidle' })
   await page.getByRole('dialog', { name: 'Возврат № ВП-1', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   await page.screenshot({

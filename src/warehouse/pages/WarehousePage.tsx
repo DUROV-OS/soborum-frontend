@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
@@ -86,8 +87,9 @@ export function WarehousePage() {
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
   const [params, setParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>('materials')
-  useEffect(()=>{const next=params.get('tab');setTab(next==='requests'||next==='history'||next==='documents'||next==='reservations'?next:'materials')},[params])
+  const [tab, setTab] = useQueryChoice<Tab>(
+    'tab', ['materials', 'requests', 'history', 'documents', 'reservations'], 'materials',
+  )
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)
@@ -146,7 +148,9 @@ export function WarehousePage() {
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-[20px] font-medium text-ink">Склад</h1>
+          <h1 className="text-[20px] font-medium text-ink">
+            {params.get('view') === 'catalog' && tab === 'materials' ? 'Товары и материалы' : 'Склад'}
+          </h1>
           <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и журнал операций</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -197,7 +201,7 @@ export function WarehousePage() {
             { key: 'reservations', label: 'Резервы' },
           ]}
           activeKey={tab}
-          onChange={(next) => { setTab(next); const query = new URLSearchParams(params); query.set('tab', next); setParams(query, {replace:true}) }}
+          onChange={setTab}
         />
       </div>
 

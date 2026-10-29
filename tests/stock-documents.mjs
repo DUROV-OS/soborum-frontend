@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const errors = []
@@ -168,7 +169,7 @@ await page.route('**/api/**', async (route) => {
     body: JSON.stringify(body),
   })
 })
-await page.goto('http://127.0.0.1:5173/warehouse?tab=documents', { waitUntil: 'networkidle' })
+await page.goto(base + '/warehouse?tab=documents', { waitUntil: 'networkidle' })
 await page.getByText('Перемещение № МС-1', { exact: true }).click()
 let dialog = page.getByRole('dialog')
 await dialog.getByText('Перенесённый документ МойСклада.', { exact: false }).waitFor()

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { useSearchParams } from 'react-router-dom'
 import { Calculator, Plus, Trash2, Upload, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -141,7 +142,7 @@ export function AccountingPage() {
   })
   // Вкладки: сводка по обеим организациям, затем вкладка на каждое юрлицо
   // (реестр её счёта), затем прежняя вкладка «Сотрудники» (0081-b).
-  const [tab, setTab] = useState<'overview' | 'register' | 'counterparties' | 'salary'>('register')
+  const [tab, setTab] = useQueryChoice('tab', ['overview', 'register', 'counterparties', 'salary'], 'register')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [customRangeOpen, setCustomRangeOpen] = useState(
@@ -151,7 +152,12 @@ export function AccountingPage() {
   useEffect(() => {
     // Переход по ссылке «создана проводка» (0011-f) — открываем карточку и
     // убираем параметр из адреса, чтобы обновление страницы не переоткрывало её.
-    if (searchParams.get('movement')) setSearchParams({}, { replace: true })
+    if (searchParams.get('movement'))
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous)
+        next.delete('movement')
+        return next
+      }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
