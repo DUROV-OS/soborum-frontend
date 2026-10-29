@@ -6,10 +6,10 @@ import { SectionId } from '@/shared/sections'
 
 export type WorkspaceView = 'general' | JobRole
 export type WorkspaceBlock = 'personal_tasks' | 'my_clients' | 'attention' | 'metrics' | 'aktualnoe' | 'marina'
-export type DashboardSection = 'clients' | 'production' | 'installation' | 'cycle' | 'warehouse' | 'marketing' | 'tasks' | 'users' | 'accounting'
+export type DashboardSection = 'clients' | 'production' | 'installation' | 'cycle' | 'warehouse' | 'marketing' | 'tasks' | 'users' | 'accounting' | 'ai'
 export interface WorkspacePreferences { view: WorkspaceView; blocks: WorkspaceBlock[]; sections: DashboardSection[] }
 const labels: Record<WorkspaceBlock, string> = { personal_tasks: 'Мои задачи', my_clients: 'Мои клиенты', attention: 'Требует внимания', metrics: 'Показатели', aktualnoe: 'Актуальные заказы', marina: 'Марина' }
-const sectionLabels: Record<DashboardSection, string> = { clients: 'Клиенты и оплаты', production: 'Производство', installation: 'Монтаж', cycle: 'Заказы', warehouse: 'Склад', marketing: 'Маркетинг', tasks: 'Задачи', users: 'Сотрудники', accounting: 'Бухгалтерия' }
+const sectionLabels: Record<DashboardSection, string> = { clients: 'Клиенты и оплаты', production: 'Производство', installation: 'Монтаж', cycle: 'Заказы', warehouse: 'Склад', marketing: 'Маркетинг', tasks: 'Задачи', users: 'Сотрудники', accounting: 'Бухгалтерия', ai: 'Согласования Марины' }
 const allowed: Record<WorkspaceView, WorkspaceBlock[]> = {
   general: ['personal_tasks', 'attention', 'metrics', 'aktualnoe', 'marina'],
   director: ['personal_tasks', 'attention', 'metrics', 'aktualnoe', 'marina'],
@@ -18,7 +18,7 @@ const allowed: Record<WorkspaceView, WorkspaceBlock[]> = {
 }
 const viewLabels: Record<WorkspaceView, string> = { general: 'Общий', director: 'Руководитель', manager: 'Менеджер', accountant: 'Бухгалтер' }
 export function defaults(view: WorkspaceView): WorkspacePreferences {
-  return { view, blocks: allowed[view], sections: view === 'accountant' ? ['accounting', 'clients', 'tasks'] : Object.keys(sectionLabels) as DashboardSection[] }
+  return { view, blocks: allowed[view], sections: view === 'accountant' ? ['accounting', 'clients', 'tasks', 'ai'] : Object.keys(sectionLabels) as DashboardSection[] }
 }
 
 export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number; jobRole: JobRole | null; onApply: (value: WorkspacePreferences) => void }) {
@@ -42,7 +42,7 @@ export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number
     return () => { active = false }
   }, [userId, jobRole, reload, onApply])
   const sections = (Object.keys(sectionLabels) as DashboardSection[]).filter((section) => {
-    if (draft.view === 'accountant' && !['accounting', 'clients', 'tasks'].includes(section)) return false
+    if (draft.view === 'accountant' && !['accounting', 'clients', 'tasks', 'ai'].includes(section)) return false
     return hasAccess((section === 'users' ? 'admin' : section) as SectionId)
   })
   const blocks = allowed[draft.view].filter((block) => block === 'personal_tasks' ? hasAccess('tasks') : block === 'my_clients' ? hasAccess('clients') : block === 'marina' ? hasAccess('ai') : block === 'aktualnoe' ? hasAccess('cycle') : true)
