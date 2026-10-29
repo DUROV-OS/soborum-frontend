@@ -5,6 +5,7 @@ import {
   Boxes,
   Briefcase,
   Calculator,
+  Database,
   Contact,
   ClipboardList,
   Factory,
@@ -63,6 +64,9 @@ import {
  * (см. TasksPage) — назначается в матрице доступа наравне с разделами.
  */
 export type SectionId =
+  | 'recipes'
+  | 'crm'
+  | 'moysklad'
   | 'clients'
   | 'partners'
   | 'production'
@@ -100,6 +104,9 @@ export interface SectionMeta {
 }
 
 export const SECTIONS: SectionMeta[] = [
+  { id: 'recipes', label: 'Техкарты и выпуск', path: '/recipes', icon: Factory, notAssignable: true },
+  { id: 'crm', label: 'Продажи', path: '/crm', icon: Users, notAssignable: true },
+  { id: 'moysklad', label: 'МойСклад', path: '/moysklad', icon: Database, notAssignable: true },
   { id: 'today', label: 'Пульс', path: '/today', icon: Activity, notAssignable: true },
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
@@ -132,6 +139,9 @@ export const SECTIONS: SectionMeta[] = [
  * на странице «Работа» задаётся отдельно (WorkPage).
  */
 export const WORK_SECTION_IDS: SectionId[] = [
+  'recipes',
+  'crm',
+  'moysklad',
   'cycle',
   'clients',
   'partners',

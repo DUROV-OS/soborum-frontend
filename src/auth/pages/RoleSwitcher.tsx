@@ -21,10 +21,12 @@ export function RoleSwitcher() {
         aria-label="Меню учётной записи"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-pill border border-border px-3 py-1.5 text-left hover:bg-surface-muted"
+        className="flex items-center gap-2 rounded-pill border border-border px-2 py-1.5 text-left hover:bg-surface-muted sm:px-3"
+        title={current.full_name}
       >
-        <span>
-          <span className="block text-[13px] font-medium leading-tight text-ink">
+        <span className="inline-flex h-6 w-6 items-center justify-center text-sm font-medium sm:hidden">{current.full_name.slice(0, 1)}</span>
+        <span className="hidden min-w-0 max-w-56 sm:block">
+          <span className="block truncate text-[13px] font-medium leading-tight text-ink">
             {current.full_name}
           </span>
           <span className="block text-[11px] leading-tight text-muted">

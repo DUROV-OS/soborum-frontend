@@ -9,6 +9,8 @@ export interface RequestBreakdownItem {
 // строковые enum'ы (русские подписи), приходят как есть.
 export interface Material {
   id: number
+  is_archived?: boolean
+  catalog_path?: string | null
   warehouse: string
   category: string
   title: string

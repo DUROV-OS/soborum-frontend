@@ -88,6 +88,9 @@ export function WarehousePage() {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [onlyNeedsSupply, setOnlyNeedsSupply] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [archiveFilter, setArchiveFilter] = useState('active')
+  const [page, setPage] = useState(0)
+  useEffect(() => setPage(0), [query, sortKey, onlyNeedsSupply, categoryFilter, archiveFilter])
   const onboarding = useSectionOnboarding('warehouse')
   const accessLevel = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(accessLevel, 'edit')
@@ -107,19 +110,20 @@ export function WarehousePage() {
   const selectedMaterial = selected ? materials.find((m) => m.id === selected.id) ?? selected : null
 
   const categories = Array.from(
-    new Set(materials.map((m) => (m.category ?? '').trim()).filter(Boolean)),
+    new Set(materials.map((m) => (m.catalog_path || m.category || '').trim()).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'ru'))
 
   const q = query.trim().toLowerCase()
   const visibleMaterials = materials
+    .filter((m) => archiveFilter === 'all' || Boolean(m.is_archived) === (archiveFilter === 'archived'))
     .filter((m) => !onlyNeedsSupply || m.needs_supply)
-    .filter((m) => categoryFilter === 'all' || (m.category ?? '').trim() === categoryFilter)
+    .filter((m) => categoryFilter === 'all' || (m.catalog_path || m.category || '').trim() === categoryFilter)
     .filter(
       (m) =>
         !q ||
         (m.title ?? '').toLowerCase().includes(q) ||
         (m.code ?? '').toLowerCase().includes(q) ||
-        (m.category ?? '').toLowerCase().includes(q),
+        (m.catalog_path || m.category || '').toLowerCase().includes(q),
     )
     .sort((a, b) => {
       if (sortKey === 'name') return a.title.localeCompare(b.title, 'ru')
@@ -190,6 +194,9 @@ export function WarehousePage() {
       {tab === 'materials' && (
         <>
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Select value={archiveFilter} onChange={(e) => setArchiveFilter(e.target.value)} aria-label="Архив материалов" className="w-full sm:w-44">
+              <option value="active">Действующие</option><option value="archived">Архив</option><option value="all">Все записи</option>
+            </Select>
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -229,7 +236,7 @@ export function WarehousePage() {
               {
                 header: 'Категория',
                 accessor: (m) => {
-                  const c = (m.category ?? '').trim()
+                  const c = (m.catalog_path || m.category || '').trim()
                   return c && c !== 'без категории' ? (
                     <Chip tone="neutral">{c}</Chip>
                   ) : (
@@ -243,14 +250,15 @@ export function WarehousePage() {
               { header: 'Порог', align: 'right', accessor: (m) => `${m.threshold} ${m.unit}`, className: 'tabular' },
               {
                 header: 'Статус',
-                accessor: (m) => (m.needs_supply ? <Chip tone="danger">Нужна поставка</Chip> : <Chip tone="success">В норме</Chip>),
+                accessor: (m) => (m.is_archived ? <Chip tone="neutral">Архив</Chip> : m.needs_supply ? <Chip tone="danger">Нужна поставка</Chip> : <Chip tone="success">В норме</Chip>),
               },
             ]}
-            rows={visibleMaterials}
+            rows={visibleMaterials.slice(page * 100, (page + 1) * 100)}
             keyOf={(m) => String(m.id)}
             onRowClick={setSelected}
             loading={loading}
           />
+          <div className="mt-3 flex items-center justify-between gap-2 text-sm"><span className="text-muted">Позиций: {visibleMaterials.length}</span><div className="flex gap-2"><Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(v => v - 1)}>Назад</Button><Button variant="secondary" size="sm" disabled={(page + 1) * 100 >= visibleMaterials.length} onClick={() => setPage(v => v + 1)}>Далее</Button></div></div>
         </>
       )}
 

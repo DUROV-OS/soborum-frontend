@@ -71,6 +71,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const account = get().current
     if (!account) return 'none'
     if (account.role === 'admin') return 'full'
+    if (section === 'recipes') return account.module_access.production !== undefined && account.module_access.production !== 'none' ? account.module_access.production : account.module_access.warehouse ?? 'none'
+    if (section === 'crm') return account.module_access.clients ?? 'none'
+    if (section === 'moysklad') return ['warehouse', 'production', 'clients', 'accounting'].some(k => account.module_access[k as SectionId] && account.module_access[k as SectionId] !== 'none') ? 'view' : 'none'
     // «Сегодня» доступен каждому вошедшему сотруднику; сервер отдаёт только
     // показатели разрешённых ему разделов и не требует AI-доступа. «Агенты» и
     // «Все чаты» (данные MAX общие для организации) — так же для всех.

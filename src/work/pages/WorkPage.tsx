@@ -31,6 +31,9 @@ const TILES: {
   badge?: 'dev'
   public?: boolean
 }[] = [
+  { id: 'recipes', note: 'Нормативы, материалы, готовая продукция и проведение выпуска' },
+  { id: 'crm', note: 'Воронки, сделки, контакты, история общения и задачи менеджеров' },
+  { id: 'moysklad', note: 'Перенесённые документы, товары, техкарты и архив компании' },
   { id: 'cycle', note: 'Все клиенты по этапам сделки' },
   { id: 'clients', note: 'Карточки клиентов, оплаты и документы' },
   { id: 'partners', note: 'Агентства, риэлторы, специалисты по земле и коммерция — по городам' },
@@ -52,7 +55,7 @@ const TILES: {
  * сигнала не построить без хранения сообщений MAX в БД (сейчас /max —
  * чистый прокси к живому вебсокету, ничего не пишет в Postgres); нужна
  * отдельная задача на персист сообщений, см. журнал 0045. */
-const NO_SIGNAL_SECTIONS: SectionId[] = ['house_models', 'meetings', 'suppliers', 'chats', 'partners']
+const NO_SIGNAL_SECTIONS: SectionId[] = ['recipes', 'crm', 'moysklad', 'house_models', 'meetings', 'suppliers', 'chats', 'partners']
 
 const HEAT_BLOCK: Record<Heat, string> = {
   red: 'border-danger/70 bg-danger-bg/60',
