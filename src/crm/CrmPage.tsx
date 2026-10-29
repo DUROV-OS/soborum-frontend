@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Plus, Users, Archive, Pencil, Download } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -347,6 +348,14 @@ export function CrmPage() {
         {selected && (
           <div className="space-y-5 text-[13px]">
             <div className="flex flex-wrap gap-2">
+              {!!selected.data.client_id && (
+                <Link
+                  to={`/clients/${selected.data.client_id}`}
+                  className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent"
+                >
+                  Карточка клиента
+                </Link>
+              )}
               {canEdit && selected.kind !== 'inquiry' && (
                 <Button
                   size="sm"
