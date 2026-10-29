@@ -45,36 +45,21 @@ const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'com
 }))
 
 export function CrmPage() {
-  const [catalog, setCatalog] = useState<Catalog>({
-    pipelines: [],
-    stages: [],
-    users: [],
-    counts: {},
-  })
+  const [catalog, setCatalog] = useState<Catalog>({ pipelines: [], stages: [], users: [], counts: {} })
   const [kind, setKind] = useState<Kind>('deal')
   const [pipeline, setPipeline] = useState('')
   const [stage, setStage] = useState('')
   const [archive, setArchive] = useState('active')
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
-  const [result, setResult] = useState<{ total: number; items: Entry[] }>({
-    total: 0,
-    items: [],
-  })
+  const [result, setResult] = useState<{ total: number; items: Entry[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<Entry | null>(null)
   const [history, setHistory] = useState<History>({ total: 0, items: [] })
   const [note, setNote] = useState('')
-  const [attached, setAttached] = useState<{
-    total: number
-    items: SourceFile[]
-  }>({ total: 0, items: [] })
-  const [editing, setEditing] = useState<{
-    entry?: Entry
-    kind: Kind
-    inquiry?: Entry
-  } | null>(null)
+  const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
+  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry } | null>(null)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [fileLibrary, setFileLibrary] = useState(false)
@@ -127,10 +112,7 @@ export function CrmPage() {
     setAttached({ total: 0, items: [] })
     setNote('')
     refreshHistory(entry)
-    apiRequest<{ total: number; items: SourceFile[] }>({
-      section: 'crm',
-      path: `/entries/${entry.id}/files`,
-    })
+    apiRequest<{ total: number; items: SourceFile[] }>({ section: 'crm', path: `/entries/${entry.id}/files` })
       .then(setAttached)
       .catch((e) => setError(e.message))
   }
@@ -404,11 +386,7 @@ export function CrmPage() {
                 <Button
                   size="sm"
                   disabled={busy}
-                  onClick={() =>
-                    update(selected, {
-                      data: { completed: !selected.data.completed },
-                    })
-                  }
+                  onClick={() => update(selected, { data: { completed: !selected.data.completed } })}
                 >
                   {selected.data.completed ? 'Открыть заново' : 'Выполнить задачу'}
                 </Button>
@@ -513,10 +491,7 @@ export function CrmPage() {
                 <summary className="cursor-pointer text-muted">Дополнительные поля</summary>
                 <div className="mt-2 space-y-2">
                   {(
-                    selected.data.custom_fields as {
-                      field_name?: string
-                      values?: { value: unknown }[]
-                    }[]
+                    selected.data.custom_fields as { field_name?: string; values?: { value: unknown }[] }[]
                   ).map((f, i) => (
                     <p key={i}>
                       <span className="text-muted">{f.field_name}: </span>
@@ -806,10 +781,7 @@ type SourceFile = { id: number; name: string; size: number; archived: boolean }
 function FilesLibrary({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
-  const [result, setResult] = useState<{ total: number; items: SourceFile[] }>({
-    total: 0,
-    items: [],
-  })
+  const [result, setResult] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
   const [error, setError] = useState('')
   useEffect(() => {
     let current = true
@@ -864,9 +836,7 @@ function FilesLibrary({ onClose }: { onClose: () => void }) {
           {
             header: 'Размер',
             accessor: (r) =>
-              (r.size / 1024 / 1024).toLocaleString('ru-RU', {
-                maximumFractionDigits: 2,
-              }) + ' МБ',
+              (r.size / 1024 / 1024).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' МБ',
           },
           {
             header: '',
