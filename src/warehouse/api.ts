@@ -145,6 +145,7 @@ export interface PendingMaterialRequest {
   unit: string
   quantity: number
   in_stock: number
+  available_quantity?: number
   is_fractional: boolean
   requested_by: string
   created_at: string

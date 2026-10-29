@@ -24,8 +24,9 @@ import { InventoryOperationModal } from '../components/InventoryOperationModal'
 import { TechcardIssueModal } from '../components/TechcardIssueModal'
 import { ManualIssueModal } from '../components/ManualIssueModal'
 import { StockDocumentsPanel } from '../components/StockDocumentsPanel'
+import { ReservationsPanel } from '../ReservationsPanel'
 
-type Tab = 'materials' | 'requests' | 'history' | 'documents'
+type Tab = 'materials' | 'requests' | 'history' | 'documents' | 'reservations'
 
 type SortKey = 'name' | 'stock_desc' | 'stock_asc' | 'threshold_desc'
 
@@ -85,7 +86,8 @@ export function WarehousePage() {
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
   const [params, setParams] = useSearchParams()
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'requests' ? 'requests' : params.get('tab') === 'documents' ? 'documents' : 'materials')
+  const [tab, setTab] = useState<Tab>('materials')
+  useEffect(()=>{const next=params.get('tab');setTab(next==='requests'||next==='history'||next==='documents'||next==='reservations'?next:'materials')},[params])
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)
@@ -104,6 +106,7 @@ export function WarehousePage() {
   const canFull = accessLevelAtLeast(accessLevel, 'full')
   const [inventoryKind, setInventoryKind] = useState<'receipt' | 'write_off' | null>(null)
   const [issuingByTechcard, setIssuingByTechcard] = useState(false)
+  const [issuingHouseId,setIssuingHouseId]=useState<number|undefined>()
   const [issuingManually, setIssuingManually] = useState(false)
 
   useEffect(() => {
@@ -158,7 +161,7 @@ export function WarehousePage() {
                 <Truck size={16} />
                 Оформить поставку
               </Button>
-              <Button variant="secondary" onClick={() => setIssuingByTechcard(true)}>
+              <Button variant="secondary" onClick={() => {setIssuingHouseId(undefined);setIssuingByTechcard(true)}}>
                 <ClipboardList size={16} />
                 Отпуск по техкарте
               </Button>
@@ -191,6 +194,7 @@ export function WarehousePage() {
             { key: 'requests', label: 'Заявки на проверку' },
             { key: 'history', label: 'Журнал операций' },
             { key: 'documents', label: 'Перемещения и пересчёт' },
+            { key: 'reservations', label: 'Резервы' },
           ]}
           activeKey={tab}
           onChange={(next) => { setTab(next); const query = new URLSearchParams(params); query.set('tab', next); setParams(query, {replace:true}) }}
@@ -252,11 +256,13 @@ export function WarehousePage() {
               },
               { header: 'Материал', accessor: (m) => <MaterialCell material={m} /> },
               { header: 'На складе', align: 'right', accessor: (m) => `${m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
+              { header: 'В резерве', align: 'right', accessor: (m) => `${m.reserved_quantity??0} ${m.unit}`, className: 'tabular' },
+              { header: 'Свободно', align: 'right', accessor: (m) => `${m.available_quantity??m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
               { header: 'Запрошено', align: 'right', accessor: (m) => `${m.total_requested} ${m.unit}`, className: 'tabular' },
               { header: 'Порог', align: 'right', accessor: (m) => `${m.threshold} ${m.unit}`, className: 'tabular' },
               {
                 header: 'Статус',
-                accessor: (m) => (m.is_archived ? <Chip tone="neutral">Архив</Chip> : m.needs_supply ? <Chip tone="danger">Нужна поставка</Chip> : <Chip tone="success">В норме</Chip>),
+                accessor: (m) => (m.is_archived ? <Chip tone="neutral">Архив</Chip> : (m.reservation_shortage??0)>0 ? <Chip tone="danger">Резерв не обеспечен</Chip> : m.needs_supply ? <Chip tone="danger">Нужна поставка</Chip> : <Chip tone="success">В норме</Chip>),
               },
             ]}
             rows={visibleMaterials.slice(page * 100, (page + 1) * 100)}
@@ -271,13 +277,14 @@ export function WarehousePage() {
       {tab === 'requests' && <RequestApprovalQueue />}
       {tab === 'history' && <JournalPanel />}
       {tab === 'documents' && <StockDocumentsPanel />}
+      {tab === 'reservations' && <ReservationsPanel materialId={Number(params.get('material'))||undefined} createMaterialId={Number(params.get('reserve'))||undefined} onCreateHandled={()=>{const query=new URLSearchParams(params);query.delete('reserve');setParams(query,{replace:true})}} onIssueHouse={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} />}
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />
       <SupplyIntakeModal open={supplying} onClose={() => setSupplying(false)} />
       <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
-      <TechcardIssueModal open={issuingByTechcard} onClose={() => setIssuingByTechcard(false)} />
+      <TechcardIssueModal open={issuingByTechcard} initialProductionId={issuingHouseId} onClose={() => {setIssuingByTechcard(false);setIssuingHouseId(undefined)}} />
       <ManualIssueModal open={issuingManually} onClose={() => setIssuingManually(false)} />
-      <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} />
+      <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} onReserves={create=>{if(selectedMaterial){setParams({tab:'reservations',material:String(selectedMaterial.id),...(create?{reserve:String(selectedMaterial.id)}:{})});setSelected(null)}}}/>
 
       <OnboardingDialog
         open={onboarding.open}

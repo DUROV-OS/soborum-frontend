@@ -16,12 +16,12 @@ function lineState(line: TechcardPreviewLine, raw: string) {
   else if (qty > line.to_issue + 1e-9) error = `Не больше ${formatQty(line.to_issue)} по техкарте`
   else if (!line.is_fractional && !Number.isInteger(qty)) error = 'Только целое количество'
   const balanceAfter = line.in_stock - (Number.isNaN(qty) ? 0 : qty)
-  return { qty, error, balanceAfter, shortage: balanceAfter < -1e-9 }
+  return { qty, error, balanceAfter, shortage: qty>(line.available_quantity??line.in_stock)+1e-9 }
 }
 
 /** Отпуск по техкарте (0088-d): выбор дома → нормативы из КР типового проекта
  * с остатком на складе после отпуска. Пока есть нехватка — провести нельзя. */
-export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TechcardIssueModal({ open, onClose, initialProductionId }: { open: boolean; onClose: () => void; initialProductionId?:number }) {
   const issueByTechcard = useWarehouseStore((s) => s.issueByTechcard)
   const [houses, setHouses] = useState<TechcardHouse[] | null>(null)
   const [preview, setPreview] = useState<TechcardPreview | null>(null)
@@ -42,6 +42,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
     setNote('')
     setOccurredAt(localNowInput())
     setError(null)
+    if(initialProductionId)void pickHouse(initialProductionId)
     warehouseApi
       .techcardHouses()
       .then(setHouses)
@@ -50,7 +51,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
       .issueSuggestions('house')
       .then((s) => setSuggestions(s.received_by))
       .catch(() => setSuggestions([]))
-  }, [open])
+  }, [open,initialProductionId])
 
   async function pickHouse(productionId: number) {
     setLoading(true)
@@ -58,7 +59,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
     try {
       const data = await warehouseApi.techcardPreview(productionId)
       setPreview(data)
-      setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(Math.max(0, Math.min(l.to_issue, l.in_stock)))])))
+      setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(Math.max(0, Math.min(l.to_issue, l.available_quantity??l.in_stock)))])))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить техкарту')
     } finally {
@@ -217,6 +218,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
                         </td>
                         <td className="tabular py-2 pr-3 text-right">
                           {formatQty(line.in_stock)} {line.unit}
+                          <div className="text-[11px] text-muted">этому дому: {formatQty(line.available_quantity??line.in_stock)}</div>
                         </td>
                         <td
                           className={`tabular py-2 text-right text-[15px] font-semibold ${

@@ -18,6 +18,9 @@ export interface Material {
   unit: string
   is_fractional: boolean
   quantity_in_stock: number
+  reserved_quantity?: number
+  available_quantity?: number
+  reservation_shortage?: number
   purchase_price: number
   threshold: number
   /** Характеристики (0078) — все необязательные, у старых материалов пустые. */
@@ -201,6 +204,7 @@ export interface TechcardPreviewLine {
   requested: number
   to_issue: number
   in_stock: number
+  available_quantity?: number
   balance_after: number
   shortage: boolean
   blocks: { block_id: number; block_name: string; to_issue: number }[]
