@@ -30,7 +30,7 @@ export function AppShell() {
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
+        <main className="mobile-safe-content flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
           <Outlet />
         </main>
       </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { useAuthStore } from '../store'
+import { InstallAppButton } from '@/shared/mobile/InstallApp'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -24,7 +25,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="text-[22px] font-medium text-brand-dark">Soborbum</div>
+          <div className="text-[22px] font-medium text-brand-dark">Durov OS</div>
           <p className="mt-1 text-[13px] text-muted">
             Система управления производством модульных домов
           </p>
@@ -55,6 +56,7 @@ export function LoginPage() {
             </Button>
           </div>
         </form>
+        <div className="mt-5"><InstallAppButton /></div>
       </div>
     </div>
   )

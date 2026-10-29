@@ -23,6 +23,33 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Keep controls clear of the camera cutout and home indicator in standalone apps. */
+@media (max-width: 1023px) {
+.mobile-safe-topbar {
+  height: calc(4rem + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+.mobile-safe-sidebar {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.mobile-safe-content {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+}
+
+@media (max-width: 639px) {
+  /* iOS zooms forms with smaller text, moving controls outside the viewport. */
+  input, select, textarea { font-size: 16px !important; }
+}
+
 :focus-visible {
   outline: 2px solid rgb(var(--brand));
   outline-offset: 2px;

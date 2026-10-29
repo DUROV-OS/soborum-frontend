@@ -25,7 +25,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Durov OS', {
       body: payload.body || '',
-      icon: '/meme.jpg',
+      icon: '/icons/app-192.png',
       tag: payload.title,
     }),
   )
