@@ -136,8 +136,26 @@ export function getSupply(id: number): Promise<Supply> {
 }
 
 /** POST /api/warehouse/requests/:id/approve */
-export function approveRequest(requestId: number): Promise<unknown> {
-  return apiRequest({ section: SECTION, path: `/requests/${requestId}/approve`, method: 'POST' })
+export interface PendingMaterialRequest {
+  id: number
+  production_id: number
+  production_name: string
+  block_name: string
+  material_title: string
+  unit: string
+  quantity: number
+  in_stock: number
+  is_fractional: boolean
+  requested_by: string
+  created_at: string
+}
+
+export function listPendingRequests(): Promise<PendingMaterialRequest[]> {
+  return apiRequest({ section: SECTION, path: '/requests' })
+}
+
+export function approveRequest(requestId: number, quantity?: number): Promise<unknown> {
+  return apiRequest({ section: SECTION, path: `/requests/${requestId}/approve`, method: 'POST', body: quantity === undefined ? undefined : { quantity } })
 }
 
 /** POST /api/warehouse/requests/:id/reject */

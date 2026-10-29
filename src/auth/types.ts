@@ -1,7 +1,7 @@
 import { SectionId } from '@/shared/sections'
 
 export type Role = 'admin' | 'worker'
-export type JobRole = 'director' | 'manager' | 'accountant'
+export type JobRole = 'director' | 'manager' | 'accountant' | 'storekeeper' | 'production_manager'
 
 /** 4 уровня доступа к разделу (задача 0052). Порядок значим — `LEVEL_ORDER`
  * ниже используется для сравнения «достаточно ли уровня». */
