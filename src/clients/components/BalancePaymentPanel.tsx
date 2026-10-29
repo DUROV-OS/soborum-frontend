@@ -116,6 +116,7 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
           <span className="text-[12px] text-muted">К приёму: {balanceDue.toLocaleString('ru-RU')} ₽</span>
         )}
       </div>
+      <p className="mt-2 text-[12px] text-muted">Сумма рассчитана по условиям договора; частичные поступления здесь не вычитаются. Отметка в карточке проверяется по операциям бухгалтерии.</p>
 
       <BalanceDueDateField key={client.balance_due_date ?? ''} client={client} canEdit={canEdit} />
 
