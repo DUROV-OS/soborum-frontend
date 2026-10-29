@@ -35,6 +35,7 @@ async function setup({ jobRole = null, access = { tasks: 'view', clients: 'view'
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
  })
  await page.goto(baseURL + '/today')
+ await page.getByText('Выбрать блоки и направления').click()
  await page.getByRole('button', { name: 'Сохранить настройки' }).waitFor()
  return { context, page, requests, state }
 }

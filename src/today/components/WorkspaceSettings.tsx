@@ -58,6 +58,7 @@ export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number
   return <section className="rounded-2xl border border-border bg-surface p-4 sm:p-5" aria-labelledby="workspace-settings-title">
     <h2 id="workspace-settings-title" className="text-[15px] font-semibold text-ink">Настроить рабочий экран</h2>
     <p className="mt-1 text-[12px] text-muted">Настройки сохраняются в вашей учётной записи. Права доступа задаёт администратор.</p>
+    <details className="mt-3"><summary className="cursor-pointer text-[13px] font-medium text-brand">Выбрать блоки и направления</summary>
     {loading ? <p role="status" className="mt-3 text-[13px] text-muted">Загружаем настройки…</p> : <>
       {error && <p role="alert" className="mt-3 text-[13px] text-danger">{error} <button type="button" onClick={() => setReload((x) => x + 1)} className="font-medium underline">Повторить загрузку</button></p>}
       {!error && <><p className="mt-4 text-[13px] font-medium text-ink">Экран: {viewLabels[draft.view]}</p>
@@ -66,5 +67,6 @@ export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number
       {(draft.blocks.includes('attention') || draft.blocks.includes('metrics')) && <><p className="mt-4 text-[13px] font-medium text-ink">Направления сводки</p><div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">{sections.map((section) => <label key={section} className="flex items-center gap-2 text-[13px] text-ink"><input type="checkbox" checked={draft.sections.includes(section)} onChange={() => { setDraft({ ...draft, sections: toggle(draft.sections, section) }); setSaved(false) }} />{sectionLabels[section]}</label>)}</div></>}
       <div className="mt-4 flex items-center gap-3"><button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-brand px-4 py-2 text-[13px] font-medium text-white disabled:opacity-50">{saving ? 'Сохраняем…' : 'Сохранить настройки'}</button>{saved && <span role="status" className="text-[12px] text-success">Сохранено</span>}</div></>}
     </>}
+    </details>
   </section>
 }
