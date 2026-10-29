@@ -203,7 +203,7 @@ export function LeadControl({
               {
                 header: 'Действие',
                 accessor: (r) =>
-                  canEdit && ['deal', 'inquiry'].includes(r.kind) ? (
+                  canEdit && r.kind === 'deal' && r.reason === 'no_next_step' ? (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -214,7 +214,18 @@ export function LeadControl({
                     >
                       Назначить шаг
                     </Button>
-                  ) : null,
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        entry(r)
+                      }}
+                    >
+                      {r.kind === 'inquiry' ? 'Обработать' : 'Открыть'}
+                    </Button>
+                  ),
               },
             ]}
           />

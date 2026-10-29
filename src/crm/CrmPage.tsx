@@ -68,6 +68,10 @@ export function CrmPage() {
   const canEdit = accessLevelAtLeast(level, 'edit')
   const canFull = accessLevelAtLeast(level, 'full')
   useEffect(() => {
+    const interval = window.setInterval(() => { if (!document.hidden) setRevision(v=>v+1) }, 60000)
+    return () => window.clearInterval(interval)
+  }, [])
+  useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('entry')
     if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(open).catch(e=>setError(e.message))
   }, [])
@@ -356,6 +360,7 @@ export function CrmPage() {
             <div className="flex flex-wrap gap-2">
               {canEdit && selected.kind==='deal' && !selected.archived && <Button size="sm" variant="secondary" onClick={()=>setEditing({kind:'task',related:selected})}>Назначить следующий шаг</Button>}
               {!!selected.board_task_id && <Link to="/tasks" className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent">Общий список задач</Link>}
+              {selected.kind==='task' && !!selected.data.entity_id && <Button size="sm" variant="secondary" onClick={()=>apiRequest<Entry>({section:'crm',path:`/entries/${selected.data.entity_id}`}).then(open).catch(e=>setError(e.message))}>Связанная карточка</Button>}
               {!!selected.data.client_id && (
                 <Link
                   to={`/clients/${selected.data.client_id}`}

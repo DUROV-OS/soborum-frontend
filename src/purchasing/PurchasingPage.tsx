@@ -70,6 +70,7 @@ const call = <T,>(path: string, method: 'GET' | 'POST' | 'PATCH' = 'GET', body?:
 
 export function PurchasingPage() {
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('receive') === '1') setReceiving({})
     const id = new URLSearchParams(window.location.search).get('order')
     if (id && /^\d+$/.test(id))
       call<Order>(`/orders/${id}`)
