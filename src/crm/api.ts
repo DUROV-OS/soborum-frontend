@@ -1,6 +1,7 @@
 import { apiRequest } from '@/shared/lib/httpClient'
 export type Kind = 'deal' | 'contact' | 'company' | 'task' | 'pipeline' | 'stage' | 'inquiry'
 export type Entry = {
+  board_task_id?: number | null
   id: number
   kind: Kind
   name: string

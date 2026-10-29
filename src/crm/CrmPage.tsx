@@ -13,6 +13,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import * as api from './api'
 import { Catalog, Entry, Kind, History } from './api'
+import { LeadControl } from './LeadControl'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -59,13 +60,17 @@ export function CrmPage() {
   const [history, setHistory] = useState<History>({ total: 0, items: [] })
   const [note, setNote] = useState('')
   const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
-  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry } | null>(null)
+  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry } | null>(null)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [fileLibrary, setFileLibrary] = useState(false)
   const level = useAccessLevel('clients')
   const canEdit = accessLevelAtLeast(level, 'edit')
   const canFull = accessLevelAtLeast(level, 'full')
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('entry')
+    if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(open).catch(e=>setError(e.message))
+  }, [])
   useEffect(() => {
     api
       .catalog()
@@ -140,7 +145,7 @@ export function CrmPage() {
             Воронки, сделки, контакты и последующие действия — в Соборуме.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => setFileLibrary(true)}>
             Файлы
           </Button>
@@ -163,6 +168,7 @@ export function CrmPage() {
           )}
         </div>
       </div>
+      <LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/>
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tabs.map((t) => (
           <button
@@ -348,6 +354,8 @@ export function CrmPage() {
         {selected && (
           <div className="space-y-5 text-[13px]">
             <div className="flex flex-wrap gap-2">
+              {canEdit && selected.kind==='deal' && !selected.archived && <Button size="sm" variant="secondary" onClick={()=>setEditing({kind:'task',related:selected})}>Назначить следующий шаг</Button>}
+              {!!selected.board_task_id && <Link to="/tasks" className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent">Общий список задач</Link>}
               {!!selected.data.client_id && (
                 <Link
                   to={`/clients/${selected.data.client_id}`}
@@ -392,6 +400,7 @@ export function CrmPage() {
                 </Button>
               )}
             </div>
+            {selected.kind==='task' && <div className="space-y-2"><p className="whitespace-pre-wrap">{String(selected.data.description||'')}</p>{!!selected.data.result&&<p className="whitespace-pre-wrap">Результат: {String(selected.data.result)}</p>}</div>}
             {selected.kind === 'deal' && (
               <div className="rounded-xl bg-surface-muted p-4">
                 <p className="text-lg font-medium">{money(selected.data.amount)}</p>
@@ -510,6 +519,7 @@ export function CrmPage() {
           kind={editing.kind}
           entry={editing.entry}
           inquiry={editing.inquiry}
+          related={editing.related}
           catalog={catalog}
           onClose={() => setEditing(null)}
           onSaved={(entry) => {
@@ -527,6 +537,7 @@ function Editor({
   kind,
   entry,
   inquiry,
+  related,
   catalog,
   onClose,
   onSaved,
@@ -534,14 +545,15 @@ function Editor({
   kind: Kind
   entry?: Entry
   inquiry?: Entry
+  related?: Entry
   catalog: Catalog
   onClose: () => void
   onSaved: (entry: Entry) => void
 }) {
-  const [name, setName] = useState(entry?.name ?? inquiry?.name ?? '')
+  const [name, setName] = useState(entry?.name ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
   const first = catalog.pipelines[0]?.id
   const [data, setData] = useState<Record<string, unknown>>(
-    entry?.data ??
+    entry?.data ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??
       (kind === 'deal'
         ? {
             pipeline_id: first,
@@ -720,6 +732,7 @@ function Editor({
         )}
         {kind === 'task' && (
           <>
+            <Field label="Описание задачи"><Textarea aria-label="Описание задачи" value={String(data.description??'')} onChange={e=>put('description',e.target.value)}/></Field>
             <Field label="Срок">
               <Input
                 type="datetime-local"
