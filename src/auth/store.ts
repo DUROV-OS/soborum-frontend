@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
-import { Account, AccessLevel, Role } from './types'
+import { Account, AccessLevel, JobRole, Role } from './types'
 
 interface AuthState {
   current: Account | null
@@ -18,6 +18,7 @@ interface AuthState {
   updateAccess: (id: number, moduleAccess: Partial<Record<SectionId, AccessLevel>>) => Promise<void>
   addAccount: (input: authApi.CreateAccountInput) => Promise<void>
   setAccountRole: (id: number, role: Role) => Promise<void>
+  setJobRole: (id: number, role: JobRole | null) => Promise<void>
   resetPassword: (id: number) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
@@ -111,6 +112,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAccountRole: async (id, role) => {
     const updated = await authApi.updateAccountRole(id, role)
     set((state) => ({ accounts: state.accounts.map((a) => (a.id === id ? updated : a)) }))
+  },
+
+  setJobRole: async (id, role) => {
+    const updated = await authApi.updateJobRole(id, role)
+    set((state) => ({ accounts: state.accounts.map((a) => a.id === id ? updated : a), current: state.current?.id === id ? updated : state.current }))
   },
 
   resetPassword: async (id) => {

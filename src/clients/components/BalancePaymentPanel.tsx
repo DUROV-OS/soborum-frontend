@@ -1,6 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import * as accountingApi from '@/accounting/api'
 import { useAccessLevel } from '@/app/AccessGate'
 import { useAuthStore } from '@/auth/store'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -76,10 +74,9 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
   const markBalancePayment = useClientsStore((s) => s.markBalancePayment)
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const hasAccounting = useAuthStore((s) => s.hasAccess('accounting'))
-  const navigate = useNavigate()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [movementId, setMovementId] = useState<number | null>(null)
+  const [saved, setSaved] = useState(false)
 
   if (!DUE_DATE_STAGES.includes(client.stage) || !planHasBalance(client.payment_plan)) return null
   const canAccept = client.stage === 'postpayment'
@@ -91,16 +88,11 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
 
   async function markPaid() {
     setSaving(true)
+    setSaved(false)
     const result = await markBalancePayment(client.id)
     setSaving(false)
     setError(result.ok ? null : result.reason ?? 'Не удалось отметить приём остатка')
-    // 0011-f: balance_paid -> true может породить проводку «доход от продажи».
-    if (result.ok && hasAccounting) {
-      accountingApi
-        .listMovements({ client_id: client.id, subkind: 'sale_income' })
-        .then((movements) => movements[0] && setMovementId(movements[0].id))
-        .catch(() => {})
-    }
+    setSaved(result.ok)
   }
 
   return (
@@ -113,9 +105,10 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
           </span>
         )}
         {!client.balance_paid && balanceDue != null && (
-          <span className="text-[12px] text-muted">К приёму: {balanceDue.toLocaleString('ru-RU')} ₽</span>
+          <span className="text-[12px] text-muted">Остаток по условиям договора: {balanceDue.toLocaleString('ru-RU')} ₽</span>
         )}
       </div>
+      <p className="mt-2 text-[12px] text-muted">Сумма рассчитана по условиям договора; частичные поступления здесь не вычитаются. Отметка в карточке проверяется по операциям бухгалтерии.</p>
 
       <BalanceDueDateField key={client.balance_due_date ?? ''} client={client} canEdit={canEdit} />
 
@@ -134,15 +127,7 @@ export function BalancePaymentPanel({ client }: { client: Client }) {
         </>
       )}
       {error && <p className="mt-2 text-[12px] text-danger">{error}</p>}
-      {movementId && (
-        <button
-          type="button"
-          onClick={() => navigate(`/accounting?movement=${movementId}`)}
-          className="mt-2 text-[12px] text-brand hover:text-brand-dark"
-        >
-          Создана проводка в «Бухгалтерии» →
-        </button>
-      )}
+      {saved && <p role="status" className="mt-2 text-[12px] text-muted">Отметка сохранена. Проведение платежа проверяется в бухгалтерии. {hasAccounting && <a className="text-brand underline" href="#client-payments">Посмотреть операции</a>}</p>}
     </Section>
   )
 }
