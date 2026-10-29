@@ -17,13 +17,13 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
           type="button"
           onClick={onMenuClick}
           aria-label="Открыть меню"
-          className="-ml-1 rounded-sm p-1.5 text-ink hover:bg-surface-muted lg:hidden"
+          className="-ml-1 shrink-0 rounded-sm p-1.5 text-ink hover:bg-surface-muted lg:hidden"
         >
           <Menu size={20} />
         </button>
         <span className="truncate text-[13px] font-medium text-muted">{section?.label ?? 'Durov OS'}</span>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <MeetingButton />
         <PushNotificationsButton />
         <FeedbackButton />

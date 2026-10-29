@@ -26,6 +26,9 @@ import { HouseModelDetailPage } from '@/house_models/pages/HouseModelDetailPage'
 import { CycleDetailPage } from '@/cycles/pages/CycleDetailPage'
 import { CyclesListPage } from '@/cycles/pages/CyclesListPage'
 import { WarehousePage } from '@/warehouse/pages/WarehousePage'
+import { MoyskladPage } from '@/moysklad/MoyskladPage'
+import { CrmPage } from '@/crm/CrmPage'
+import { RecipesPage } from '@/moysklad/RecipesPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
@@ -64,6 +67,9 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
+        <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
+        <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />
+        <Route path="/moysklad" element={<AccessGate section="moysklad"><MoyskladPage /></AccessGate>} />
         {/* Заявки «Пожелания/предложения» (0075) — без AccessGate: писать о
             проблемах системы может любой вошедший сотрудник. */}
         <Route path="/feedback" element={<FeedbackPage />} />
