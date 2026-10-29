@@ -1,9 +1,6 @@
 import { ClientTask } from './types'
 
-/** Человеческая метка срока задачи: «сегодня», «завтра», «просрочено на N
- * дней» или дата. Настоящих уведомлений в системе нет (см. задачу 0080) —
- * эта метка вместе с задачей в «Моих задачах» и есть то, что напоминает
- * менеджеру о сроке. */
+/** Человеческая метка срока задачи, включая просрочку в течение дня. */
 export interface DeadlineLabel {
   text: string
   overdue: boolean
@@ -25,7 +22,8 @@ export function deadlineLabel(deadline: string | null, now: Date = new Date()): 
     const overdueDays = Math.abs(days)
     return { text: `просрочено на ${overdueDays} ${plural(overdueDays)}`, overdue: true, urgent: true }
   }
-  if (days === 0) return { text: 'сегодня', overdue: false, urgent: true }
+  if (days === 0 && date.getTime() < now.getTime()) return { text: 'просрочено сегодня', overdue: true, urgent: true }
+  if (days === 0) return { text: `сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`, overdue: false, urgent: true }
   if (days === 1) return { text: 'завтра', overdue: false, urgent: false }
   return { text: date.toLocaleDateString('ru-RU'), overdue: false, urgent: false }
 }
@@ -54,8 +52,10 @@ export function nearestOpenTask(tasks: ClientTask[]): ClientTask | null {
   const open = tasks.filter(isOpen)
   if (open.length === 0) return null
   return open.reduce((closest, task) => {
-    if (!task.deadline) return closest
-    if (!closest.deadline) return task
-    return new Date(task.deadline) < new Date(closest.deadline) ? task : closest
+    const current = task.deadline ? new Date(task.deadline).getTime() : NaN
+    const previous = closest.deadline ? new Date(closest.deadline).getTime() : NaN
+    if (Number.isNaN(current)) return closest
+    if (Number.isNaN(previous)) return task
+    return current < previous ? task : closest
   })
 }
