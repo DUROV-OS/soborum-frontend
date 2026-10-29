@@ -20,7 +20,7 @@ type Line = {
 type Content = { inputs: Line[]; outputs: Line[]; stages: Record<string, unknown>[]; warnings?: string[] }
 type Recipe = { id: number; title: string; archived: boolean; version: number; content: Content }
 type Preview = {
-  inputs: { id: number; title: string; quantity: number; stock: number; unit: string; enough: boolean }[]
+  inputs: { id: number; title: string; quantity: number; stock: number; available_quantity?: number; unit: string; enough: boolean }[]
   outputs: { id: number; title: string; quantity: number; unit: string }[]
 }
 const read = (query: string, archive: string) =>
@@ -526,6 +526,7 @@ function ManufacturingModal({ recipe, onClose }: { recipe: Recipe; onClose: () =
                     accessor: (r) => (
                       <span className={r.enough ? '' : 'text-danger'}>
                         {qty(r.stock)} {r.unit}
+                        <span className="block text-xs text-muted">свободно: {qty(r.available_quantity??r.stock)}</span>
                       </span>
                     ),
                   },

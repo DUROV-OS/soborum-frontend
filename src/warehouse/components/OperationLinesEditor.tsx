@@ -60,7 +60,7 @@ export function checkLine(line: OperationLineDraft, materials: Material[], sign:
     return { material, qty, balanceAfter: null, error: `Только целое количество (${material.unit})` }
   }
   const balanceAfter = material.quantity_in_stock + sign * qty
-  if (balanceAfter < 0) return { material, qty, balanceAfter, error: 'Не хватает на складе' }
+  if (sign<0 && qty>(material.available_quantity??material.quantity_in_stock)) return { material, qty, balanceAfter, error: 'Не хватает свободного остатка с учётом резервов' }
   return { material, qty, balanceAfter, error: null }
 }
 
