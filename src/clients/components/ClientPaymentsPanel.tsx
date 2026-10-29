@@ -61,7 +61,7 @@ export function ClientPaymentsPanel({ client }: { client: Client }) {
   }
   const unverifiedMark = rows && rows.length <= DISPLAY_LIMIT && totals.size === 0 && (client.is_paid || client.balance_paid)
 
-  return <Section title="Платежи в бухгалтерии">
+  return <div id="client-payments"><Section title="Платежи в бухгалтерии">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-[12px] text-muted">Операции, привязанные к этому клиенту. Непривязанные платежи и возвраты требуют сверки.</p>
       <Button size="sm" variant="ghost" onClick={() => void load()} disabled={busy}>Обновить</Button>
@@ -82,5 +82,5 @@ export function ClientPaymentsPanel({ client }: { client: Client }) {
       </>}
       {unverifiedMark && <p className="rounded-md bg-warning-bg p-3 text-[13px] text-warning">В карточке отмечена оплата, но проведённых фактических поступлений среди привязанных операций нет. Сверьте отметку с бухгалтерией.</p>}
     </div>}
-  </Section>
+  </Section></div>
 }
