@@ -16,7 +16,7 @@ import {
 } from './OperationLinesEditor'
 import { SuggestInput } from './SuggestInput'
 
-const KINDS: DestinationKind[] = ['object', 'workshop', 'rework', 'house']
+const KINDS: DestinationKind[] = ['object', 'workshop', 'rework']
 
 const DESTINATION_PLACEHOLDER: Record<Exclude<DestinationKind, 'house'>, string> = {
   object: 'Напр.: объект в Солнечногорске',
@@ -107,7 +107,7 @@ export function ManualIssueModal({ open, onClose }: { open: boolean; onClose: ()
     >
       <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
         <p className="text-[13px] text-muted">
-          Ручной расход без привязки к техкарте: нормативы производства дома не меняются.
+          Для выдачи на дом используйте заявку производства или отпуск по техкарте.
         </p>
         <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
           <Field label="Куда" required>
