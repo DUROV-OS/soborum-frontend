@@ -14,6 +14,7 @@ import { Tabs } from '@/shared/ui/Tabs'
 import * as api from './api'
 import { Catalog, Entry, Kind, History } from './api'
 import { LeadControl } from './LeadControl'
+import { PhoneCalls } from './PhoneCalls'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -173,6 +174,7 @@ export function CrmPage() {
         </div>
       </div>
       <LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/>
+      <PhoneCalls canEdit={canEdit} />
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tabs.map((t) => (
           <button
@@ -462,6 +464,7 @@ export function CrmPage() {
               </div>
             )}
             <div>
+              <PhoneCalls key={selected.id} entityId={selected.id} canEdit={canEdit} />
               <h3 className="mb-2 font-medium">Файлы · {attached.total}</h3>
               {attached.items.map((f) => (
                 <Button
