@@ -48,4 +48,5 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-          rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" dist/ "$SSH_USER@$SSH_HOST:/var/www/soborbum-frontend/dist/"
+          # Keep existing destination modes; shared directories may have another owner.
+          rsync -avz --no-perms --omit-dir-times --delete -e "ssh -i ~/.ssh/deploy_key" dist/ "$SSH_USER@$SSH_HOST:/var/www/soborbum-frontend/dist/"
