@@ -58,7 +58,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
     try {
       const data = await warehouseApi.techcardPreview(productionId)
       setPreview(data)
-      setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(l.to_issue)])))
+      setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(Math.max(0, Math.min(l.to_issue, l.in_stock)))])))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить техкарту')
     } finally {
@@ -233,7 +233,7 @@ export function TechcardIssueModal({ open, onClose }: { open: boolean; onClose: 
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
               <span className={shortageCount > 0 ? 'font-medium text-danger' : 'text-muted'}>
-                Позиций с нехваткой: {shortageCount}
+                Позиций с превышением остатка: {shortageCount}
                 {shortageCount > 0 && ' — уменьшите количество, чтобы провести отпуск'}
               </span>
               {fullyIssued > 0 && <span className="text-muted">Уже выдано полностью: {fullyIssued} поз.</span>}

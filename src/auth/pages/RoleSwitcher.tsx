@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { ChangePasswordModal } from './ChangePasswordModal'
 
+const JOB_LABELS = { director: 'Руководитель', manager: 'Менеджер', accountant: 'Бухгалтер', storekeeper: 'Специалист по складу и снабжению', production_manager: 'Начальник производства' } as const
+
 export function RoleSwitcher() {
   const [open, setOpen] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
@@ -30,7 +32,7 @@ export function RoleSwitcher() {
             {current.full_name}
           </span>
           <span className="block text-[11px] leading-tight text-muted">
-            {current.role === 'admin' ? 'Администратор' : 'Сотрудник'}
+            {current.job_role ? JOB_LABELS[current.job_role] : current.role === 'admin' ? 'Администратор' : 'Сотрудник'}
           </span>
         </span>
         <ChevronDown size={14} className="text-muted" />

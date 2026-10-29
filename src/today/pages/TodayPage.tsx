@@ -69,6 +69,9 @@ function TodayContent({ userId }: { userId: number }) {
 
       <WorkspaceSettings userId={userId} jobRole={jobRole} onApply={applySettings} />
 
+      {settings.blocks.includes('warehouse_links') && hasAccess('warehouse') && <section className="rounded-2xl border border-border bg-surface p-5"><h2 className="text-[18px] font-semibold text-ink">Работа склада</h2><p className="mt-1 text-[12px] text-muted">Заявки производства, выдача и приёмка материалов.</p><div className="mt-4 flex flex-wrap gap-3"><Button size="sm" onClick={() => navigate('/warehouse?tab=requests')}>Заявки производства</Button><Button size="sm" variant="secondary" onClick={() => navigate('/warehouse')}>Открыть склад</Button><Button size="sm" variant="secondary" onClick={() => navigate('/suppliers')}>Поставщики</Button></div></section>}
+      {settings.blocks.includes('production_links') && hasAccess('production') && <section className="rounded-2xl border border-border bg-surface p-5"><h2 className="text-[18px] font-semibold text-ink">Работа производства</h2><p className="mt-1 text-[12px] text-muted">Откройте производство, чтобы проверить потребность и направить материалы на склад.</p><Button className="mt-4" size="sm" onClick={() => navigate('/production')}>Открыть производство</Button></section>}
+
       {(settings.blocks.includes('personal_tasks') || (workspace === 'manager' && settings.blocks.includes('my_clients'))) && <PersonalWorkspace userId={userId} manager={workspace === 'manager' && settings.blocks.includes('my_clients')} showTasks={settings.blocks.includes('personal_tasks')} refresh={refresh} />}
 
       {workspace !== 'manager' && <>

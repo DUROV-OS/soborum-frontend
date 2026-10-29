@@ -114,8 +114,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Мои задачи',
     body: (
       <p>
-        Раздел открывается на «Моих задачах» — здесь только то, что касается вас: задачи, где вы исполнитель
-        или проверяющий, плюс свободные задачи, которые можно взять в работу.
+        Раздел открывается на «Моих задачах» — здесь только то, что касается вас: задачи, где вы исполнитель,
+        ответственный или проверяющий, плюс свободные задачи, которые можно взять в работу.
       </p>
     ),
   },
@@ -176,6 +176,8 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const openOnly = searchParams.get('status') === 'open'
   const [subTab, setSubTab] = useState<SubTab>(searchParams.get('scope') === 'all' ? 'all' : 'mine')
+  const [boardReady, setBoardReady] = useState(false)
+  const [boardError, setBoardError] = useState<string | null>(null)
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
@@ -217,8 +219,29 @@ export function TasksPage() {
 
   useEffect(() => {
     if (subTab === 'employees') return
+    let active = true
+    setBoardReady(false); setBoardError(null)
     load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine', ...(openOnly ? { status: 'open' as const } : {}) })
+      .then(() => { if (active) setBoardReady(true) })
+      .catch(() => { if (active) setBoardError('Не удалось загрузить задачи. Обновите страницу и повторите попытку.') })
+    return () => { active = false }
   }, [load, subTab, canSeeAll, openOnly])
+
+  const requestedTaskId = searchParams.get('task')
+  useEffect(() => {
+    if (!boardReady || !requestedTaskId || !/^\d+$/.test(requestedTaskId)) return
+    const found = tasks.find((task) => task.id === Number(requestedTaskId))
+    if (found) setSelected(found)
+  }, [boardReady, requestedTaskId, tasks])
+
+  function closeTask() {
+    setSelected(null)
+    if (searchParams.has('task')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('task')
+      setSearchParams(next, { replace: true })
+    }
+  }
 
   function changeTab(tab: SubTab) {
     setSubTab(tab)
@@ -294,6 +317,9 @@ export function TasksPage() {
 
       {subTab === 'mine' && <MyTasksPanel onOpenTask={setSelected} />}
       {subTab === 'mine' && <DailyPlanPanel onOpenTask={setSelected} />}
+
+      {boardError && <p role="alert" className="mb-3 text-[13px] text-danger">{boardError}</p>}
+      {boardReady && requestedTaskId && !tasks.some((task) => String(task.id) === requestedTaskId) && <p role="status" className="mb-3 text-[13px] text-muted">Задача больше не входит в этот список: возможно, её закрыли или изменили назначение.</p>}
 
       {subTab === 'mine' && claimError && <p className="mb-3 text-[13px] text-danger">{claimError}</p>}
 
@@ -400,7 +426,7 @@ export function TasksPage() {
       )}
 
       <CreateTaskModal open={creating} onClose={() => setCreating(false)} />
-      <TaskDetailDrawer task={selected} onClose={() => setSelected(null)} />
+      <TaskDetailDrawer task={selected} onClose={closeTask} />
 
       <OnboardingDialog
         open={onboarding.open}

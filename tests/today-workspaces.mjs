@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 const baseURL = process.env.SMOKE_BASE_URL ?? 'http://127.0.0.1:5174'
 const browser = await chromium.launch({ headless: true })
-const task = (id, title, assignees, reviewers = []) => ({ id, title, status: 'ready', deadline: null, assignees, reviewers, responsible: null })
+const task = (id, title, assignees, reviewers = []) => ({ id, title, status: 'ready', deadline: null, assignees, reviewers, responsible: null, link_type: 'none', link_id: null, description: null, priority: 'medium', created_at: '2026-01-01T00:00:00Z', block_id: null, reports: [], images: [], depends_on_ids: [], review_policy: 'auto_close_allowed', review_blocked_reason: null })
 const person = { id: 2, full_name: 'Тестовый сотрудник' }
 const dashboard = { generated_at: new Date().toISOString(), summary: 'Общая сводка', widgets: [
   { section: 'accounting', title: 'Проводок', value: '4', tone: 'neutral' },
@@ -14,7 +14,7 @@ const dashboard = { generated_at: new Date().toISOString(), summary: 'Общая
 ] }
 async function setup({ jobRole = null, access = { tasks: 'view', clients: 'view', accounting: 'view', production: 'view' }, state = { prefs: null }, failSave = false } = {}) {
  const context = await browser.newContext()
- await context.addInitScript(() => localStorage.setItem('soborbum.auth.token', 'test-token'))
+ await context.addInitScript(() => { localStorage.setItem('soborbum.auth.token', 'test-token'); localStorage.setItem('soborbum.onboarding.tasks', '1') })
  const page = await context.newPage(); const requests = []
  await page.route('**/api/**', async route => {
   const url = new URL(route.request().url()); requests.push(url.pathname)
@@ -26,7 +26,7 @@ async function setup({ jobRole = null, access = { tasks: 'view', clients: 'view'
   }
   else if (url.pathname === '/api/dashboard/today') body = dashboard
   else if (url.pathname === '/api/dashboard/aktualnoe') body = { items: [], degraded: false }
-  else if (url.pathname === '/api/tasks/') body = [task(1, 'Своя задача', [person]), task(2, 'Свободная задача', []), task(3, 'Проверить работу', [], [person]), task(4, 'Чужая задача', [{ id: 9 }])]
+  else if (url.pathname === '/api/tasks/') body = [task(1, 'Своя задача', [person]), task(2, 'Свободная задача', []), task(3, 'Проверить работу', [], [person]), task(4, 'Чужая задача', [{ id: 9 }]), { ...task(5, 'Задача под моим контролем', [{ id: 9, full_name: 'Другой сотрудник' }]), responsible: person }]
   else if (url.pathname === '/api/clients/') body = [
    { id: 10, stage: 'lead', full_name: 'Мой клиент', manager_id: 2, tasks: [{ id: 1, title: 'Позвонить', status: 'ready', deadline: '2030-01-01T10:00:00Z', assignee_ids: [2] }] },
    { id: 11, stage: 'lead', full_name: 'Чужой клиент', manager_id: 9, tasks: [] },
@@ -48,12 +48,18 @@ try {
  await a.page.getByText('Своя задача', { exact: true }).waitFor()
  assert.equal(await a.page.getByText('Свободная задача', { exact: true }).count(), 0)
  assert.equal(await a.page.getByText('Проверить работу', { exact: true }).count(), 1)
+ assert.equal(await a.page.getByText('Задача под моим контролем', { exact: true }).count(), 1)
  assert.equal(await a.page.getByText('Зависшие обращения', { exact: true }).count(), 0)
  assert.equal(await a.page.getByText('Риски производства', { exact: true }).count(), 1)
  await a.page.getByRole('checkbox', { name: 'Производство', exact: true }).uncheck()
  await a.page.getByRole('button', { name: 'Сохранить настройки' }).click()
  await a.page.getByText('Сохранено', { exact: true }).waitFor()
  assert.equal(await a.page.getByText('Риски производства', { exact: true }).count(), 0)
+ await a.page.getByRole('button', { name: /Задача под моим контролем/ }).click()
+ await a.page.getByRole('dialog', { name: 'Задача под моим контролем' }).waitFor()
+ assert.ok(a.page.url().includes('task=5'))
+ await a.page.getByRole('dialog', { name: 'Задача под моим контролем' }).getByRole('button', { name: 'Закрыть' }).click()
+ assert.ok(!a.page.url().includes('task=5'))
  await a.context.close()
  const anotherDevice = await setup({ state })
  assert.equal(await anotherDevice.page.getByRole('button', { name: 'Руководитель', exact: true }).getAttribute('aria-pressed'), 'true')
@@ -64,6 +70,11 @@ try {
  assert.equal(await m.page.getByText('Чужой клиент', { exact: false }).count(), 0)
  assert.equal(await m.page.getByRole('button', { name: 'Руководитель', exact: true }).count(), 0)
  await m.context.close()
+ const keeper = await setup({ jobRole: 'storekeeper', access: { warehouse: 'edit', tasks: 'view' } })
+ await keeper.page.getByRole('heading', { name: 'Работа склада' }).waitFor()
+ assert.equal(await keeper.page.getByRole('button', { name: 'Заявки производства' }).count(), 1)
+ assert.equal(await keeper.page.getByRole('button', { name: 'Руководитель', exact: true }).count(), 0)
+ await keeper.context.close()
  const b = await setup({ jobRole: 'accountant', access: { accounting: 'view' } })
  assert.equal(await b.page.getByRole('checkbox', { name: 'Бухгалтерия' }).count(), 1)
  assert.equal(await b.page.getByRole('checkbox', { name: 'Производство' }).count(), 0)
