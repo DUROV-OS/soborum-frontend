@@ -46,7 +46,7 @@ const inquiry = {
   name: 'Заявка с сайта',
   archived: false,
   version: 1,
-  data: { pipeline_id: 1, phone: '+79990000000' },
+  data: { pipeline_id: 1, phone: '+79990000000', client_id: 7 },
 }
 const recipe = {
   id: 1,
@@ -157,6 +157,7 @@ try {
   await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
   await page.getByRole('tab', { name: 'Входящие', exact: true }).click()
   await page.getByText('Заявка с сайта', { exact: true }).click()
+  assert.equal(await page.getByRole('link', { name: 'Карточка клиента' }).getAttribute('href'), '/clients/7')
   await page.getByRole('button', { name: 'Принять в работу' }).click()
   await page
     .getByRole('dialog', { name: 'Создать · Сделка' })
