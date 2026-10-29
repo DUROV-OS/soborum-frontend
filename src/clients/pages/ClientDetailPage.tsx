@@ -12,6 +12,7 @@ import { isStageManual, nextStageOf, stageLabel } from '../rules'
 import { BasicDataPanel } from '../components/BasicDataPanel'
 import { LeadRequestPanel } from '../components/LeadRequestPanel'
 import { DocumentPanel } from '../components/DocumentPanel'
+import { MarginPreviewPanel } from '../components/MarginPreviewPanel'
 import { ManagerPanel } from '../components/ManagerPanel'
 import { SourcePanel } from '../components/SourcePanel'
 import { TasksPanel } from '../components/TasksPanel'
@@ -132,6 +133,7 @@ export function ClientDetailPage() {
         <SourcePanel client={client} />
 
         <DocumentPanel client={client} />
+        <MarginPreviewPanel />
         <PaymentPanel client={client} />
         <BalancePaymentPanel client={client} />
         <ClientPaymentsPanel client={client} />

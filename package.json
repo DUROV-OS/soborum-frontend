@@ -12,7 +12,8 @@
     "test:clients": "node tests/client-workflow.mjs",
     "test:client-payments": "node tests/client-payments.mjs",
     "test:today-workspaces": "node tests/today-workspaces.mjs",
-    "test:warehouse-queue": "node tests/warehouse-queue.mjs"
+    "test:warehouse-queue": "node tests/warehouse-queue.mjs",
+    "test:margin-preview": "node tests/margin-preview.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
