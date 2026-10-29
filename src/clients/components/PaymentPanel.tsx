@@ -10,6 +10,10 @@ import { isGroupEditable, isGroupVisible, paymentStageRule } from '../rules'
 import { Client } from '../types'
 import { Section } from './PanelPrimitives'
 
+function PaymentMarkNotice() {
+  return <p className="mt-2 text-[12px] text-muted">Это отметка в карточке клиента. Проведение платежа в бухгалтерии проверяется отдельно.</p>
+}
+
 function PaymentEditUnlockToggle({ client }: { client: Client }) {
   const setPaymentEditUnlocked = useClientsStore((s) => s.setPaymentEditUnlocked)
   const [pending, setPending] = useState(false)
@@ -91,6 +95,7 @@ export function PaymentPanel({ client }: { client: Client }) {
           {client.is_paid ? rule.paidLabel : rule.unpaidLabel}
         </Chip>
         <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
+        <PaymentMarkNotice />
         {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
         {locked && !isAdmin && client.payment_edit_unlocked && (
           <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>
@@ -122,6 +127,7 @@ export function PaymentPanel({ client }: { client: Client }) {
         </button>
       </div>
       <p className="mt-3 text-[12px] text-muted">{rule.note}</p>
+      <PaymentMarkNotice />
       {locked && isAdmin && <PaymentEditUnlockToggle client={client} />}
       {locked && !isAdmin && client.payment_edit_unlocked && (
         <p className="mt-3 text-[12px] text-info">Редактирование временно разрешено администратором</p>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useAccessLevel } from '@/app/AccessGate'
-import { useAuthStore } from '@/auth/store'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Select } from '@/shared/ui/Field'
 import { useClientsStore } from '../store'
-import { Client } from '../types'
+import { listAssignees } from '../api'
+import { Client, ClientAssignee } from '../types'
 import { ReadRow, Section } from './PanelPrimitives'
 
 /**
@@ -14,17 +14,16 @@ import { ReadRow, Section } from './PanelPrimitives'
  * в разделе «Клиенты») — та же проверка, что у кнопки перевода стадии на
  * {@link ClientDetailPage}.
  *
- * Список сотрудников берётся из общего стора авторизации (`useAuthStore`),
- * который сервер отдаёт только администратору (0080-a: без нового
- * списочного API — переиспользуем `GET /api/auth/users`) — у остальных ролей
- * с правом редактирования карточки список пуст, и выбор недоступен, как и в
- * других местах фронта, где выбирают сотрудника (см. `CreateTaskModal`).
+ * Список активных сотрудников с доступом к клиентам доступен через
+ * отдельный API для пользователей с правом редактирования.
  */
 export function ManagerPanel({ client }: { client: Client }) {
-  const accounts = useAuthStore((s) => s.accounts)
   const updateManager = useClientsStore((s) => s.updateManager)
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
   const [editing, setEditing] = useState(false)
+  const [accounts, setAccounts] = useState<ClientAssignee[] | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [managerId, setManagerId] = useState<number | ''>(client.manager_id ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +31,19 @@ export function ManagerPanel({ client }: { client: Client }) {
   useEffect(() => {
     setManagerId(client.manager_id ?? '')
   }, [client.manager_id])
+
+  useEffect(() => {
+    if (!editing || !canEdit) return
+    let cancelled = false
+    setAccounts(null)
+    setListError(null)
+    listAssignees().then((people) => {
+      if (!cancelled) setAccounts(people)
+    }).catch(() => {
+      if (!cancelled) setListError('Не удалось загрузить список сотрудников.')
+    })
+    return () => { cancelled = true }
+  }, [editing, canEdit, attempt])
 
   async function save() {
     setSaving(true)
@@ -60,17 +72,20 @@ export function ManagerPanel({ client }: { client: Client }) {
 
   return (
     <Section title="Ответственный менеджер">
-      {accounts.length === 0 ? (
-        <p className="text-[12px] text-muted">
-          Список сотрудников доступен только администратору — войдите под администратором, чтобы
-          назначить менеджера.
-        </p>
+      {listError ? (
+        <div role="alert" className="text-[12px] text-danger">{listError} <button type="button" className="underline" onClick={() => setAttempt(n => n + 1)}>Повторить</button></div>
+      ) : accounts === null ? (
+        <p className="text-[12px] text-muted">Загружаем сотрудников…</p>
       ) : (
         <Select
+          aria-label="Ответственный менеджер"
           value={managerId}
           onChange={(e) => setManagerId(e.target.value === '' ? '' : Number(e.target.value))}
         >
           <option value="">— не назначен —</option>
+          {client.manager_id && !accounts.some(account => account.id === client.manager_id) && (
+            <option value={client.manager_id}>{client.manager?.full_name ?? 'Текущий менеджер'} · недоступен</option>
+          )}
           {accounts.map((account) => (
             <option key={account.id} value={account.id}>
               {account.full_name}
@@ -79,7 +94,7 @@ export function ManagerPanel({ client }: { client: Client }) {
         </Select>
       )}
       <div className="mt-3 flex items-center gap-2">
-        <Button size="sm" onClick={save} disabled={saving}>
+        <Button size="sm" onClick={save} disabled={saving || accounts === null || Boolean(listError)}>
           {saving ? 'Сохранение…' : 'Сохранить'}
         </Button>
         <Button

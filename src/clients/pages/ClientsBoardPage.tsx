@@ -5,7 +5,7 @@ import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Field'
+import { Input, Select } from '@/shared/ui/Field'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { KanbanBoard } from '@/shared/ui/KanbanBoard'
 import { DateFilterSelect } from '@/shared/ui/DateFilterSelect'
@@ -106,12 +106,19 @@ export function ClientsBoardPage() {
   // фильтром по умолчанию доска обнулялась первого числа, пока в новом месяце
   // не появится первое обращение (0085). Фильтр остаётся как инструмент.
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [taskFilter, setTaskFilter] = useState('all')
+  const [now, setNow] = useState(() => new Date())
   const onboarding = useSectionOnboarding('clients')
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const advancedStage = clients.find((c) => c.id === lastAdvancedId)?.stage ?? null
 
@@ -128,8 +135,17 @@ export function ClientsBoardPage() {
   }, [query, runSearch])
 
   const range = dateFilterRange(dateFilter)
-  const filtered =
-    searchResults ?? clients.filter((c) => matchesDateFilter(c.created_at, range))
+  const matching = searchResults ?? clients.filter((c) => matchesDateFilter(c.created_at, range))
+  const filtered = matching.filter((client) => {
+    if (taskFilter === 'all') return true
+    if (client.stage === 'completed') return false
+    const task = nearestOpenTask(client.tasks)
+    if (taskFilter === 'no_task') return !task
+    const due = task && deadlineLabel(task.deadline, now)
+    if (taskFilter === 'overdue') return Boolean(due?.overdue)
+    if (taskFilter === 'today') return Boolean(due?.urgent && !due.overdue)
+    return true
+  })
 
   // Счётчик необработанных заявок с сайта (0111-b) — в заголовке колонки «Лид»,
   // считается по видимым карточкам: поиск и фильтр по периоду его не обманывают.
@@ -181,6 +197,12 @@ export function ClientsBoardPage() {
             )}
           </div>
           <DateFilterSelect value={dateFilter} onChange={setDateFilter} />
+          <Select aria-label="Фильтр задач по клиентам" value={taskFilter} onChange={(e) => setTaskFilter(e.target.value)}>
+            <option value="all">Все клиенты</option>
+            <option value="no_task">Без открытой задачи</option>
+            <option value="overdue">Есть просрочка</option>
+            <option value="today">Задачи сегодня</option>
+          </Select>
           <Link
             to="/partners"
             className="inline-flex h-10 items-center gap-1.5 rounded-md border border-brand/40 px-4 text-sm text-brand hover:border-brand hover:bg-brand/5"
@@ -200,7 +222,7 @@ export function ClientsBoardPage() {
 
       {searchResults !== null && (
         <p className="mb-3 text-[12px] text-muted">
-          Поиск идёт по всем стадиям и не зависит от выбранного периода. Найдено: {searchResults.length}.
+          Поиск идёт по всем стадиям и не зависит от выбранного периода. Показано: {filtered.length}.
         </p>
       )}
 
@@ -217,7 +239,7 @@ export function ClientsBoardPage() {
             ? 'border-brand bg-brand/5 ring-1 ring-brand/30 hover:border-brand-dark'
             : undefined
         }
-        renderCard={(client) => <ClientCard client={client} />}
+        renderCard={(client) => <ClientCard client={client} now={now} />}
       />
 
       <CreateClientModal open={creating} onClose={() => setCreating(false)} />
@@ -235,9 +257,9 @@ export function ClientsBoardPage() {
 /** Карточка на доске: кто клиент, откуда пришёл и что по нему горит.
  * Ближайшая открытая задача со сроком — то самое «уведомление» о клиенте,
  * которое видно, не открывая карточку (0079-e). */
-function ClientCard({ client }: { client: Client }) {
+function ClientCard({ client, now }: { client: Client; now: Date }) {
   const task = nearestOpenTask(client.tasks)
-  const due = task ? deadlineLabel(task.deadline) : null
+  const due = task ? deadlineLabel(task.deadline, now) : null
   const dueTone = due?.overdue ? 'text-danger' : due?.urgent ? 'text-brand-dark' : 'text-muted'
 
   return (
@@ -283,6 +305,9 @@ function ClientCard({ client }: { client: Client }) {
             {due && ` — ${due.text}`}
           </span>
         </div>
+      )}
+      {!task && client.stage !== 'completed' && (
+        <div className="mt-2 flex items-center gap-1 text-[12px] text-warning"><AlertTriangle size={12} />Нет открытой задачи</div>
       )}
     </div>
   )
