@@ -145,6 +145,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
 
         <MaxApprovalActions task={task} onDone={onClose} />
+        {!!task.link_meta?.crm_task_id && <Button variant="secondary" size="sm" className="self-start" onClick={()=>{onClose();navigate(`/crm?entry=${task.link_meta?.crm_task_id}`)}}><ExternalLink size={14}/>Открыть задачу в продажах</Button>}
 
         {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
         {task.link_type === 'client_stage' && task.link_id !== null && (

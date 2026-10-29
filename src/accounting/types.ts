@@ -245,6 +245,8 @@ export interface SupplierOrderItem {
   category: string | null
   quantity: number
   unit_price: number
+  warehouse_material_id?: number | null
+  received_quantity?: number
 }
 
 export interface SupplierOrder {

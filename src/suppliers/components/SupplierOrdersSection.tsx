@@ -106,6 +106,10 @@ export function SupplierOrdersSection({
   async function advanceStatus(order: SupplierOrder) {
     const to = NEXT_STATUS[order.status]
     if (!to) return
+    if (to === 'received' && order.items.some(item => item.warehouse_material_id)) {
+      navigate(`/purchasing?order=${order.id}`)
+      return
+    }
     setStatusBusyId(order.id)
     try {
       await accountingApi.changeSupplierOrderStatus(order.id, to)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
@@ -78,6 +78,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 ]
 
 export function WarehousePage() {
+  const navigate = useNavigate()
+  const accountingLevel = useAccessLevel('accounting')
   const materials = useWarehouseStore((s) => s.materials)
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
@@ -151,7 +153,7 @@ export function WarehousePage() {
                 <Plus size={16} />
                 Материал
               </Button>
-              <Button onClick={() => setSupplying(true)}>
+              <Button onClick={() => accessLevelAtLeast(accountingLevel,'view') ? navigate('/purchasing?receive=1') : setSupplying(true)}>
                 <Truck size={16} />
                 Оформить поставку
               </Button>

@@ -72,6 +72,7 @@ await page.route('**/api/**', async (route) => {
   if (path === '/api/auth/me') body = owner
   else if (path === '/api/auth/users') body = [owner]
   else if (path.includes('/unread')) body = { count: 0, unread_count: 0 }
+  else if (path === '/api/crm/attention') body = {total:0,counts:{},items:[],settings:{response_hours:24,idle_days:3}}
   else if (path === '/api/crm/catalog')
     body = {
       pipelines: [pipeline],
