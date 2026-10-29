@@ -5,10 +5,14 @@ import { FeedbackButton } from '@/feedback/components/FeedbackButton'
 import { MeetingButton } from '@/meeting/components/MeetingButton'
 import { PushNotificationsButton } from '@/notifications/components/PushNotificationsButton'
 import { SECTIONS } from '@/shared/sections'
+import { visibleWorkflows, workflowContext } from '@/shared/workflows'
+import { useAuthStore } from '@/auth/store'
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const location = useLocation()
   const section = SECTIONS.find((s) => location.pathname.startsWith(s.path))
+  const hasAccess = useAuthStore((s) => s.hasAccess)
+  const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
 
   return (
     <header className="mobile-safe-topbar flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
@@ -21,7 +25,9 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <Menu size={20} />
         </button>
-        <span className="truncate text-[13px] font-medium text-muted">{section?.label ?? 'Durov OS'}</span>
+        <span className="truncate text-[13px] font-medium text-muted">
+          {context ? context.group.label + ' · ' + context.entry.label : (section?.label ?? 'Durov OS')}
+        </span>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <MeetingButton />

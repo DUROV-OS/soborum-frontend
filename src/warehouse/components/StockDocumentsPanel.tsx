@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
@@ -22,7 +23,11 @@ export function StockDocumentsPanel() {
   const level = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(level, 'edit'),
     canFull = accessLevelAtLeast(level, 'full')
-  const [kind, setKind] = useState<api.StockDocumentKind | ''>('')
+  const [kind, setKind] = useQueryChoice<api.StockDocumentKind | ''>(
+    'kind',
+    ['', 'transfer', 'inventory'],
+    '',
+  )
   const [archive, setArchive] = useState('active')
   const [page, setPage] = useState(0)
   const [list, setList] = useState<{ total: number; items: api.StockDocument[] }>({ total: 0, items: [] })
@@ -30,6 +35,10 @@ export function StockDocumentsPanel() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState<api.StockDocumentKind | null>(null)
   const [selected, setSelected] = useState<api.StockDocument | null>(null)
+  useEffect(() => {
+    setPage(0)
+    setSelected(null)
+  }, [kind])
   const load = useCallback(async () => {
     setLoading(true)
     setError('')

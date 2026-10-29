@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
+import { workflowContext } from '@/shared/workflows'
 import { Archive, Database, Download, Search } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
@@ -236,15 +239,29 @@ function Value({ value, field = '', depth = 0 }: { value: unknown; field?: strin
 }
 
 export function MoyskladPage() {
+  const [params, setParams] = useSearchParams(),
+    location = useLocation()
+  const context = workflowContext(location.pathname, location.search)
   const [catalog, setCatalog] = useState<Catalog | null>(null)
-  const [type, setType] = useState('')
+  const type = params.get('type') || ''
+  const setType = (type: string) =>
+    setParams((previous) => {
+      const q = new URLSearchParams(previous)
+      if (type) q.set('type', type)
+      else q.delete('type')
+      return q
+    })
   const [query, setQuery] = useState('')
-  const [archive, setArchive] = useState('active')
+  const [archive, setArchive] = useQueryChoice('archive', ['active', 'archived', 'all'], 'active')
   const [offset, setOffset] = useState(0)
   const [result, setResult] = useState<{ total: number; items: Row[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<Detail | null>(null)
+  useEffect(() => {
+    setOffset(0)
+    setDetail(null)
+  }, [type, archive])
   useEffect(() => {
     apiRequest<Catalog>({ section: 'moysklad', path: '/catalog' })
       .then(setCatalog)
@@ -289,9 +306,16 @@ export function MoyskladPage() {
       <div className="mb-5 flex items-start gap-3">
         <Database className="mt-1 text-brand" size={25} />
         <div>
-          <h1 className="text-[22px] font-medium text-ink">МойСклад · данные компании</h1>
+          <h1 className="text-[22px] font-medium text-ink">
+            {type
+              ? catalog?.categories.find((c) => c.type === type)?.title ||
+                context?.entry.label ||
+                'Сохранённые документы'
+              : 'Документы и справочники'}
+          </h1>
           <p className="mt-1 text-[13px] text-muted">
-            Документы, товары и техкарты сохранены в Соборуме. Снимок на {date(catalog?.source_completed_at)}.
+            Просмотр сохранённых данных на {date(catalog?.source_completed_at)}. Архивные записи сохранены в
+            архиве.
           </p>
         </div>
       </div>
@@ -331,6 +355,9 @@ export function MoyskladPage() {
           className="sm:max-w-72"
         >
           <option value="">Все разделы</option>
+          {type && catalog && !catalog.categories.some((c) => c.type === type) && (
+            <option value={type}>{context?.entry.label || type} · 0</option>
+          )}
           {catalog?.categories.map((c) => (
             <option key={c.type} value={c.type}>
               {c.title} · {c.count}
@@ -341,7 +368,7 @@ export function MoyskladPage() {
           aria-label="Архив"
           value={archive}
           onChange={(e) => {
-            setArchive(e.target.value)
+            setArchive(e.target.value as typeof archive)
             setOffset(0)
           }}
           className="sm:max-w-44"

@@ -6,58 +6,9 @@ import { getSectionSignal } from '@/today/api'
 import { DashboardAction, WidgetTone } from '@/today/types'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { SECTIONS, SectionId, SectionMeta } from '@/shared/sections'
+import { visibleWorkflows } from '@/shared/workflows'
 
 type Heat = 'red' | 'amber' | 'green'
-
-/**
- * Раздел «Работа» — хаб. Плоская сетка крупных виджетов, каждый ведёт в свой
- * раздел. Внутри виджета — блок «стоит заняться», если по разделу есть
- * реальный сигнал внимания из `GET /api/dashboard/today/section/:id`
- * (та же детерминированная сводка, что и на «Пульсе», см.
- * `app.dashboard.overview` — никаких выдуманных ИИ-советов: если для раздела
- * нет посчитанного по базе действия, блок не показывается вовсе).
- *
- * Каждая плитка тянет свой сигнал **отдельным** запросом (не одним общим
- * /today на всю страницу) — тяжёлый/медленный раздел не держит остальные;
- * бэк кэширует ответ на 6 часов.
- *
- * `badge` — ярлык на плитке ('dev' у «Бухгалтерии»: реестр готов, интеграции
- * ещё в работе). `public` — плитка видна всем, минуя `hasAccess` (у
- * «Поставщиков» доступ отдельным грантом пока не заведён).
- */
-const TILES: {
-  id: SectionId
-  note: string
-  badge?: 'dev'
-  public?: boolean
-}[] = [
-  { id: 'sales', note: 'Заказы покупателей, резервы и частичные отгрузки' },
-  { id: 'purchasing', note: 'Заказы поставщикам, частичные приёмки и оплата' },
-  { id: 'recipes', note: 'Нормативы, материалы, готовая продукция и проведение выпуска' },
-  { id: 'crm', note: 'Воронки, сделки, контакты, история общения и задачи менеджеров' },
-  { id: 'moysklad', note: 'Перенесённые документы, товары, техкарты и архив компании' },
-  { id: 'cycle', note: 'Все клиенты по этапам сделки' },
-  { id: 'clients', note: 'Карточки клиентов, оплаты и документы' },
-  { id: 'partners', note: 'Агентства, риэлторы, специалисты по земле и коммерция — по городам' },
-  { id: 'production', note: 'Заказы в цехе и потребность в материалах' },
-  { id: 'warehouse', note: 'Остатки, приход и именованный резерв' },
-  { id: 'installation', note: 'Доставка и монтаж на объектах клиентов' },
-  { id: 'marketing', note: 'Заявки, каналы и рекламные кампании' },
-  { id: 'house_models', note: 'Каталожные модели и индивидуальные проекты — витрина, без редактирования' },
-  { id: 'meetings', note: 'Прошедшие совещания, заметки и решения' },
-  { id: 'chats', note: 'Все переписки с клиентами и командой в MAX' },
-  { id: 'accounting', note: 'Реестр движения денег: приход, расход, статьи и статусы', badge: 'dev' },
-  { id: 'suppliers', note: 'Контакты, прайс-листы и оплаты поставщикам', public: true },
-]
-
-/** Разделы без сигнала внимания на бэке — нет ATTENTION-проверки — не дёргают
- * getSectionSignal и не несут пустое место под сигнал, отдельным компактным
- * блоком сверху. house_models/meetings/suppliers — витрина/справочные
- * разделы, проверять там нечего. chats (MAX) — временно здесь же: реального
- * сигнала не построить без хранения сообщений MAX в БД (сейчас /max —
- * чистый прокси к живому вебсокету, ничего не пишет в Postgres); нужна
- * отдельная задача на персист сообщений, см. журнал 0045. */
-const NO_SIGNAL_SECTIONS: SectionId[] = ['sales', 'purchasing', 'recipes', 'crm', 'moysklad', 'house_models', 'meetings', 'suppliers', 'chats', 'partners']
 
 const HEAT_BLOCK: Record<Heat, string> = {
   red: 'border-danger/70 bg-danger-bg/60',
@@ -78,50 +29,54 @@ function heatOf(tone: WidgetTone): Heat {
 
 export function WorkPage() {
   const hasAccess = useAuthStore((s) => s.hasAccess)
-
-  const tiles = TILES.flatMap((tile) => {
-    const section = SECTIONS.find((s) => s.id === tile.id)
-    if (!section) return []
-    // public-плитки видят все; остальные — по доступу
-    if (!(tile.public || hasAccess(tile.id))) return []
-    return [{ ...tile, section }]
-  })
-  const noSignalTiles = tiles.filter((t) => NO_SIGNAL_SECTIONS.includes(t.id))
-  const signalTiles = tiles.filter((t) => !NO_SIGNAL_SECTIONS.includes(t.id))
-
+  const groups = visibleWorkflows(hasAccess)
   return (
-    <div>
-      <div className="mb-5">
+    <div className="space-y-7">
+      <div>
         <h1 className="text-[22px] font-medium text-ink">Работа</h1>
-        <p className="mt-1 text-[13px] text-muted">Разделы компании — процессы, исполнение и контроль. Сигналы внимания — по реальным данным.</p>
+        <p className="mt-1 text-sm text-muted">
+          Разделы по рабочим процессам: от заказа до исполнения и расчётов.
+        </p>
       </div>
-
-      {tiles.length === 0 ? (
+      {groups.length === 0 ? (
         <EmptyState
           icon={<Briefcase size={22} />}
           title="Нет доступных разделов"
-          description="Разделы появятся здесь, когда вам выдадут к ним доступ."
+          description="Разделы появятся после выдачи доступа."
         />
       ) : (
-        <>
-          {noSignalTiles.length > 0 && (
-            <div className="mb-6">
-              <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-muted">Ещё разделы</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {noSignalTiles.map(({ id, section, note, badge }) => (
-                  <StaticWorkTile key={id} section={section} note={note} badge={badge} />
-                ))}
+        groups.map((group) => {
+          const Icon = group.icon
+          return (
+            <section key={group.id} aria-labelledby={'work-' + group.id}>
+              <div className="mb-3 flex items-start gap-3">
+                <Icon size={21} className="mt-0.5 text-brand" />
+                <div>
+                  <h2 id={'work-' + group.id} className="text-lg font-medium">
+                    {group.label}
+                  </h2>
+                  <p className="text-xs text-muted">{group.note}</p>
+                </div>
               </div>
-            </div>
-          )}
-          {signalTiles.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {signalTiles.map(({ id, section, note, badge }) => (
-                <WorkTile key={id} id={id} section={section} note={note} badge={badge} />
-              ))}
-            </div>
-          )}
-        </>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {group.entries.map((entry) => {
+                  const base = SECTIONS.find((s) => s.id === entry.section)!
+                  const section = { ...base, label: entry.label, path: entry.to }
+                  return entry.signal ? (
+                    <WorkTile key={entry.id} id={entry.section} section={section} note={entry.note} />
+                  ) : (
+                    <StaticWorkTile
+                      key={entry.id}
+                      section={section}
+                      note={entry.note}
+                      badge={entry.readOnly ? 'Просмотр' : undefined}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          )
+        })
       )}
     </div>
   )
@@ -129,15 +84,7 @@ export function WorkPage() {
 
 /** Компактная карточка раздела без сигнала внимания — без min-height и без
  * места под блок «стоит заняться» / «что проверено» (его там никогда не будет). */
-function StaticWorkTile({
-  section,
-  note,
-  badge,
-}: {
-  section: SectionMeta
-  note: string
-  badge?: 'dev'
-}) {
+function StaticWorkTile({ section, note, badge }: { section: SectionMeta; note: string; badge?: string }) {
   const Icon = section.icon
   return (
     <NavLink
@@ -150,8 +97,15 @@ function StaticWorkTile({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[14px] font-medium text-ink">
           {section.label}
-          {badge && <span className="rounded-pill bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">{badge}</span>}
-          <ArrowUpRight size={14} className="ml-auto text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand" />
+          {badge && (
+            <span className="rounded-pill bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+              {badge}
+            </span>
+          )}
+          <ArrowUpRight
+            size={14}
+            className="ml-auto text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand"
+          />
         </div>
         <p className="mt-1 text-[12px] leading-relaxed text-muted">{note}</p>
       </div>
@@ -168,7 +122,7 @@ function WorkTile({
   id: SectionId
   section: SectionMeta
   note: string
-  badge?: 'dev'
+  badge?: string
 }) {
   const [action, setAction] = useState<DashboardAction | null>(null)
   const [checked, setChecked] = useState(false)
@@ -219,15 +173,26 @@ function WorkTile({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-[15px] font-medium text-ink">
             {section.label}
-            {badge && <span className="rounded-pill bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">{badge}</span>}
-            <ArrowUpRight size={15} className="ml-auto text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand" />
+            {badge && (
+              <span className="rounded-pill bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
+                {badge}
+              </span>
+            )}
+            <ArrowUpRight
+              size={15}
+              className="ml-auto text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand"
+            />
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-muted">{note}</p>
         </div>
       </div>
 
       {loading ? (
-        <div role="status" aria-label="Загрузка сигнала" className="mt-4 space-y-2 rounded-lg border-l-[3px] border-border bg-surface-muted/60 p-3.5">
+        <div
+          role="status"
+          aria-label="Загрузка сигнала"
+          className="mt-4 space-y-2 rounded-lg border-l-[3px] border-border bg-surface-muted/60 p-3.5"
+        >
           <div className="h-3 w-24 animate-pulse rounded bg-surface-muted" />
           <div className="h-4 w-full animate-pulse rounded bg-surface-muted" />
         </div>
@@ -237,16 +202,23 @@ function WorkTile({
             <Sparkles size={14} className="text-ai-accent" />
             стоит заняться:
           </div>
-          <p className="text-[15px] leading-relaxed text-ink">{action.description} ({action.count})</p>
+          <p className="text-[15px] leading-relaxed text-ink">
+            {action.description} ({action.count})
+          </p>
         </div>
-      ) : checked && clearText && (
-        // Только текст бэка о том, что именно проверено и чисто (0084-c), без
-        // общей добавки «всё в порядке»: для производства он приходит лишь при
-        // благополучной оценке готовности.
-        <div className={`mt-4 flex flex-1 items-start gap-1.5 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK.green}`}>
-          <CircleCheck size={14} className={`mt-1 shrink-0 ${HEAT_TEXT.green}`} />
-          <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>
-        </div>
+      ) : (
+        checked &&
+        clearText && (
+          // Только текст бэка о том, что именно проверено и чисто (0084-c), без
+          // общей добавки «всё в порядке»: для производства он приходит лишь при
+          // благополучной оценке готовности.
+          <div
+            className={`mt-4 flex flex-1 items-start gap-1.5 rounded-lg border-l-[3px] p-3.5 ${HEAT_BLOCK.green}`}
+          >
+            <CircleCheck size={14} className={`mt-1 shrink-0 ${HEAT_TEXT.green}`} />
+            <p className="text-[15px] leading-relaxed text-ink">{clearText}</p>
+          </div>
+        )
       )}
 
       {!loading && agentNote && (

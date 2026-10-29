@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Plus, PackageCheck, Archive, Pencil } from 'lucide-react'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -84,10 +85,10 @@ export function PurchasingPage() {
         .catch((e) => setError(e.message))
   }, [])
   const [catalog, setCatalog] = useState<Catalog>({ suppliers: [], materials: [], accounts: [] })
-  const [tab, setTab] = useState(
-      new URLSearchParams(window.location.search).has('return') ? 'returns' : 'orders',
-    ),
-    [archive, setArchive] = useState('active'),
+  const [tab, setTab] = useQueryChoice('tab', ['orders', 'receipts', 'returns'], 'orders', (q) =>
+    q.has('return') ? 'returns' : 'orders',
+  )
+  const [archive, setArchive] = useState('active'),
     [query, setQuery] = useState(''),
     [offset, setOffset] = useState(0)
   const [orders, setOrders] = useState<{ total: number; items: Order[] }>({ total: 0, items: [] }),
@@ -99,6 +100,11 @@ export function PurchasingPage() {
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true)
   const [returningReceiptId, setReturningReceiptId] = useState<number | null>(null)
+  useEffect(() => {
+    setOffset(0)
+    setSelected(null)
+    setSelectedReceipt(null)
+  }, [tab])
   const [editing, setEditing] = useState<{ row?: Order } | null>(null),
     [receiving, setReceiving] = useState<{ row?: Order } | null>(null),
     [paying, setPaying] = useState<Order | null>(null)

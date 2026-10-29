@@ -107,7 +107,7 @@ export interface SectionMeta {
 
 export const SECTIONS: SectionMeta[] = [
   { id: 'recipes', label: 'Техкарты и выпуск', path: '/recipes', icon: Factory, notAssignable: true },
-  { id: 'crm', label: 'Продажи', path: '/crm', icon: Users, notAssignable: true },
+  { id: 'crm', label: 'CRM', path: '/crm', icon: Users, notAssignable: true },
   { id: 'sales', label: 'Заказы и отгрузки', path: '/sales', icon: Truck, notAssignable: true },
   { id: 'moysklad', label: 'МойСклад', path: '/moysklad', icon: Database, notAssignable: true },
   { id: 'purchasing', label: 'Закупки и приёмки', path: '/purchasing', icon: Truck, notAssignable: true },

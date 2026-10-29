@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -52,8 +53,10 @@ export function SalesPage() {
     full = accessLevelAtLeast(level, 'full')
   const stockEdit = accessLevelAtLeast(stockLevel, 'edit'),
     stockFull = accessLevelAtLeast(stockLevel, 'full')
-  const [tab, setTab] = useState(params.has('shipment') ? 'shipments' : 'orders'),
-    [archive, setArchive] = useState('active'),
+  const [tab, setTab] = useQueryChoice('tab', ['orders', 'shipments'], 'orders', (q) =>
+    q.has('shipment') ? 'shipments' : 'orders',
+  )
+  const [archive, setArchive] = useState('active'),
     [query, setQuery] = useState(''),
     [page, setPage] = useState(0),
     [revision, setRevision] = useState(0)
@@ -68,6 +71,11 @@ export function SalesPage() {
   const [error, setError] = useState(''),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false)
+  useEffect(() => {
+    setPage(0)
+    setSelected(null)
+    setSelectedShip(null)
+  }, [tab])
   useEffect(() => {
     let current = true
     call<Catalog>('/catalog')
@@ -171,7 +179,14 @@ export function SalesPage() {
   function close() {
     setSelected(null)
     setSelectedShip(null)
-    setParams({})
+    setParams((previous) => {
+      const q = new URLSearchParams(previous)
+      q.set('tab', tab)
+      q.delete('order')
+      q.delete('shipment')
+      q.delete('ship')
+      return q
+    })
   }
   const total = tab === 'orders' ? orders.total : shipments.total
   return (

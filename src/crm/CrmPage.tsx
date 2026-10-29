@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Link } from 'react-router-dom'
 import { Plus, Users, Archive, Pencil, Download } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
@@ -47,7 +48,11 @@ const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'com
 
 export function CrmPage() {
   const [catalog, setCatalog] = useState<Catalog>({ pipelines: [], stages: [], users: [], counts: {} })
-  const [kind, setKind] = useState<Kind>('deal')
+  const [kind, setKind] = useQueryChoice<Kind>(
+    'tab',
+    ['inquiry', 'deal', 'contact', 'company', 'task', 'pipeline', 'stage'],
+    'deal',
+  )
   const [pipeline, setPipeline] = useState('')
   const [stage, setStage] = useState('')
   const [archive, setArchive] = useState('active')
@@ -67,6 +72,11 @@ export function CrmPage() {
   const level = useAccessLevel('clients')
   const canEdit = accessLevelAtLeast(level, 'edit')
   const canFull = accessLevelAtLeast(level, 'full')
+  useEffect(() => {
+    setOffset(0)
+    setStage('')
+    setSelected(null)
+  }, [kind])
   useEffect(() => {
     const interval = window.setInterval(() => { if (!document.hidden) setRevision(v=>v+1) }, 60000)
     return () => window.clearInterval(interval)
@@ -144,7 +154,7 @@ export function CrmPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-medium text-ink">Продажи</h1>
+          <h1 className="text-[22px] font-medium text-ink">CRM</h1>
           <p className="mt-1 text-[13px] text-muted">
             Воронки, сделки, контакты и последующие действия — в Соборуме.
           </p>
