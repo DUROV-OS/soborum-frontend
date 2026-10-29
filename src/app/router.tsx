@@ -30,6 +30,7 @@ import { MoyskladPage } from '@/moysklad/MoyskladPage'
 import { CrmPage } from '@/crm/CrmPage'
 import { RecipesPage } from '@/moysklad/RecipesPage'
 import { PurchasingPage } from '@/purchasing/PurchasingPage'
+import { SalesPage } from '@/sales/SalesPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
@@ -68,6 +69,7 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
+        <Route path="/sales" element={<AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />

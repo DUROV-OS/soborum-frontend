@@ -29,6 +29,7 @@ type Reservation = {
   warehouse: string
   unit: string
   production_id: number | null
+  sales_order_id?: number | null
   purpose: string
   quantity: number
   remaining_quantity: number
@@ -45,6 +46,11 @@ type Reservation = {
 type Catalog = {
   houses: { id: number; name: string }[]
   orders: { id: number; name: string; lines: { index: number; material_id: number; capacity: number }[] }[]
+  sales_orders?: {
+    id: number
+    name: string
+    lines: { index: number; material_id: number; capacity: number }[]
+  }[]
 }
 const labels: Record<string, string> = {
   active: 'В резерве',
@@ -277,7 +283,14 @@ export function ReservationsPanel({
                   <Button variant="secondary" onClick={() => setAction({ row: selected, kind: 'release' })}>
                     Снять резерв
                   </Button>
-                  {selected.production_id ? (
+                  {selected.sales_order_id ? (
+                    <Link
+                      className="self-center text-accent underline"
+                      to={'/sales?order=' + selected.sales_order_id + '&ship=1'}
+                    >
+                      Оформить отгрузку заказа
+                    </Link>
+                  ) : selected.production_id ? (
                     <>
                       <Button onClick={() => onIssueHouse(selected.production_id!)}>
                         Выдать по техкарте
@@ -395,7 +408,9 @@ function CreateReservation({
       .catch((e) => setError(text(e)))
   }, [])
   const material = materials.find((m) => m.id === Number(materialId)),
-    source = catalog?.orders.find((o) => o.id === Number(sourceId)),
+    source = (mode === 'sales' ? catalog?.sales_orders : catalog?.orders)?.find(
+      (o) => o.id === Number(sourceId),
+    ),
     line = source?.lines.find((l) => l.index === Number(sourceLine))
   const q = Number(quantity.replace(',', '.')),
     free = material?.available_quantity ?? material?.quantity_in_stock ?? 0
@@ -435,6 +450,8 @@ function CreateReservation({
         production_id: mode === 'house' ? Number(productionId) : null,
         source_order_id: mode === 'source' ? Number(sourceId) : null,
         source_line: mode === 'source' ? Number(sourceLine) : null,
+        sales_order_id: mode === 'sales' ? Number(sourceId) : null,
+        sales_line: mode === 'sales' ? Number(sourceLine) : null,
       })
       onSaved(row)
     } catch (e) {
@@ -480,7 +497,8 @@ function CreateReservation({
           >
             <option value="purpose">Произвольное назначение</option>
             <option value="house">Дом в производстве</option>
-            <option value="source">Заказ покупателя из переноса</option>
+            <option value="sales">Заказ покупателя</option>
+            {!!catalog?.orders.length && <option value="source">Заказ покупателя из переноса</option>}
           </Select>
         </Field>
         {mode === 'house' && (
@@ -503,7 +521,7 @@ function CreateReservation({
             </Select>
           </Field>
         )}
-        {mode === 'source' && (
+        {(mode === 'source' || mode === 'sales') && (
           <>
             <Field label="Заказ покупателя">
               <Select
@@ -518,7 +536,7 @@ function CreateReservation({
                 }}
               >
                 <option value="">Выберите заказ</option>
-                {catalog?.orders.map((o) => (
+                {(mode === 'sales' ? catalog?.sales_orders : catalog?.orders)?.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name}
                   </option>
@@ -549,7 +567,7 @@ function CreateReservation({
             </Field>
           </>
         )}
-        {mode !== 'source' && (
+        {mode !== 'source' && mode !== 'sales' && (
           <>
             <Input
               placeholder="Найти материал или склад"
