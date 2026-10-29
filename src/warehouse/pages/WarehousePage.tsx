@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
 import { SectionAnalyticsCard } from '@/ai/components/SectionAnalyticsCard'
@@ -80,7 +81,8 @@ export function WarehousePage() {
   const materials = useWarehouseStore((s) => s.materials)
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
-  const [tab, setTab] = useState<Tab>('materials')
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'requests' ? 'requests' : 'materials')
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)

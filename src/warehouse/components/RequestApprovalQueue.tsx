@@ -1,70 +1,65 @@
 import { useEffect, useState } from 'react'
-import { Check, X } from 'lucide-react'
-import { useTasksStore } from '@/tasks/store'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
+import { Input } from '@/shared/ui/Field'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
+import * as api from '../api'
+import { formatQty, parseQty } from './OperationLinesEditor'
 import { useWarehouseStore } from '../store'
 
 export function RequestApprovalQueue() {
-  const tasks = useTasksStore((s) => s.tasks)
-  const tasksLoading = useTasksStore((s) => s.loading)
-  const loadTasks = useTasksStore((s) => s.load)
-  const approveRequest = useWarehouseStore((s) => s.approveRequest)
-  const rejectRequest = useWarehouseStore((s) => s.rejectRequest)
   const canEdit = accessLevelAtLeast(useAccessLevel('warehouse'), 'edit')
-  const [busyId, setBusyId] = useState<number | null>(null)
+  const reloadMaterials = useWarehouseStore((s) => s.load)
+  const [rows, setRows] = useState<api.PendingMaterialRequest[] | null>(null)
+  const [quantities, setQuantities] = useState<Record<number, string>>({})
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadTasks({ link_type: 'warehouse_request' })
-  }, [loadTasks])
-
-  const pending = tasks.filter((t) => t.link_type === 'warehouse_request' && t.status !== 'done')
-
-  async function decide(requestId: number, decision: 'approve' | 'reject') {
-    setBusyId(requestId)
-    const result = decision === 'approve' ? await approveRequest(requestId) : await rejectRequest(requestId)
-    setBusyId(null)
-    setError(result.ok ? null : result.reason ?? 'Не удалось обработать заявку')
-    if (result.ok) loadTasks({ link_type: 'warehouse_request' })
+  async function load() {
+    try {
+      const data = await api.listPendingRequests()
+      setRows(data)
+      setQuantities(Object.fromEntries(data.map((row) => [row.id, formatQty(Math.max(0, Math.min(row.quantity, row.in_stock)))])))
+      setError(null)
+    } catch {
+      setRows(null)
+      setError('Не удалось загрузить заявки. Повторите попытку.')
+    }
   }
+  useEffect(() => { void load() }, [])
 
-  if (tasksLoading && tasks.length === 0) {
-    return <LoadingState label="Загружаем заявки…" />
+  async function decide(row: api.PendingMaterialRequest, decision: 'approve' | 'reject') {
+    if (busy) return
+    const quantity = parseQty(quantities[row.id] ?? '')
+    setBusy(true); setError(null); setNotice(null)
+    try {
+      if (decision === 'approve') await api.approveRequest(row.id, quantity)
+      else await api.rejectRequest(row.id)
+      setNotice(decision === 'approve' ? 'Выдача проведена. Остаток заявки обновлён.' : 'Заявка отклонена.')
+      await load()
+      void reloadMaterials().catch(() => {})
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось обработать заявку')
+    } finally { setBusy(false) }
   }
-
-  if (pending.length === 0) {
-    return <EmptyState title="Нет заявок на проверку" description="Все запросы материалов от производства обработаны." />
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {error && <p className="text-[12px] text-danger">{error}</p>}
-      {pending.map((task) => (
-        <div key={task.id} className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-3">
-          <span className="text-[13px] text-ink">{task.title}</span>
-          {canEdit && (
-            <div className="flex gap-2">
-              <Button size="sm" disabled={busyId === task.link_id} onClick={() => decide(task.link_id!, 'approve')}>
-                <Check size={14} />
-                Одобрить
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busyId === task.link_id}
-                onClick={() => decide(task.link_id!, 'reject')}
-              >
-                <X size={14} />
-                Отклонить
-              </Button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
+  if (!rows && !error) return <LoadingState label="Загружаем заявки…" />
+  return <div className="space-y-3">
+    {error && <div role="alert" className="rounded-md bg-danger-bg p-3 text-[13px] text-danger">{error} {!rows && <button type="button" onClick={() => void load()} className="underline">Повторить</button>}</div>}
+    {notice && <p role="status" className="text-[13px] text-success">{notice}</p>}
+    {rows?.length === 0 && <EmptyState title="Нет заявок на выдачу" description="Запросы от производства появятся здесь." />}
+    {rows?.map((row) => {
+      const quantity = parseQty(quantities[row.id] ?? '')
+      const valid = Number.isFinite(quantity) && quantity > 0 && quantity <= row.quantity && quantity <= row.in_stock && (row.is_fractional || Number.isInteger(quantity))
+      return <div key={row.id} className="rounded-xl border border-border bg-surface p-4">
+        <p className="text-[14px] font-medium text-ink">{row.material_title} · {row.production_name}</p>
+        <p className="mt-1 text-[12px] text-muted">Этап: {row.block_name} · Запросил: {row.requested_by}</p>
+        <p className="mt-1 text-[12px] text-muted">Осталось по заявке: {formatQty(row.quantity)} {row.unit} · На складе: {formatQty(row.in_stock)} {row.unit}</p>
+        {row.in_stock < row.quantity && <p className="mt-1 text-[12px] text-warning">Не хватает {formatQty(row.quantity - row.in_stock)} {row.unit}; доступное можно выдать частично.</p>}
+        {canEdit && <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-[12px] text-muted">К выдаче<Input aria-label={`К выдаче: ${row.material_title}`} className="mt-1 w-32" inputMode="decimal" value={quantities[row.id] ?? ''} onChange={(e) => setQuantities({ ...quantities, [row.id]: e.target.value })} /></label><Button size="sm" disabled={busy || !valid} onClick={() => void decide(row, 'approve')}>Выдать</Button><Button size="sm" variant="secondary" disabled={busy} onClick={() => void decide(row, 'reject')}>Отклонить</Button></div>}
+      </div>
+    })}
+  </div>
 }

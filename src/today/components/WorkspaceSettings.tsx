@@ -5,20 +5,22 @@ import { apiRequest } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 
 export type WorkspaceView = 'general' | JobRole
-export type WorkspaceBlock = 'personal_tasks' | 'my_clients' | 'attention' | 'metrics' | 'aktualnoe' | 'marina'
+export type WorkspaceBlock = 'personal_tasks' | 'my_clients' | 'attention' | 'metrics' | 'aktualnoe' | 'marina' | 'warehouse_links' | 'production_links'
 export type DashboardSection = 'clients' | 'production' | 'installation' | 'cycle' | 'warehouse' | 'marketing' | 'tasks' | 'users' | 'accounting' | 'ai'
 export interface WorkspacePreferences { view: WorkspaceView; blocks: WorkspaceBlock[]; sections: DashboardSection[] }
-const labels: Record<WorkspaceBlock, string> = { personal_tasks: 'Мои задачи', my_clients: 'Мои клиенты', attention: 'Требует внимания', metrics: 'Показатели', aktualnoe: 'Актуальные заказы', marina: 'Марина' }
+const labels: Record<WorkspaceBlock, string> = { personal_tasks: 'Мои задачи', my_clients: 'Мои клиенты', attention: 'Требует внимания', metrics: 'Показатели', aktualnoe: 'Актуальные заказы', marina: 'Марина', warehouse_links: 'Работа склада', production_links: 'Работа производства' }
 const sectionLabels: Record<DashboardSection, string> = { clients: 'Клиенты и оплаты', production: 'Производство', installation: 'Монтаж', cycle: 'Заказы', warehouse: 'Склад', marketing: 'Маркетинг', tasks: 'Задачи', users: 'Сотрудники', accounting: 'Бухгалтерия', ai: 'Согласования Марины' }
 const allowed: Record<WorkspaceView, WorkspaceBlock[]> = {
   general: ['personal_tasks', 'attention', 'metrics', 'aktualnoe', 'marina'],
   director: ['personal_tasks', 'attention', 'metrics', 'aktualnoe', 'marina'],
   manager: ['personal_tasks', 'my_clients'],
   accountant: ['personal_tasks', 'attention', 'metrics', 'marina'],
+  storekeeper: ['personal_tasks', 'warehouse_links', 'attention', 'metrics'],
+  production_manager: ['personal_tasks', 'production_links', 'attention', 'metrics'],
 }
-const viewLabels: Record<WorkspaceView, string> = { general: 'Общий', director: 'Руководитель', manager: 'Менеджер', accountant: 'Бухгалтер' }
+const viewLabels: Record<WorkspaceView, string> = { general: 'Общий', director: 'Руководитель', manager: 'Менеджер', accountant: 'Бухгалтер', storekeeper: 'Специалист по складу и снабжению', production_manager: 'Начальник производства' }
 export function defaults(view: WorkspaceView): WorkspacePreferences {
-  return { view, blocks: allowed[view], sections: view === 'accountant' ? ['accounting', 'clients', 'tasks', 'ai'] : Object.keys(sectionLabels) as DashboardSection[] }
+  return { view, blocks: allowed[view], sections: view === 'accountant' ? ['accounting', 'clients', 'tasks', 'ai'] : view === 'storekeeper' ? ['warehouse', 'accounting', 'tasks'] : view === 'production_manager' ? ['production', 'warehouse', 'tasks'] : Object.keys(sectionLabels) as DashboardSection[] }
 }
 
 export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number; jobRole: JobRole | null; onApply: (value: WorkspacePreferences) => void }) {
@@ -43,9 +45,11 @@ export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number
   }, [userId, jobRole, reload, onApply])
   const sections = (Object.keys(sectionLabels) as DashboardSection[]).filter((section) => {
     if (draft.view === 'accountant' && !['accounting', 'clients', 'tasks', 'ai'].includes(section)) return false
+    if (draft.view === 'storekeeper' && !['warehouse', 'accounting', 'tasks'].includes(section)) return false
+    if (draft.view === 'production_manager' && !['production', 'warehouse', 'tasks'].includes(section)) return false
     return hasAccess((section === 'users' ? 'admin' : section) as SectionId)
   })
-  const blocks = allowed[draft.view].filter((block) => block === 'personal_tasks' ? hasAccess('tasks') : block === 'my_clients' ? hasAccess('clients') : block === 'marina' ? hasAccess('ai') : block === 'aktualnoe' ? hasAccess('cycle') : true)
+  const blocks = allowed[draft.view].filter((block) => block === 'personal_tasks' ? hasAccess('tasks') : block === 'my_clients' ? hasAccess('clients') : block === 'marina' ? hasAccess('ai') : block === 'aktualnoe' ? hasAccess('cycle') : block === 'warehouse_links' ? hasAccess('warehouse') : block === 'production_links' ? hasAccess('production') : true)
   function toggle<T extends string>(items: T[], item: T): T[] { return items.includes(item) ? items.filter((value) => value !== item) : [...items, item] }
   async function save() {
     setSaving(true); setError(''); setSaved(false)

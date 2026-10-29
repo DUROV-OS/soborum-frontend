@@ -11,7 +11,8 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:clients": "node tests/client-workflow.mjs",
     "test:client-payments": "node tests/client-payments.mjs",
-    "test:today-workspaces": "node tests/today-workspaces.mjs"
+    "test:today-workspaces": "node tests/today-workspaces.mjs",
+    "test:warehouse-queue": "node tests/warehouse-queue.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
