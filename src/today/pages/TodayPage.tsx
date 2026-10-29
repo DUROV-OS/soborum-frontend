@@ -9,15 +9,40 @@ import { EmptyState } from '@/shared/ui/EmptyState'
 import { StatWidget } from '@/shared/ui/StatWidget'
 import { AktualnoeCard } from '../components/AktualnoeCard'
 import { useTodayStore } from '../store'
+import { PersonalWorkspace } from '../components/PersonalWorkspace'
+
+type Workspace = 'general' | 'director' | 'manager'
 
 export function TodayPage() {
+  const userId = useAuthStore((s) => s.current?.id)
+  return userId ? <TodayContent key={userId} userId={userId} /> : null
+}
+
+function TodayContent({ userId }: { userId: number }) {
   const { data, loading, error, load, aktualnoe, aktualnoeLoading } = useTodayStore()
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const startDraft = useAiStore((s) => s.startDraft)
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
+  const [workspace, setWorkspace] = useState<Workspace>(() => {
+    try {
+      const value = localStorage.getItem(`durov.today.view.${userId}`)
+      return value === 'director' || value === 'manager' ? value : 'general'
+    } catch { return 'general' }
+  })
+  const [refresh, setRefresh] = useState(0)
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (workspace !== 'manager') load() }, [load, workspace])
+
+  function selectWorkspace(value: Workspace) {
+    setWorkspace(value)
+    try { localStorage.setItem(`durov.today.view.${userId}`, value) } catch { /* Выбор работает и без сохранения. */ }
+  }
+
+  function refreshPage() {
+    setRefresh((value) => value + 1)
+    if (workspace !== 'manager') load(true)
+  }
 
   function askMarina(message = prompt) {
     if (!message.trim()) return
@@ -31,7 +56,7 @@ export function TodayPage() {
   }
 
   const today = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
-  const actions = data?.actions ?? []
+  const actions = (data?.actions ?? []).filter((action) => workspace !== 'director' || (action.section !== 'crm' && !action.href.startsWith('/crm') && action.id !== 'clients:leads_stuck_over_14_days'))
   const widgets = data?.widgets ?? []
   const aktualnoeItems = aktualnoe?.items ?? []
   const showAktualnoe = aktualnoeLoading || aktualnoeItems.length > 0
@@ -45,18 +70,30 @@ export function TodayPage() {
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-[34px]">Главное на сегодня<span className="text-brand">.</span></h1>
           <p className="mt-2 text-[13px] capitalize text-muted">{today}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => load(true)} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={refreshPage} disabled={workspace !== 'manager' && loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные
         </Button>
       </div>
 
+      <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+        <p className="text-[13px] font-semibold text-ink">Рабочий экран</p>
+        <p className="mt-1 text-[12px] text-muted">Выберите удобный обзор. Права доступа при этом не меняются; выбор сохраняется в этом браузере.</p>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Рабочий экран">
+          {([['general', 'Общий'], ['director', 'Руководитель'], ['manager', 'Менеджер']] as const).map(([value, label]) =>
+            <button key={value} type="button" aria-pressed={workspace === value} onClick={() => selectWorkspace(value)} className={`rounded-lg border px-4 py-2 text-[13px] font-medium ${workspace === value ? 'border-brand bg-brand text-white' : 'border-border bg-surface text-ink hover:bg-surface-muted'}`}>{label}</button>)}
+        </div>
+      </div>
+
+      {workspace !== 'general' && <PersonalWorkspace userId={userId} manager={workspace === 'manager'} refresh={refresh} />}
+
+      {workspace !== 'manager' && <>
       {error && <EmptyState icon={<AlertCircle size={28} />} title="Сводка временно недоступна" description={error}
         action={<Button size="sm" onClick={() => load()}>Повторить</Button>} />}
       {loading && !data && <div role="status" className="rounded-2xl border border-border bg-surface px-6 py-12 text-[14px] text-muted">Собираем текущие показатели…</div>}
 
       {data && !error && <>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-3.5">
-          <p className="flex items-start gap-2.5 text-[13px] text-ink"><CheckCheck size={17} className="mt-0.5 shrink-0 text-brand" />{data.summary}</p>
+          <p className="flex items-start gap-2.5 text-[13px] text-ink"><CheckCheck size={17} className="mt-0.5 shrink-0 text-brand" />{workspace === 'director' ? `Вопросов в обзоре: ${actions.length}` : data.summary}</p>
           <span className="shrink-0 text-[11px] text-muted">Данные на {new Date(data.generated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
 
@@ -139,6 +176,7 @@ export function TodayPage() {
               })}
             </div>}
         </section>
+      </>}
       </>}
     </div>
   )
