@@ -21,6 +21,7 @@ import { BalancePaymentPanel } from '../components/BalancePaymentPanel'
 import { ClientPaymentsPanel } from '../components/ClientPaymentsPanel'
 import { NotesPanel } from '../components/NotesPanel'
 import { MaxChatPanel } from '../components/MaxChatPanel'
+import { PhoneCalls } from '@/crm/PhoneCalls'
 
 export function ClientDetailPage() {
   const { id = '' } = useParams()
@@ -125,6 +126,7 @@ export function ClientDetailPage() {
         <LeadRequestPanel client={client} />
 
         <BasicDataPanel client={client} />
+        <PhoneCalls clientId={clientId} canEdit={canEdit} />
 
         <TasksPanel client={client} />
 
