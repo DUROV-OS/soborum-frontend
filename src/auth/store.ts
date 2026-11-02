@@ -84,6 +84,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       section === 'today' ||
       section === 'agents' ||
       section === 'chats' ||
+      section === 'mail' ||
       section === 'feedback_my' ||
       section === 'notifications'
     )

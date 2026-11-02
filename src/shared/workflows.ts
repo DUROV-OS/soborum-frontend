@@ -405,6 +405,14 @@ export const WORKFLOWS: WorkGroup[] = [
         note: 'Переписки с клиентами и сотрудниками',
       },
       {
+        id: 'mail',
+        label: 'Почта',
+        to: '/mail',
+        section: 'mail',
+        readOnly: true,
+        note: 'Общие входящие sales@durov.house и вложения',
+      },
+      {
         id: 'source-history',
         label: 'Все сохранённые данные',
         to: '/moysklad',
