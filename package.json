@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "tsc -b --noEmit",
     "test:smoke": "node tests/smoke.mjs",
+    "test:mail": "node tests/shared-mail.mjs",
     "test:mobile-install": "node tests/mobile-install.mjs",
     "test:clients": "node tests/client-workflow.mjs",
     "test:client-payments": "node tests/client-payments.mjs",

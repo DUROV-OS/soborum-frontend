@@ -19,6 +19,7 @@ const MENU: SectionId[] = [
   'agents',
   'ai_proposals',
   'notifications',
+  'mail',
   'feedback_my',
   'feedback_admin',
   'admin',

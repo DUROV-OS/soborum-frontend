@@ -37,6 +37,7 @@ import { BoardPage } from '@/board/pages/BoardPage'
 import { AgentProposalsPage } from '@/agents/pages/AgentProposalsPage'
 import { AgentsPage } from '@/agents/pages/AgentsPage'
 import { AllChatsPage } from '@/max/pages/AllChatsPage'
+import { MailPage } from '@/mail/MailPage'
 import { WorkPage } from '@/work/pages/WorkPage'
 import { AccountingPage } from '@/accounting/pages/AccountingPage'
 import { SuppliersPage } from '@/suppliers/pages/SuppliersPage'
@@ -69,6 +70,7 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
+        <Route path="/mail" element={<MailPage />} />
         <Route path="/sales" element={<AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />

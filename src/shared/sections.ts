@@ -20,6 +20,7 @@ import {
   Mic,
   Repeat,
   Inbox,
+  Mail,
   ShieldCheck,
   Sparkles,
   Truck,
@@ -87,6 +88,7 @@ export type SectionId =
   | 'agents'
   | 'ai_proposals'
   | 'chats'
+  | 'mail'
   | 'meetings'
   | 'accounting'
   | 'suppliers'
@@ -112,6 +114,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'moysklad', label: 'МойСклад', path: '/moysklad', icon: Database, notAssignable: true },
   { id: 'purchasing', label: 'Закупки и приёмки', path: '/purchasing', icon: Truck, notAssignable: true },
   { id: 'today', label: 'Пульс', path: '/today', icon: Activity, notAssignable: true },
+  { id: 'mail', label: 'Почта', path: '/mail', icon: Mail, notAssignable: true },
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
   { id: 'clients', label: 'Клиенты', path: '/clients', icon: Users },
