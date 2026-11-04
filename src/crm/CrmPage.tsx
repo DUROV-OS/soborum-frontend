@@ -391,7 +391,7 @@ export function CrmPage() {
         title={selected?.name ?? ''}
         subtitle={selected?.archived ? 'Архивная запись' : selectedStage?.name}
       >
-        {selected && (
+        {selected && !['deal', 'inquiry', 'contact', 'company'].includes(selected.kind) && (
           <div className="space-y-5 text-[13px]">
             <div className="flex flex-wrap gap-2">
               {canEdit && selected.kind==='deal' && !selected.archived && <Button size="sm" variant="secondary" onClick={()=>setEditing({kind:'task',related:selected})}>Назначить следующий шаг</Button>}

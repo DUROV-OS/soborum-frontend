@@ -8,7 +8,7 @@ const report = { base, synthetic_api: true, checks: [] }
 const entry = (id, kind, name, data = {}, version = 1) => ({ id, kind, name, data, version, archived: false, updated_at: '2026-11-04T09:00:00Z' })
 const event = (id, text, details = {}, source = 'soborum', day = 4) => ({ id, text, details, source, created_at: `2026-11-0${day}T09:00:00Z` })
 
-async function setup({ mobile = false, level = 'full', selected = 101 } = {}) {
+async function setup({ mobile = false, level = 'full', selected = 101, malformed = false } = {}) {
   const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1540, height: 1000 } })
   await context.addInitScript(() => localStorage.setItem('soborbum.auth.token', 'synthetic-token'))
   const page = await context.newPage(), errors = [], writes = [], reads = []
@@ -24,6 +24,12 @@ async function setup({ mobile = false, level = 'full', selected = 101 } = {}) {
     entry(301, 'company', 'Тестовая компания', { phone: '+7 495 222-33-44', custom_fields: [{ field_name: 'ИНН', values: [{ value: '0000000000' }] }] }),
     entry(999, 'task', 'Связаться с Ириной', { entity_id: 100, responsible_user_id: 6, due_at: '2026-11-05T10:00:00Z', completed: false, description: 'Обсудить проект', task_type: 'Звонок' }, 5),
   ].map(item => [item.id, item]))
+  if (malformed) {
+    for (const [id, label] of [[100, 'Поле входящей сделки'], [102, 'Поле активной сделки'], [201, 'Поле контакта']]) {
+      records.get(id).data.custom_fields = [null, {}, { field_name: label, values: [null, { value: 'Сохранённое значение' }] }]
+    }
+    records.get(301).data.custom_fields = null
+  }
   const allTasks = [...Array.from({ length: 101 }, (_, index) => entry(2000 + index, 'task', `Другая задача ${index}`, { entity_id: 99999, completed: false })), records.get(999)]
   const history = new Map([
     [101, [event('website-1', 'Заявка с сайта', { client_id: 1 })]],
@@ -163,6 +169,23 @@ try {
   for (const session of [t, d, r, m]) assert.equal(session.reads.some(path => /^\/api\/(clients|production|warehouse|accounting|moysklad)/.test(path)), false)
   assert.deepEqual(m.errors, []); await m.context.close()
   report.checks.push('mobile data/history tabs fit 390px; view-only cannot write; no ERP/cost API access')
+
+  const imported = await setup({ malformed: true })
+  await imported.dialog.getByText('Поле входящей сделки', { exact: true }).waitFor()
+  await imported.dialog.getByRole('button', { name: 'Ирина Тестовая', exact: true }).click()
+  const importedContact = imported.page.getByRole('dialog', { name: 'Ирина Тестовая', exact: true })
+  await importedContact.getByText('Поле контакта', { exact: true }).waitFor()
+  await importedContact.getByText('—, Сохранённое значение', { exact: true }).waitFor()
+  assert.equal(new URL(imported.page.url()).pathname, '/crm')
+  assert.equal(await imported.page.evaluate(() => localStorage.getItem('soborbum.auth.token')), 'synthetic-token')
+  assert.deepEqual(imported.errors, []); assert.deepEqual(imported.writes, [])
+  await imported.context.close()
+  const importedDeal = await setup({ selected: 102, malformed: true })
+  await importedDeal.dialog.getByText('Поле активной сделки', { exact: true }).waitFor()
+  await importedDeal.dialog.getByLabel('Этап сделки').waitFor()
+  assert.deepEqual(importedDeal.errors, []); assert.deepEqual(importedDeal.writes, [])
+  await importedDeal.context.close()
+  report.checks.push('null custom-field records and values survive inquiry-to-contact navigation and direct active-deal opening; hidden legacy drawer cannot crash the CRM page')
   await writeFile('test-results/crm-card.json', JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } finally { await browser.close() }
