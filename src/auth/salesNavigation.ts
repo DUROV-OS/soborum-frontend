@@ -8,21 +8,23 @@ export function isSalesManager(account: Account | null): boolean {
 }
 
 export function salesNavigationLevel(account: Account, section: SectionId): AccessLevel {
+  if (['today', 'work', 'chats', 'notifications', 'feedback_my'].includes(section)) return 'full'
   const level = section === 'crm' || section === 'clients' ? account.module_access.clients
     : section === 'tasks' ? account.module_access.tasks : 'none'
-  return level === 'full' ? 'edit' : level ?? 'none'
+  return level ?? 'none'
 }
 
-export function salesHome(account: Account): string {
-  return salesNavigationLevel(account, 'crm') !== 'none' ? '/crm'
-    : salesNavigationLevel(account, 'tasks') !== 'none' ? '/tasks' : '/crm'
+export function salesHome(_account: Account): string {
+  return '/today'
 }
 
 export function salesRouteAllowed(pathname: string, search: string): boolean {
   const query = new URLSearchParams(search)
   if (pathname === '/crm') {
-    return !query.has('tab') || ['deal', 'contact', 'company', 'task', 'inquiry'].includes(query.get('tab') || '')
+    return !query.has('tab') || ['deal', 'contact', 'company', 'task', 'inquiry', 'pipeline', 'stage'].includes(query.get('tab') || '')
   }
   if (pathname === '/tasks') return !query.has('scope') || query.get('scope') === 'mine'
+  if (['/today', '/work', '/sales', '/team', '/notifications', '/feedback', '/feedback/my'].includes(pathname)) return true
+  if (/^\/chats(?:\/\d+)?$/.test(pathname)) return true
   return false
 }

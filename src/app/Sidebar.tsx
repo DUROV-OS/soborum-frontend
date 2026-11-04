@@ -59,7 +59,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // (0090) — всем. Ответ администратора приходит без пуша, поэтому
   // перечитываем раз в минуту.
   useEffect(() => {
-    if (salesManager) return
     loadMyFeedback().catch(() => {})
     const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
@@ -67,13 +66,25 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   // Публичный справочник поставщиков также входит в хаб.
-  const showWork = groups.length > 0
+  const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['crm', 'tasks'] : MENU
-  const items = menu.flatMap((id) => {
+  const menu: SectionId[] = salesManager ? ['today', 'tasks', 'work', 'crm', 'chats', 'notifications', 'feedback_my'] : MENU
+  let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
   })
+  if (salesManager) {
+    const crm = SECTIONS.find(s => s.id === 'crm')!
+    const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
+    if (hasAccess('crm')) items.splice(3, 0,
+      { ...crm, id: 'sales', label: 'Продажи', path: '/sales' },
+    )
+    if (hasAccess('crm')) items.splice(5, 0,
+      { ...crm, label: 'Компании', path: '/crm?tab=company' },
+      { ...crm, label: 'Команда', path: '/team' },
+    )
+    items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
+  }
   const workActive = !!context || pathname === '/work'
   const workflowItems = (
     <>
@@ -156,7 +167,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           {items.map((section) => {
             const Icon = section.icon
             return (
-              <Fragment key={section.id}>
+              <Fragment key={section.path}>
                 <li
                   className={section.id === 'feedback_my' ? 'mt-3 border-t border-white/10 pt-3' : undefined}
                 >

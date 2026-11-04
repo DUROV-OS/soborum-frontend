@@ -42,6 +42,7 @@ import { WorkPage } from '@/work/pages/WorkPage'
 import { AccountingPage } from '@/accounting/pages/AccountingPage'
 import { SuppliersPage } from '@/suppliers/pages/SuppliersPage'
 import { TodayPage } from '@/today/pages/TodayPage'
+import { SalesWorkspace, SalesTeam } from '@/work/pages/SalesWorkspace'
 import { SECTIONS } from '@/shared/sections'
 import { AccessGate } from './AccessGate'
 import { AppShell } from './AppShell'
@@ -63,6 +64,7 @@ function RootRedirect() {
 }
 
 export function AppRouter() {
+  const salesManager = useAuthStore((s) => isSalesManager(s.current))
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -74,7 +76,8 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
-        <Route path="/sales" element={<AccessGate section="sales"><SalesPage /></AccessGate>} />
+        <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
+        <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />
@@ -98,7 +101,7 @@ export function AppRouter() {
           path="/today"
           element={
             <AccessGate section="today">
-              <TodayPage />
+              {salesManager ? <SalesWorkspace /> : <TodayPage />}
             </AccessGate>
           }
         />
@@ -244,7 +247,7 @@ export function AppRouter() {
             </AccessGate>
           }
         />
-        <Route path="/work" element={<WorkPage />} />
+        <Route path="/work" element={salesManager ? <SalesWorkspace view="work" /> : <WorkPage />} />
         <Route
           path="/accounting"
           element={
