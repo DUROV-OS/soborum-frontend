@@ -10,11 +10,12 @@ const text = (value: unknown) => typeof value === 'string' ? value.trim() : ''
 const title = (entry: Entry) => text(entry.data.contact_name) || text(entry.data.phone) || text(entry.data.email) || entry.name || `Заявка #${entry.id}`
 
 /** Inbox cards retain their inquiry identity and do not imply acceptance or create deals. */
-export function CrmInboxColumn({ catalog, pipeline, query, archive, revision, canEdit, onOpen, onAccept, onCount, onDragStart, onDragEnd }: {
+export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, revision, canEdit, onOpen, onAccept, onCount, onDragStart, onDragEnd }: {
   catalog: Catalog
   pipeline: string
   query: string
   archive: string
+  owner: string
   revision: number
   canEdit: boolean
   onOpen: (entry: Entry) => void
@@ -38,7 +39,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, revision, ca
     setLimits({})
     const timer = window.setTimeout(async () => {
       try {
-        const first = await api.list('inquiry', { query, archive, limit: FETCH_SIZE, offset: 0 })
+        const first = await api.list('inquiry', { query, archive, owner_id: owner === '' ? undefined : Number(owner), limit: FETCH_SIZE, offset: 0 })
         if (cancelled) return
         const byId = new Map(first.items.map(entry => [entry.id, entry]))
         if (first.items.length !== Math.min(FETCH_SIZE, first.total)) throw new Error('Список входящих изменился. Обновите загрузку.')
@@ -48,7 +49,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, revision, ca
             const offset = nextOffset
             nextOffset += FETCH_SIZE
             try {
-              const page = await api.list('inquiry', { query, archive, limit: FETCH_SIZE, offset })
+              const page = await api.list('inquiry', { query, archive, owner_id: owner === '' ? undefined : Number(owner), limit: FETCH_SIZE, offset })
               if (cancelled) return
               if (page.total !== first.total || page.items.length !== Math.min(FETCH_SIZE, first.total - offset)) {
                 throw new Error('Список входящих изменился. Обновите загрузку.')
@@ -70,7 +71,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, revision, ca
       }
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [query, archive, revision, reload])
+  }, [query, archive, owner, revision, reload])
 
   const defaultPipeline = catalog.pipelines.find(item => item.name.trim().toLocaleLowerCase('ru-RU') === 'допродажная воронка')?.id ?? catalog.pipelines[0]?.id
   // Website intake may have no assigned funnel yet; display it at the agreed entry point without marking it processed.
@@ -104,6 +105,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, revision, ca
             {source && <p className="mt-2 break-words text-xs text-muted">Источник: {source}</p>}
             {phone && phone !== name && <p className="mt-2 break-words text-xs text-muted">{phone}</p>}
             {email && email !== name && <p className="mt-1 break-words text-xs text-muted">{email}</p>}
+            {entry.effective_owner_id != null && <p className="mt-2 text-xs text-muted">{catalog.users.find(user => user.id === entry.effective_owner_id)?.name || `Сотрудник #${entry.effective_owner_id}`}</p>}
             <p className="mt-2 text-xs text-muted">{entry.archived ? 'В архиве' : 'Ожидает обработки'}</p>
             {canEdit && !entry.archived && <button type="button" aria-label={`Взять в работу: ${name}`} className="mt-3 min-h-8 border-t border-border pt-2 text-xs font-medium text-brand" onClick={() => onAccept(entry)}>Взять в работу</button>}
           </article>

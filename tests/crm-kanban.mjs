@@ -16,6 +16,8 @@ async function setup({ mobile = false, level = 'full' } = {}) {
   const stages = [record(10, 'stage', 'Новая заявка', { pipeline_id: 1, sort: 10, color: '#93c5fd', outcome: 'open' }), record(11, 'stage', 'Взята в работу', { pipeline_id: 1, sort: 20, color: '#c4b5fd', outcome: 'open' }), record(12, 'stage', 'Отказ', { pipeline_id: 1, sort: 30, color: '#fca5a5', outcome: 'lost' }), record(20, 'stage', 'Внесён задаток', { pipeline_id: 2, sort: 10, color: '#86efac', outcome: 'open' })]
   const deals = Array.from({ length: 63 }, (_, i) => record(100 + i, 'deal', `Дом для семьи ${i + 1}`, { pipeline_id: 1, stage_id: 10, amount: (i + 1) * 100000, currency: 'RUB', responsible_user_id: 6 }))
   deals.push(record(200, 'deal', 'Встреча в офисе', { pipeline_id: 1, stage_id: 11, amount: 3500000, responsible_user_id: 6 }))
+  for (const entry of deals.slice(0, 20)) entry.data.responsible_user_id = 7
+  const ownerMatches = (entry, params) => !params.has('owner_id') || (entry.data.responsible_user_id || 0) === Number(params.get('owner_id'))
   const state = { failNext: 0, failColumn: false }
   await page.route('**/api/**', async route => {
     const request = route.request(), url = new URL(request.url()), path = url.pathname
@@ -37,14 +39,19 @@ async function setup({ mobile = false, level = 'full' } = {}) {
     }
     if (request.method() === 'GET') {
       if (path === '/api/auth/me') body = { id: 6, full_name: 'Гостев Денис', role: 'worker', job_role: 'manager', is_active: true, module_access: { clients: level, tasks: 'edit', ai: 'view' } }
-      else if (path === '/api/crm/catalog') body = { pipelines, stages, users: [{ id: 6, name: 'Гостев Денис' }], counts: { deal: deals.length, contact: 0, company: 0, inquiry: 0, task: 0 } }
+      else if (path === '/api/crm/catalog') body = { pipelines, stages, users: [{ id: 6, name: 'Гостев Денис' }, { id: 7, name: 'Другой менеджер' }], counts: { deal: deals.length, contact: 0, company: 0, inquiry: 0, task: 0 } }
+      else if (path === '/api/crm/kanban-summary') body = { columns: stages.map(stage => {
+        const items = deals.filter(e => ownerMatches(e, url.searchParams) && e.data.stage_id === stage.id && e.name.toLowerCase().includes((url.searchParams.get('query') || '').toLowerCase()))
+        return { pipeline_id: stage.data.pipeline_id, stage_id: stage.id, count: items.length, amounts: { RUB: items.reduce((sum, e) => sum + (e.data.amount || 0), 0) }, unpriced_count: 0 }
+      }), unmapped_count: 0 }
       else if (path === '/api/crm/entries') {
         const p = url.searchParams, kind = p.get('kind'), query = p.get('query') || ''
-        const filtered = kind === 'deal' ? deals.filter(e => (!p.get('pipeline_id') || e.data.pipeline_id === +p.get('pipeline_id')) && (!p.get('stage_id') || e.data.stage_id === +p.get('stage_id')) && e.name.toLowerCase().includes(query.toLowerCase())).sort((a,b) => b.id-a.id) : []
+        const filtered = kind === 'deal' ? deals.filter(e => ownerMatches(e, p) && (!p.get('pipeline_id') || e.data.pipeline_id === +p.get('pipeline_id')) && (!p.get('stage_id') || e.data.stage_id === +p.get('stage_id')) && e.name.toLowerCase().includes(query.toLowerCase())).sort((a,b) => b.id-a.id) : []
         const offset = +(p.get('offset') || 0), limit = +(p.get('limit') || 50)
         body = { total: filtered.length, items: filtered.slice(offset, offset + limit) }
         if (state.failColumn && p.get('stage_id') === '11') { state.failColumn = false; status = 500; body = { detail: 'Не удалось загрузить этап' } }
       } else if (/\/history$|\/files$/.test(path)) body = { total: 0, items: [] }
+      else if (/^\/api\/crm\/entries\/\d+$/.test(path)) body = deals.find(e => path.endsWith('/' + e.id))
       else if (path === '/api/notifications/unread-count') body = { unread_count: 0 }
       else if (path === '/api/crm/attention') body = { total: 0, items: [], counts: {}, settings: { response_hours: 24, idle_days: 3 } }
     }
@@ -60,6 +67,9 @@ try {
   const second = page.getByRole('region', { name: 'Этап: Взята в работу', exact: true })
   assert.equal(await page.getByRole('button', { name: 'Канбан', exact: true }).getAttribute('aria-pressed'), 'true')
   assert.equal(await first.locator('article').count(), 25)
+  await first.locator('[data-stage-budget]').getByText(/201.*600.*000/).waitFor()
+  assert.equal((await first.locator('[data-stage-budget]').textContent()).replace(/\s/g, ''), '201600000₽')
+  report.checks.push('column budget covers all 63 records while only 25 cards are loaded')
   await second.getByText('Встреча в офисе', { exact: true }).waitFor()
   await first.getByRole('button', { name: 'Показать ещё · 25 из 63' }).click()
   await first.getByRole('button', { name: 'Показать ещё · 50 из 63' }).click()
@@ -163,6 +173,26 @@ try {
   assert.equal(await v.page.getByRole('button', { name: 'Добавить сделку', exact: true }).count(), 0)
   assert.deepEqual(v.writes, []); assert.deepEqual(v.errors, []); await v.context.close()
   report.checks.push('read-only access cannot move or create')
+  const f = await setup(), fp = f.page
+  const column = fp.getByRole('region', { name: 'Этап: Новая заявка', exact: true })
+  await fp.getByLabel('Фильтр по ответственному').selectOption('7')
+  await column.locator('[data-stage-budget]').getByText(/21.*000.*000/).waitFor()
+  assert.equal(await column.locator('[data-deal-id]').count(), 20)
+  assert.equal(await column.locator('[data-column-total]').getAttribute('data-column-total'), '20')
+  await fp.getByLabel('Фильтр по ответственному').selectOption('6')
+  await column.getByRole('button', { name: 'Показать ещё · 25 из 43' }).click()
+  await column.locator('[data-deal-id="120"]').waitFor()
+  assert.equal(await column.locator('[data-deal-id]').count(), 43)
+  assert.ok(f.reads.some(path => path.includes('kind=deal') && path.includes('offset=25') && path.includes('owner_id=6')))
+  assert.ok(f.reads.some(path => path.includes('kind=inquiry') && path.includes('owner_id=6')))
+  await fp.getByLabel('Фильтр по ответственному').selectOption('0')
+  await column.getByText('По этому запросу сделок нет').waitFor()
+  assert.equal(await fp.locator('[data-deal-id]').count(), 0)
+  await fp.getByLabel('Фильтр по ответственному').selectOption('')
+  await column.getByRole('button', { name: 'Показать ещё · 25 из 63' }).waitFor()
+  await column.locator('[data-stage-budget]').getByText(/201.*600.*000/).waitFor()
+  assert.deepEqual(f.writes, []); assert.deepEqual(f.errors, []); await f.context.close()
+  report.checks.push('owner filter applies to pages, counts, inquiries and full budget; unassigned and reset work')
   await writeFile('test-results/crm-kanban.json', JSON.stringify(report, null, 2))
   console.log(JSON.stringify(report, null, 2))
 } finally { await browser.close() }
