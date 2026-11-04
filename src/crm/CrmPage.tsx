@@ -69,7 +69,7 @@ export function CrmPage() {
   const [history, setHistory] = useState<History>({ total: 0, items: [] })
   const [note, setNote] = useState('')
   const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
-  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry; initialData?: Record<string, unknown> } | null>(null)
+  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry; initialData?: Record<string, unknown>; initialName?: string } | null>(null)
   const [showControl, setShowControl] = useState(false)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -157,6 +157,21 @@ export function CrmPage() {
     }
   }
   const selectedStage = catalog.stages.find((s) => s.id === selected?.data.stage_id)
+  const acceptInquiry = async (inquiry: Entry, targetStage?: Entry, targetPipeline?: string) => {
+    setError('')
+    try {
+      // Imported inquiries can wrap an existing unsorted deal. Keep its commercial data.
+      const linked = inquiry.data.deal_id ? await apiRequest<Entry>({ section: 'crm', path: `/entries/${inquiry.data.deal_id}` }) : null
+      if (linked && (linked.kind !== 'deal' || linked.archived)) throw new Error('Связанная сделка недоступна для принятия. Проверьте её историю.')
+      const pid = Number(targetStage?.data.pipeline_id || targetPipeline || inquiry.data.pipeline_id || boardPipeline)
+      const currentStage = catalog.stages.find(s => s.id === linked?.data.stage_id && s.data.pipeline_id === pid)
+      const firstStage = catalog.stages.filter(s => s.data.pipeline_id === pid && s.data.outcome === 'open').sort((a,b) => Number(a.data.sort)-Number(b.data.sort))[0]
+      setEditing({ kind: 'deal', inquiry,
+        initialName: linked?.name || String(inquiry.data.contact_name || inquiry.name),
+        initialData: { amount: 0, currency: 'RUB', ...linked?.data, pipeline_id: pid, stage_id: (targetStage || currentStage || firstStage)?.id, is_unsorted: false },
+      })
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось открыть заявку') }
+  }
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -281,7 +296,7 @@ export function CrmPage() {
       {isBoard ? <CrmBoard catalog={catalog} pipeline={boardPipeline} stage={stage} query={query} archive={archive}
         revision={revision} canEdit={canEdit} onPipeline={id => { setPipeline(id); setStage('') }} onOpen={open}
         onCreate={target => setEditing({ kind: 'deal', initialData: { pipeline_id: target.data.pipeline_id, stage_id: target.id, amount: 0, currency: 'RUB' } })}
-        onTask={related => setEditing({ kind: 'task', related })} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <><DataTable<Entry>
+        onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <><DataTable<Entry>
         rows={result.items}
         loading={loading}
         keyOf={(r) => String(r.id)}
@@ -393,7 +408,7 @@ export function CrmPage() {
                 </Button>
               )}
               {canEdit && selected.kind === 'inquiry' && !selected.archived && (
-                <Button size="sm" onClick={() => setEditing({ kind: 'deal', inquiry: selected })}>
+                <Button size="sm" onClick={() => void acceptInquiry(selected)}>
                   Принять в работу
                 </Button>
               )}
@@ -539,6 +554,7 @@ export function CrmPage() {
           inquiry={editing.inquiry}
           related={editing.related}
           initialData={editing.initialData}
+          initialName={editing.initialName}
           catalog={catalog}
           onClose={() => setEditing(null)}
           onSaved={(entry) => {
@@ -558,6 +574,7 @@ function Editor({
   inquiry,
   related,
   initialData,
+  initialName,
   catalog,
   onClose,
   onSaved,
@@ -567,11 +584,12 @@ function Editor({
   inquiry?: Entry
   related?: Entry
   initialData?: Record<string, unknown>
+  initialName?: string
   catalog: Catalog
   onClose: () => void
   onSaved: (entry: Entry) => void
 }) {
-  const [name, setName] = useState(entry?.name ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
+  const [name, setName] = useState(entry?.name ?? initialName ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
   const first = catalog.pipelines[0]?.id
   const [data, setData] = useState<Record<string, unknown>>(
     entry?.data ?? initialData ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??

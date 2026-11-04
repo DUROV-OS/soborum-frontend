@@ -6,6 +6,7 @@ import { Field, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import * as api from './api'
 import type { Catalog, Entry } from './api'
+import { CrmInboxColumn } from './CrmInboxColumn'
 
 const PAGE_SIZE = 25
 type Column = { items: Entry[]; total: number; offset: number; loading: boolean; error: string }
@@ -14,14 +15,16 @@ const emptyColumn = (): Column => ({ items: [], total: 0, offset: 0, loading: tr
 const message = (e: unknown) => e instanceof Error ? e.message : 'Не удалось загрузить сделки'
 const amount = (entry: Entry) => `${Number(entry.data.amount || 0).toLocaleString('ru-RU')} ${entry.data.currency === 'RUB' || !entry.data.currency ? '₽' : String(entry.data.currency)}`
 
-export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, canEdit, onPipeline, onOpen, onCreate, onTask, onChanged, onList }: {
+export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, canEdit, onPipeline, onOpen, onCreate, onTask, onAccept, onChanged, onList }: {
   catalog: Catalog; pipeline: string; stage: string; query: string; archive: string; revision: number; canEdit: boolean
   onPipeline: (id: string) => void; onOpen: (entry: Entry) => void; onCreate: (stage: Entry) => void
   onTask: (entry: Entry) => void; onChanged: () => void; onList: () => void
+  onAccept: (entry: Entry, targetStage?: Entry, targetPipeline?: string) => void
 }) {
   const stages = useMemo(() => catalog.stages.filter(s => String(s.data.pipeline_id) === pipeline && (!stage || String(s.id) === stage))
     .sort((a, b) => Number(a.data.sort) - Number(b.data.sort) || a.id - b.id), [catalog.stages, pipeline, stage])
   const stageKey = stages.map(s => s.id).join(',')
+  const newStage = catalog.stages.filter(s => String(s.data.pipeline_id) === pipeline && s.data.outcome === 'open').sort((a,b) => Number(a.data.sort)-Number(b.data.sort) || a.id-b.id)[0]
   const [columns, setColumns] = useState<Record<number, Column>>({})
   const [total, setTotal] = useState<number | null>(null)
   const [reload, setReload] = useState(0)
@@ -30,6 +33,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [over, setOver] = useState('')
+  const [inboxCount, setInboxCount] = useState<number | null>(null)
   const dragged = useRef<Entry | null>(null)
   const generation = useRef(0)
   const saving = useRef(false)
@@ -84,6 +88,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
 
   const startTransfer = (entry: Entry, targetPipeline = String(entry.data.pipeline_id), targetStage = '') => {
     if (!canEdit || entry.archived || saving.current) return
+    if (entry.kind === 'inquiry') { onAccept(entry, undefined, targetPipeline); return }
     setError(''); setNotice('')
     setTransfer({ entry, pipeline: targetPipeline, stage: targetStage, reason: '' })
   }
@@ -110,6 +115,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
     const entry = dragged.current
     dragged.current = null; setOver('')
     if (!entry || entry.data.stage_id === target.id) return
+    if (entry.kind === 'inquiry') { onAccept(entry, target); return }
     if (target.data.outcome === 'lost' || target.data.outcome === 'won') startTransfer(entry, String(target.data.pipeline_id), String(target.id))
     else void move(entry, target)
   }
@@ -140,6 +146,8 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
       : <div className="flex max-w-full items-start gap-3 overflow-x-auto pb-5" tabIndex={0} aria-label="Этапы воронки">
         {stages.map(s => {
           const column = columns[s.id] || emptyColumn()
+          const includesInbox = s.id === newStage?.id
+          const count = column.total + (includesInbox ? inboxCount || 0 : 0)
           return <section key={s.id} aria-label={`Этап: ${s.name}`} data-stage-id={s.id}
             className={`w-[280px] shrink-0 overflow-hidden rounded-xl border bg-slate-50 ${over === `stage-${s.id}` ? 'border-brand ring-2 ring-brand/30' : 'border-border'}`}
             onDragOver={e => { if (dragged.current && canEdit && !saving.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(`stage-${s.id}`) } }}
@@ -147,10 +155,12 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
             onDrop={e => { e.preventDefault(); dropOnStage(s) }}>
             <div className="border-t-4 px-3 pb-3 pt-3" style={{ borderTopColor: /^#[\da-f]{6}$/i.test(String(s.data.color)) ? String(s.data.color) : '#cbd5e1' }}>
               <div className="flex items-start gap-2"><h2 className="min-w-0 flex-1 text-sm font-semibold text-ink">{s.name}</h2>
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted" aria-label={`Всего сделок: ${column.total}`}>{column.loading && !column.items.length ? '…' : column.error && !column.items.length ? '—' : column.total}</span></div>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted" aria-label={`Всего карточек: ${count}`} data-column-total={count}>{(column.loading && !column.items.length) || (includesInbox && inboxCount === null) ? '…' : column.error && !column.items.length ? '—' : count}</span></div>
               {canEdit && archive === 'active' && s.data.outcome !== 'lost' && s.data.outcome !== 'won' && <button type="button" className="mt-2 flex items-center gap-1 text-xs font-medium text-brand" onClick={() => onCreate(s)}><Plus size={14} />Добавить сделку</button>}
             </div>
             <div className="max-h-[66vh] min-h-48 space-y-2 overflow-y-auto px-2 pb-3">
+              {includesInbox && <CrmInboxColumn catalog={catalog} pipeline={pipeline} query={query} archive={archive} revision={revision + reload} canEdit={canEdit && busy === null}
+                onCount={setInboxCount} onOpen={onOpen} onAccept={entry => onAccept(entry)} onDragStart={entry => { dragged.current = entry }} onDragEnd={() => { dragged.current = null; setOver('') }} />}
               {column.items.map(entry => <article key={entry.id} data-deal-id={entry.id}
                 draggable={canEdit && !entry.archived && busy === null}
                 onDragStart={e => { if (!canEdit || entry.archived || saving.current) { e.preventDefault(); return } dragged.current = entry; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(entry.id)) }}
@@ -167,7 +177,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, revision, c
               </article>)}
               {column.loading && <p role="status" className="p-3 text-xs text-muted">Загружаем сделки…</p>}
               {column.error && <div role="alert" className="p-3 text-xs text-danger"><p>{column.error}</p><button className="mt-2 underline" onClick={() => void loadMore(s.id)}>Повторить загрузку</button></div>}
-              {!column.loading && !column.error && !column.total && <p className="px-2 py-8 text-center text-xs text-muted">{query ? 'По этому запросу сделок нет' : canEdit ? 'Перетащите сюда сделку' : 'Нет сделок'}</p>}
+              {!column.loading && !column.error && !column.total && (!includesInbox || inboxCount === 0) && <p className="px-2 py-8 text-center text-xs text-muted">{query ? 'По этому запросу сделок нет' : canEdit ? 'Перетащите сюда сделку' : 'Нет сделок'}</p>}
               {column.offset < column.total && <button type="button" disabled={column.loading} className="min-h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium" onClick={() => void loadMore(s.id)}>Показать ещё · {column.items.length} из {column.total}</button>}
             </div>
           </section>
