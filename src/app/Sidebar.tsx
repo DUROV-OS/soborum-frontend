@@ -65,10 +65,9 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   }, [loadMyFeedback, salesManager])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
-  // Публичный справочник поставщиков также входит в хаб.
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['today', 'tasks', 'work', 'crm', 'chats', 'notifications', 'feedback_my'] : MENU
+  const menu: SectionId[] = salesManager ? ['today', 'crm', 'tasks', 'chats', 'notifications', 'feedback_my'] : MENU
   let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
@@ -76,11 +75,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   if (salesManager) {
     const crm = SECTIONS.find(s => s.id === 'crm')!
     const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
-    if (hasAccess('crm')) items.splice(3, 0,
-      { ...crm, id: 'sales', label: 'Продажи', path: '/sales' },
-    )
-    if (hasAccess('crm')) items.splice(5, 0,
-      { ...crm, label: 'Компании', path: '/crm?tab=company' },
+    if (hasAccess('crm')) items.splice(4, 0,
       { ...crm, label: 'Команда', path: '/team' },
     )
     items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
@@ -173,6 +168,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 >
                   <NavLink
                     to={section.path}
+                    end={section.path === '/feedback'}
                     onClick={onClose}
                     className={({ isActive }) =>
                       `group flex min-h-[52px] items-center gap-3.5 rounded-xl px-4 py-3 text-[14px] transition-colors ${

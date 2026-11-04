@@ -256,7 +256,7 @@ export function AppRouter() {
             </AccessGate>
           }
         />
-        <Route path="/suppliers" element={<SuppliersPage />} />
+        <Route path="/suppliers" element={<AccessGate section="suppliers"><SuppliersPage /></AccessGate>} />
         <Route
           path="/board"
           element={

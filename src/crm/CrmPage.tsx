@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Link } from 'react-router-dom'
-import { Plus, Users, Archive, Pencil, Download } from 'lucide-react'
+import { Plus, Users, Archive, Pencil, Download, Columns3, List } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -15,6 +15,7 @@ import { Tabs } from '@/shared/ui/Tabs'
 import * as api from './api'
 import { Catalog, Entry, Kind, History } from './api'
 import { LeadControl } from './LeadControl'
+import { CrmBoard } from './CrmBoard'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -53,7 +54,10 @@ export function CrmPage() {
     ['inquiry', 'deal', 'contact', 'company', 'task', 'pipeline', 'stage'],
     'deal',
   )
-  const [pipeline, setPipeline] = useState('')
+  const [pipeline, setPipeline] = useQueryChoice('pipeline', catalog.pipelines.map(p => String(p.id)), '')
+  const [view, setView] = useQueryChoice('view', ['board', 'list'] as const, 'board')
+  const isBoard = kind === 'deal' && view === 'board'
+  const boardPipeline = pipeline || String(catalog.pipelines[0]?.id || '')
   const [stage, setStage] = useState('')
   const [archive, setArchive] = useState('active')
   const [query, setQuery] = useState('')
@@ -65,7 +69,8 @@ export function CrmPage() {
   const [history, setHistory] = useState<History>({ total: 0, items: [] })
   const [note, setNote] = useState('')
   const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
-  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry } | null>(null)
+  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry; initialData?: Record<string, unknown> } | null>(null)
+  const [showControl, setShowControl] = useState(false)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [fileLibrary, setFileLibrary] = useState(false)
@@ -78,9 +83,10 @@ export function CrmPage() {
     setSelected(null)
   }, [kind])
   useEffect(() => {
+    if (isBoard) return
     const interval = window.setInterval(() => { if (!document.hidden) setRevision(v=>v+1) }, 60000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [isBoard])
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('entry')
     if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(open).catch(e=>setError(e.message))
@@ -92,6 +98,7 @@ export function CrmPage() {
       .catch((e) => setError(e.message))
   }, [revision])
   useEffect(() => {
+    if (isBoard) return
     let current = true
     const timer = setTimeout(() => {
       setLoading(true)
@@ -117,7 +124,7 @@ export function CrmPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [kind, query, archive, pipeline, stage, offset, revision])
+  }, [kind, query, archive, pipeline, stage, offset, revision, isBoard])
   const refreshHistory = (entry: Entry, offset = 0) =>
     api
       .history(entry.id, offset)
@@ -156,7 +163,7 @@ export function CrmPage() {
         <div>
           <h1 className="text-[22px] font-medium text-ink">CRM</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Воронки, сделки, контакты и последующие действия — в Соборуме.
+            Сделки по этапам, контакты и следующие действия.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -175,32 +182,16 @@ export function CrmPage() {
             </Button>
           )}
           {canEdit && kind !== 'inquiry' && (
-            <Button onClick={() => setEditing({ kind })}>
+            <Button onClick={() => setEditing({ kind, initialData: kind === 'deal' && boardPipeline ? { pipeline_id: Number(boardPipeline), stage_id: catalog.stages.filter(s => String(s.data.pipeline_id) === boardPipeline && s.data.outcome === 'open').sort((a, b) => Number(a.data.sort) - Number(b.data.sort))[0]?.id, amount: 0, currency: 'RUB' } : undefined })}>
               <Plus size={16} />
               {single[kind]}
             </Button>
           )}
         </div>
       </div>
-      <LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/>
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => {
-              setKind(t.key)
-              setOffset(0)
-            }}
-            className="rounded-xl border border-border bg-surface p-4 text-left hover:border-brand/40"
-          >
-            <p className="text-xs text-muted">{t.label}</p>
-            <p className="mt-1 text-xl font-medium">{(catalog.counts[t.key] ?? 0).toLocaleString('ru-RU')}</p>
-          </button>
-        ))}
-      </div>
-      <Tabs
+      <Tabs<Kind>
         tabs={
-          canFull ? [...tabs, { key: 'pipeline', label: 'Воронки' }, { key: 'stage', label: 'Этапы' }] : tabs
+          (canFull ? [...tabs, { key: 'pipeline' as Kind, label: 'Воронки' }, { key: 'stage' as Kind, label: 'Этапы' }] : tabs).map(t => ({ ...t, label: catalog.counts[t.key] === undefined ? t.label : `${t.label} · ${catalog.counts[t.key].toLocaleString('ru-RU')}` }))
         }
         activeKey={kind}
         onChange={(k) => {
@@ -209,6 +200,14 @@ export function CrmPage() {
           setStage('')
         }}
       />
+      {kind === 'deal' && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div role="group" aria-label="Вид сделок" className="flex gap-1 rounded-xl border border-border bg-surface p-1">
+          <Button size="sm" variant={view === 'board' ? 'primary' : 'ghost'} aria-pressed={view === 'board'} onClick={() => setView('board')}><Columns3 size={16} />Канбан</Button>
+          <Button size="sm" variant={view === 'list' ? 'primary' : 'ghost'} aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={16} />Список</Button>
+        </div>
+        <Button size="sm" variant="secondary" aria-expanded={showControl} onClick={() => setShowControl(value => !value)}>Контроль следующих шагов</Button>
+      </div>}
+      {showControl && <div className="mt-4"><LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/></div>}
       <div className="my-4 flex flex-wrap gap-2">
         <Input
           aria-label="Поиск в продажах"
@@ -222,7 +221,7 @@ export function CrmPage() {
         />
         {kind === 'deal' && (
           <>
-            <Select
+            {!isBoard && <Select
               aria-label="Воронка"
               className="sm:max-w-64"
               value={pipeline}
@@ -238,7 +237,7 @@ export function CrmPage() {
                   {p.name}
                 </option>
               ))}
-            </Select>
+            </Select>}
             <Select
               aria-label="Этап"
               className="sm:max-w-64"
@@ -250,7 +249,7 @@ export function CrmPage() {
             >
               <option value="">Все этапы</option>
               {catalog.stages
-                .filter((s) => !pipeline || s.data.pipeline_id === Number(pipeline))
+                .filter((s) => !(isBoard ? boardPipeline : pipeline) || s.data.pipeline_id === Number(isBoard ? boardPipeline : pipeline))
                 .sort((a, b) => Number(a.data.sort) - Number(b.data.sort))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
@@ -279,7 +278,10 @@ export function CrmPage() {
           {error}
         </p>
       )}
-      <DataTable<Entry>
+      {isBoard ? <CrmBoard catalog={catalog} pipeline={boardPipeline} stage={stage} query={query} archive={archive}
+        revision={revision} canEdit={canEdit} onPipeline={id => { setPipeline(id); setStage('') }} onOpen={open}
+        onCreate={target => setEditing({ kind: 'deal', initialData: { pipeline_id: target.data.pipeline_id, stage_id: target.id, amount: 0, currency: 'RUB' } })}
+        onTask={related => setEditing({ kind: 'task', related })} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <><DataTable<Entry>
         rows={result.items}
         loading={loading}
         keyOf={(r) => String(r.id)}
@@ -359,6 +361,7 @@ export function CrmPage() {
           </Button>
         </div>
       </div>
+      </>}
       <Drawer
         open={!!selected}
         onClose={() => setSelected(null)}
@@ -535,6 +538,7 @@ export function CrmPage() {
           entry={editing.entry}
           inquiry={editing.inquiry}
           related={editing.related}
+          initialData={editing.initialData}
           catalog={catalog}
           onClose={() => setEditing(null)}
           onSaved={(entry) => {
@@ -553,6 +557,7 @@ function Editor({
   entry,
   inquiry,
   related,
+  initialData,
   catalog,
   onClose,
   onSaved,
@@ -561,6 +566,7 @@ function Editor({
   entry?: Entry
   inquiry?: Entry
   related?: Entry
+  initialData?: Record<string, unknown>
   catalog: Catalog
   onClose: () => void
   onSaved: (entry: Entry) => void
@@ -568,7 +574,7 @@ function Editor({
   const [name, setName] = useState(entry?.name ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
   const first = catalog.pipelines[0]?.id
   const [data, setData] = useState<Record<string, unknown>>(
-    entry?.data ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??
+    entry?.data ?? initialData ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??
       (kind === 'deal'
         ? {
             pipeline_id: first,

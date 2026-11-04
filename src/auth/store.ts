@@ -74,6 +74,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!account) return 'none'
     if (account.role === 'admin') return 'full'
     if (isSalesManager(account)) return salesNavigationLevel(account, section)
+    if (section === 'suppliers') return account.module_access.warehouse ?? 'none'
     if (section === 'recipes') return account.module_access.production !== undefined && account.module_access.production !== 'none' ? account.module_access.production : account.module_access.warehouse ?? 'none'
     if (section === 'crm' || section === 'sales') return account.module_access.clients ?? 'none'
     if (section === 'purchasing') return account.module_access.accounting ?? 'none'

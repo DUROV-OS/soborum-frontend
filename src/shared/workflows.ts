@@ -74,6 +74,13 @@ export const WORKFLOWS: WorkGroup[] = [
     note: 'Заказы поставщикам, счета, приёмки, оплата и возвраты',
     entries: [
       {
+        id: 'suppliers',
+        label: 'Поставщики',
+        to: '/suppliers',
+        section: 'suppliers',
+        note: 'Контакты поставщиков, прайс-листы и закупки',
+      },
+      {
         id: 'supplier-orders',
         label: 'Заказы поставщикам',
         to: '/purchasing?tab=orders',
@@ -351,14 +358,6 @@ export const WORKFLOWS: WorkGroup[] = [
         section: 'cycle',
         signal: true,
         note: 'Путь клиента от обращения до принятого дома',
-      },
-      {
-        id: 'suppliers',
-        label: 'Поставщики',
-        to: '/suppliers',
-        section: 'suppliers',
-        public: true,
-        note: 'Контакты поставщиков, прайс-листы и закупки',
       },
       {
         id: 'partners',

@@ -37,9 +37,8 @@ try {
   assert.equal(m.calls.some(path => /^\/api\/(dashboard|clients|sales|moysklad|accounting|production|ai)/.test(path)), false)
   const menu = m.page.getByRole('complementary', { name: 'Главное меню' })
   for (const [label, path, heading] of [
-    ['CRM', '/crm', 'CRM'], ['Компании', '/crm?tab=company', 'CRM'],
+    ['CRM', '/crm', 'CRM'],
     ['Команда', '/team', 'Команда'], ['Задачи', '/tasks', 'Задачи'],
-    ['Продажи', '/sales', 'Продажи.'], ['Работа', '/work', 'Работа.'],
     ['Уведомления', '/notifications', 'Уведомления'], ['Мои заявки', '/feedback/my', 'Мои заявки'],
   ]) {
     await menu.getByRole('link', { name: label, exact: true }).click()
@@ -47,6 +46,11 @@ try {
     assert.equal(new URL(m.page.url()).pathname + new URL(m.page.url()).search, path)
     report.clicks.push(label)
   }
+  for (const [path, heading] of [['/crm?tab=company', 'CRM'], ['/sales', 'Продажи.'], ['/work', 'Работа.']]) {
+    await m.page.goto(base + path)
+    await m.page.getByRole('heading', { name: heading, exact: true }).waitFor()
+  }
+  for (const label of ['Компании', 'Продажи', 'Работа']) assert.equal(await menu.getByRole('link', { name: label, exact: true }).count(), 0)
   await menu.getByRole('link', { name: 'CRM', exact: true }).click()
   await m.page.getByRole('button', { name: 'Воронки и этапы', exact: true }).click()
   assert.equal(new URL(m.page.url()).search, '?tab=pipeline')
@@ -55,7 +59,7 @@ try {
   await menu.getByRole('link', { name: 'Уведомления', exact: true }).click()
   await m.page.getByText('Разрешённая задача', { exact: true }).waitFor()
   assert.equal(await m.page.getByText(/FORBIDDEN|PRIVATE MONEY|PRIVATE RECIPE/).count(), 0)
-  for (const path of ['/accounting', '/production', '/recipes', '/warehouse', '/moysklad?type=paymentin', '/clients/1', '/cycles/1', '/admin', '/ai', '/feedback/all', '/tasks?scope=all']) {
+  for (const path of ['/accounting', '/production', '/recipes', '/warehouse', '/suppliers', '/moysklad?type=paymentin', '/clients/1', '/cycles/1', '/admin', '/ai', '/feedback/all', '/tasks?scope=all']) {
     await m.page.goto(base + path)
     await m.page.getByRole('heading', { name: 'Главное на сегодня.' }).waitFor()
     assert.equal(new URL(m.page.url()).pathname, '/today'); report.closed_routes++
