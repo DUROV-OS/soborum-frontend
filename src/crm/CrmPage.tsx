@@ -397,14 +397,6 @@ export function CrmPage() {
               {canEdit && selected.kind==='deal' && !selected.archived && <Button size="sm" variant="secondary" onClick={()=>setEditing({kind:'task',related:selected})}>Назначить следующий шаг</Button>}
               {!!selected.board_task_id && <Link to="/tasks" className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent">Общий список задач</Link>}
               {selected.kind==='task' && !!selected.data.entity_id && <Button size="sm" variant="secondary" onClick={()=>apiRequest<Entry>({section:'crm',path:`/entries/${selected.data.entity_id}`}).then(open).catch(e=>setError(e.message))}>Связанная карточка</Button>}
-              {!!selected.data.client_id && (
-                <Link
-                  to={`/clients/${selected.data.client_id}`}
-                  className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent"
-                >
-                  Карточка клиента
-                </Link>
-              )}
               {canEdit && selected.kind !== 'inquiry' && (
                 <Button
                   size="sm"
