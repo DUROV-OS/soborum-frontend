@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { isSalesManager, salesHome, salesRouteAllowed } from '@/auth/salesNavigation'
 import { LoginPage } from '@/auth/pages/LoginPage'
 import { AccessMatrixPage } from '@/auth/pages/AccessMatrixPage'
 import { useAuthStore } from '@/auth/store'
@@ -47,7 +48,11 @@ import { AppShell } from './AppShell'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const current = useAuthStore((s) => s.current)
+  const location = useLocation()
   if (!current) return <Navigate to="/login" replace />
+  if (isSalesManager(current) && !salesRouteAllowed(location.pathname, location.search)) {
+    return <Navigate to={salesHome(current)} replace />
+  }
   return <>{children}</>
 }
 

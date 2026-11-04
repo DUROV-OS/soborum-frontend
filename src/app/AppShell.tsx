@@ -7,11 +7,14 @@ import { logClientEvent } from '@/shared/lib/clientLog'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { WorkflowBar } from './WorkflowBar'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
-  useNotificationPolling()
+  const salesManager = useAuthStore((s) => isSalesManager(s.current))
+  useNotificationPolling(!salesManager)
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -36,8 +39,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-      <MeetingPanel />
-      <NotificationToasts />
+      {!salesManager && <MeetingPanel />}
+      {!salesManager && <NotificationToasts />}
     </div>
   )
 }

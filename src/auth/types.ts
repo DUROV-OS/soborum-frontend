@@ -20,6 +20,7 @@ export interface Account {
   full_name: string
   role: Role
   is_active: boolean
+  access_profile?: 'sales_manager' | null
   job_role?: JobRole | null
   created_at: string
   /** Только разделы, поддержанные бэком (`Module`) — не весь `SectionId`

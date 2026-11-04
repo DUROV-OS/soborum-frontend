@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager, salesHome } from '@/auth/salesNavigation'
 import { useFeedbackStore } from '@/feedback/store'
 import { awaitsReply } from '@/feedback/types'
 import { useNotificationsStore } from '@/notifications/store'
@@ -27,6 +28,8 @@ const MENU: SectionId[] = [
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const current = useAuthStore((s) => s.current)
+  const salesManager = isSalesManager(current)
   const loadFeedback = useFeedbackStore((s) => s.load)
   // Новые заявки и те, где сотрудник ответил и ждёт ответа (0090).
   const newFeedbackCount = useFeedbackStore(
@@ -36,7 +39,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname, search } = useLocation()
-  const groups = visibleWorkflows(hasAccess)
+  const groups = salesManager ? [] : visibleWorkflows(hasAccess)
   const context = workflowContext(pathname, search, groups)
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
   useEffect(() => {
@@ -56,16 +59,18 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // (0090) — всем. Ответ администратора приходит без пуша, поэтому
   // перечитываем раз в минуту.
   useEffect(() => {
+    if (salesManager) return
     loadMyFeedback().catch(() => {})
     const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
-  }, [loadMyFeedback])
+  }, [loadMyFeedback, salesManager])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   // Публичный справочник поставщиков также входит в хаб.
   const showWork = groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const items = MENU.flatMap((id) => {
+  const menu: SectionId[] = salesManager ? ['crm', 'tasks'] : MENU
+  const items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
   })
@@ -134,7 +139,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
     >
       <div className="flex h-24 shrink-0 items-center justify-between px-7">
-        <NavLink to="/today" onClick={onClose} className="text-[24px] font-semibold tracking-tight">
+        <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="text-[24px] font-semibold tracking-tight">
           Durov OS<span className="text-white/55">.</span>
         </NavLink>
         <button
