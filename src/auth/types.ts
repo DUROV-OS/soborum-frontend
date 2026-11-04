@@ -22,6 +22,8 @@ export interface Account {
   is_active: boolean
   access_profile?: 'sales_manager' | null
   job_role?: JobRole | null
+  work_phone?: string | null
+  telephony_extension?: string | null
   created_at: string
   /** Только разделы, поддержанные бэком (`Module`) — не весь `SectionId`
    * (фронтовые псевдо-разделы вроде 'today'/'agents' сюда не попадают). */

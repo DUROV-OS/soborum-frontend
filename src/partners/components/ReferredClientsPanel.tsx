@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 import { Section } from '@/clients/components/PanelPrimitives'
 import { stageLabel } from '@/clients/rules'
 import { ClientStage } from '@/clients/types'
@@ -8,12 +10,14 @@ import { ReferredClient } from '../types'
 
 /** Клиенты, у которых партнёр указан в «Кто рекомендовал» (0083-c) — «чьи» они. */
 export function ReferredClientsPanel({ partnerId }: { partnerId: number }) {
+  const salesManager = useAuthStore((state) => isSalesManager(state.current))
   const [clients, setClients] = useState<ReferredClient[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setClients(null)
+    setError(null)
     listReferredClients(partnerId)
       .then((rows) => !cancelled && setClients(rows))
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Не удалось загрузить клиентов'))
@@ -34,7 +38,12 @@ export function ReferredClientsPanel({ partnerId }: { partnerId: number }) {
         </p>
       ) : (
         <div className="flex flex-col">
-          {clients.map((c) => (
+          {clients.map((c) => salesManager ? (
+            <div key={c.id} className="flex items-baseline justify-between gap-3 border-b border-border py-2 text-[13px] last:border-0">
+              <span className="text-ink">{c.full_name}</span>
+              <span className="text-muted">{stageLabel(c.stage as ClientStage)} · с {new Date(c.created_at).toLocaleDateString('ru-RU')}</span>
+            </div>
+          ) : (
             <Link
               key={c.id}
               to={`/clients/${c.id}`}

@@ -7,6 +7,7 @@ import { Modal } from '@/shared/ui/Modal'
 import * as api from './api'
 import type { Catalog, Entry } from './api'
 import { CrmInboxColumn } from './CrmInboxColumn'
+import { crmDateQuery, crmSourceDateLabel } from './dates'
 
 const PAGE_SIZE = 25
 type Column = { items: Entry[]; total: number; offset: number; loading: boolean; error: string }
@@ -15,8 +16,28 @@ const emptyColumn = (): Column => ({ items: [], total: 0, offset: 0, loading: tr
 const message = (e: unknown) => e instanceof Error ? e.message : 'Не удалось загрузить сделки'
 const amount = (entry: Entry) => `${Number(entry.data.amount || 0).toLocaleString('ru-RU')} ${entry.data.currency === 'RUB' || !entry.data.currency ? '₽' : String(entry.data.currency)}`
 
-export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revision, canEdit, onPipeline, onOpen, onCreate, onTask, onAccept, onChanged, onList }: {
+async function readStage(base: Record<string, string | number | undefined>, id: number, all: boolean, offset = 0) {
+  const size = all ? 100 : PAGE_SIZE
+  const first = await api.list('deal', { ...base, stage_id: id, limit: size, offset })
+  if (!all) return first
+  // The entry column merges two sources. Read its complete deal stream before
+  // presenting the newest cards across deals and incoming requests together.
+  const items = [...first.items]
+  if (items.length !== Math.min(size, Math.max(0, first.total - offset))) throw new Error('Список сделок изменился. Обновите доску.')
+  for (let next = offset + size; next < first.total; next += size) {
+    const page = await api.list('deal', { ...base, stage_id: id, limit: size, offset: next })
+    if (page.total !== first.total || page.items.length !== Math.min(size, first.total - next)) throw new Error('Список сделок изменился. Обновите доску.')
+    items.push(...page.items)
+  }
+  if (new Set(items.map(entry => entry.id)).size !== items.length) throw new Error('Список сделок изменился. Обновите доску.')
+  return { total: first.total, items }
+}
+
+export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, dateFrom = '', dateTo = '', dateUnknown = false, spam = 'normal',
+  revision, canEdit, onPipeline, onOpen, onCreate, onTask, onAccept, onChanged, onList }: {
   catalog: Catalog; pipeline: string; stage: string; query: string; archive: string; owner: string; revision: number; canEdit: boolean
+  dateFrom?: string; dateTo?: string; dateUnknown?: boolean
+  spam?: api.SpamFilter
   onPipeline: (id: string) => void; onOpen: (entry: Entry) => void; onCreate: (stage: Entry) => void
   onTask: (entry: Entry) => void; onChanged: () => void; onList: () => void
   onAccept: (entry: Entry, targetStage?: Entry, targetPipeline?: string) => void
@@ -46,13 +67,13 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
     setSummary(null); setSummaryError(false)
     if (!pipeline) return
     const timer = window.setTimeout(() => {
-      api.kanbanSummary({ pipeline_id: Number(pipeline), query, archive, owner_id: owner === '' ? undefined : Number(owner) }).then(result => {
+      api.kanbanSummary({ pipeline_id: Number(pipeline), query, archive, owner_id: owner === '' ? undefined : Number(owner), spam, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }).then(result => {
         if (!Array.isArray(result.columns)) throw new Error('Неверный ответ сводки')
         if (!cancelled) setSummary(result)
       }).catch(() => { if (!cancelled) setSummaryError(true) })
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [pipeline, query, archive, owner, revision, reload])
+  }, [pipeline, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, revision, reload])
 
   useEffect(() => {
     const run = ++generation.current
@@ -62,7 +83,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
     if (!pipeline) return
     // Count and page each stage independently: a busy first column must not hide other stages.
     const timer = window.setTimeout(async () => {
-      const base = { query, archive, pipeline_id: Number(pipeline), owner_id: owner === '' ? undefined : Number(owner) }
+      const base = { query, archive, pipeline_id: Number(pipeline), owner_id: owner === '' ? undefined : Number(owner), spam, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }
       api.list('deal', { ...base, stage_id: stage ? Number(stage) : undefined, limit: 1 })
         .then(r => { if (!cancelled) setTotal(r.total) }).catch(() => {})
       const queue = [...stages]
@@ -70,7 +91,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
         while (queue.length && !cancelled) {
           const current = queue.shift()!
           try {
-            const data = await api.list('deal', { ...base, stage_id: current.id, limit: PAGE_SIZE })
+            const data = await readStage(base, current.id, current.id === newStage?.id)
             if (!cancelled && generation.current === run) setColumns(previous => ({ ...previous,
               [current.id]: { ...data, offset: data.items.length, loading: false, error: '' } }))
           } catch (e) {
@@ -83,7 +104,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
     return () => { cancelled = true; window.clearTimeout(timer); generation.current++ }
     // Stage metadata changes do not discard a loaded page unless the IDs change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pipeline, stage, stageKey, query, archive, owner, revision, reload])
+  }, [pipeline, stage, stageKey, newStage?.id, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, revision, reload])
 
   const loadMore = async (id: number) => {
     const column = columns[id], run = generation.current, key = `${run}:${id}`
@@ -91,7 +112,8 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
     pageLoads.current.add(key)
     setColumns(previous => ({ ...previous, [id]: { ...column, loading: true, error: '' } }))
     try {
-      const data = await api.list('deal', { query, archive, owner_id: owner === '' ? undefined : Number(owner), pipeline_id: Number(pipeline), stage_id: id, limit: PAGE_SIZE, offset: column.offset })
+      const data = await readStage({ query, archive, owner_id: owner === '' ? undefined : Number(owner), pipeline_id: Number(pipeline), spam,
+        ...crmDateQuery(dateFrom, dateTo, dateUnknown) }, id, id === newStage?.id, column.offset)
       if (generation.current === run) setColumns(previous => ({ ...previous, [id]: {
         total: data.total, offset: column.offset + data.items.length, loading: false, error: '',
         items: [...new Map([...column.items, ...data.items].map(item => [item.id, item])).values()],
@@ -138,9 +160,26 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
   const allLoaded = stages.every(s => columns[s.id] && !columns[s.id].loading && !columns[s.id].error)
   const visibleTotal = stages.reduce((sum, s) => sum + (columns[s.id]?.total || 0), 0)
   const missing = allLoaded && total !== null ? total - visibleTotal : 0
+  const renderDeal = (entry: Entry, currentStage: Entry) => <article key={entry.id} data-deal-id={entry.id}
+    draggable={canEdit && !entry.archived && busy === null}
+    onDragStart={e => { if (!canEdit || entry.archived || saving.current) { e.preventDefault(); return } dragged.current = entry; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(entry.id)) }}
+    onDragEnd={() => { dragged.current = null; setOver('') }}
+    className={`rounded-lg border border-border bg-white p-3 shadow-sm ${busy === entry.id ? 'opacity-50' : canEdit && !entry.archived ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+    <div className="flex items-start gap-1"><button type="button" className="min-w-0 flex-1 break-words text-left text-sm font-medium text-ink hover:text-brand" onClick={() => onOpen(entry)}>{entry.name}</button><GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" /></div>
+    <p className="mt-3 text-[15px] font-semibold text-ink">{amount(entry)}</p>
+    <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><UserRound size={13} className="shrink-0" />{catalog.users.find(u => u.id === entry.data.responsible_user_id)?.name || 'Ответственный не назначен'}</p>
+    <p className="mt-2 text-xs text-muted" data-source-created-at={entry.source_created_at || 'unknown'}>
+      <time dateTime={entry.source_created_at || undefined}>{crmSourceDateLabel(entry)}</time>
+    </p>
+    {entry.archived && <p className="mt-2 text-xs text-muted">В архиве</p>}
+    {canEdit && !entry.archived && <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-xs">
+      {currentStage.data.outcome !== 'won' && currentStage.data.outcome !== 'lost' && <button type="button" className="min-h-8 font-medium text-brand" onClick={() => onTask(entry)}>Следующий шаг</button>}
+      <button type="button" aria-label={`Переместить: ${entry.name}`} className="flex min-h-8 items-center gap-1 text-muted hover:text-brand" disabled={busy !== null} onClick={() => startTransfer(entry)}><ArrowRightLeft size={13} />Переместить</button>
+    </div>}
+  </article>
   return <section aria-label="Канбан сделок" aria-busy={stages.some(s => !columns[s.id] || columns[s.id].loading)} data-pipeline-id={pipeline} className="min-w-0">
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <p className="text-xs text-muted">{canEdit ? 'Перетащите карточку в другой этап или на название другой воронки.' : 'Доступен просмотр сделок.'}</p>
+      <p className="text-xs text-muted">{spam === 'spam' ? canEdit ? 'Откройте заявку, чтобы убрать отметку «Спам» и вернуть её в работу.' : 'Заявки, помеченные как спам.' : canEdit ? 'Перетащите карточку в другой этап или на название другой воронки.' : 'Доступен просмотр сделок.'}</p>
       <Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => setReload(value => value + 1)}><RefreshCw size={14} />Обновить доску</Button>
     </div>
     <div aria-label="Воронки продаж" className="mb-4 flex gap-2 overflow-x-auto pb-2">
@@ -177,28 +216,17 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, revi
                   : <><p className="font-semibold text-ink">{sums && Object.keys(sums.amounts).length ? Object.entries(sums.amounts).map(([currency, value]) => `${Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${currency === 'RUB' ? '₽' : currency}`).join(' · ') : '0 ₽'}</p>
                     {!!sums?.unpriced_count && <p className="mt-1 text-muted">Без бюджета: {sums.unpriced_count}</p>}</>}
               </div>
-              {canEdit && archive === 'active' && s.data.outcome !== 'lost' && s.data.outcome !== 'won' && <button type="button" className="mt-2 flex items-center gap-1 text-xs font-medium text-brand" onClick={() => onCreate(s)}><Plus size={14} />Добавить сделку</button>}
+              {canEdit && spam !== 'spam' && archive === 'active' && s.data.outcome !== 'lost' && s.data.outcome !== 'won' && <button type="button" className="mt-2 flex items-center gap-1 text-xs font-medium text-brand" onClick={() => onCreate(s)}><Plus size={14} />Добавить сделку</button>}
             </div>
             <div className="max-h-[66vh] min-h-48 space-y-2 overflow-y-auto px-2 pb-3">
-              {includesInbox && <CrmInboxColumn catalog={catalog} pipeline={pipeline} query={query} archive={archive} owner={owner} revision={revision + reload} canEdit={canEdit && busy === null}
+              {includesInbox && <CrmInboxColumn catalog={catalog} pipeline={pipeline} query={query} archive={archive} owner={owner}
+                dateFrom={dateFrom} dateTo={dateTo} dateUnknown={dateUnknown} spam={spam} dealEntries={column.items} dealsLoading={column.loading}
+                renderDeal={entry => renderDeal(entry, s)} revision={revision + reload} canEdit={canEdit && busy === null}
                 onCount={setInboxCount} onOpen={onOpen} onAccept={entry => onAccept(entry)} onDragStart={entry => { dragged.current = entry }} onDragEnd={() => { dragged.current = null; setOver('') }} />}
-              {column.items.map(entry => <article key={entry.id} data-deal-id={entry.id}
-                draggable={canEdit && !entry.archived && busy === null}
-                onDragStart={e => { if (!canEdit || entry.archived || saving.current) { e.preventDefault(); return } dragged.current = entry; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(entry.id)) }}
-                onDragEnd={() => { dragged.current = null; setOver('') }}
-                className={`rounded-lg border border-border bg-white p-3 shadow-sm ${busy === entry.id ? 'opacity-50' : canEdit && !entry.archived ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-                <div className="flex items-start gap-1"><button type="button" className="min-w-0 flex-1 break-words text-left text-sm font-medium text-ink hover:text-brand" onClick={() => onOpen(entry)}>{entry.name}</button><GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" /></div>
-                <p className="mt-3 text-[15px] font-semibold text-ink">{amount(entry)}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><UserRound size={13} className="shrink-0" />{catalog.users.find(u => u.id === entry.data.responsible_user_id)?.name || 'Ответственный не назначен'}</p>
-                {entry.archived && <p className="mt-2 text-xs text-muted">В архиве</p>}
-                {canEdit && !entry.archived && <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-xs">
-                  {s.data.outcome !== 'won' && s.data.outcome !== 'lost' && <button type="button" className="min-h-8 font-medium text-brand" onClick={() => onTask(entry)}>Следующий шаг</button>}
-                  <button type="button" aria-label={`Переместить: ${entry.name}`} className="flex min-h-8 items-center gap-1 text-muted hover:text-brand" disabled={busy !== null} onClick={() => startTransfer(entry)}><ArrowRightLeft size={13} />Переместить</button>
-                </div>}
-              </article>)}
+              {!includesInbox && column.items.map(entry => renderDeal(entry, s))}
               {column.loading && <p role="status" className="p-3 text-xs text-muted">Загружаем сделки…</p>}
               {column.error && <div role="alert" className="p-3 text-xs text-danger"><p>{column.error}</p><button className="mt-2 underline" onClick={() => void loadMore(s.id)}>Повторить загрузку</button></div>}
-              {!column.loading && !column.error && !column.total && (!includesInbox || inboxCount === 0) && <p className="px-2 py-8 text-center text-xs text-muted">{query || owner !== '' ? 'По этому запросу сделок нет' : canEdit ? 'Перетащите сюда сделку' : 'Нет сделок'}</p>}
+              {!column.loading && !column.error && !column.total && (!includesInbox || inboxCount === 0) && <p className="px-2 py-8 text-center text-xs text-muted">{query || owner !== '' || dateFrom || dateTo || dateUnknown || spam !== 'normal' ? 'По этому запросу сделок нет' : canEdit ? 'Перетащите сюда сделку' : 'Нет сделок'}</p>}
               {column.offset < column.total && <button type="button" disabled={column.loading} className="min-h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium" onClick={() => void loadMore(s.id)}>Показать ещё · {column.items.length} из {column.total}</button>}
             </div>
           </section>

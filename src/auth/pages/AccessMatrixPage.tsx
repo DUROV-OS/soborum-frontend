@@ -11,6 +11,8 @@ import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { useAuthStore } from '../store'
 import { AdminsTab } from './AdminsTab'
 import { AccessLevel, Account, JobRole, Role } from '../types'
+import type { CreateAccountInput } from '../api'
+import { EmployeeWorkPhone } from './EmployeeWorkPhone'
 
 const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
   ['none', 'Нет доступа'],
@@ -68,6 +70,7 @@ export function AccessMatrixPage() {
   const addAccount = useAuthStore((s) => s.addAccount)
   const setAccountRole = useAuthStore((s) => s.setAccountRole)
   const setJobRole = useAuthStore((s) => s.setJobRole)
+  const setWorkPhone = useAuthStore((s) => s.setWorkPhone)
   const resetPassword = useAuthStore((s) => s.resetPassword)
   const [tab, setTab] = useState<'matrix' | 'admins'>('matrix')
   const [creating, setCreating] = useState(false)
@@ -200,6 +203,12 @@ export function AccessMatrixPage() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{accounts.map((account) => <label key={account.id} className="rounded-xl border border-border p-3 text-[13px] text-ink"><span className="block font-medium">{account.full_name}</span><Select aria-label={`Должность: ${account.full_name}`} value={account.job_role ?? ''} onChange={(event) => void changeJob(account, event.target.value)} className="mt-2 w-full"><option value="">Не назначена</option><option value="director">Руководитель</option><option value="manager">Менеджер</option><option value="accountant">Бухгалтер</option><option value="storekeeper">Специалист по складу и снабжению</option><option value="production_manager">Начальник производства</option></Select></label>)}</div>
       </section>
 
+      <section className="mb-5 rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-[16px] font-semibold text-ink">Рабочие номера сотрудников</h2>
+        <p className="mt-1 text-[12px] text-muted">Рабочий телефон сохраняется с кодом страны; российский номер можно ввести через 8. Для звонков из CRM номер нужно подключить к корпоративной АТС.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{accounts.map(account => <EmployeeWorkPhone key={account.id} account={account} onSave={setWorkPhone} />)}</div>
+      </section>
+
       {tab === 'admins' ? (
         <AdminsTab
           admins={admins}
@@ -309,17 +318,13 @@ function CreateAccountModal({
 }: {
   open: boolean
   onClose: () => void
-  onCreate: (input: {
-    email: string
-    password: string
-    full_name: string
-    role: Role
-    module_access: Partial<Record<SectionId, AccessLevel>>
-  }) => Promise<void>
+  onCreate: (input: CreateAccountInput) => Promise<void>
 }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [workPhone, setWorkPhone] = useState('')
+  const [extension, setExtension] = useState('')
   const [role, setRole] = useState<Role>('worker')
   const [levels, setLevels] = useState<Partial<Record<SectionId, AccessLevel>>>({})
   const [saving, setSaving] = useState(false)
@@ -329,6 +334,8 @@ function CreateAccountModal({
     setFullName('')
     setEmail('')
     setPassword('')
+    setWorkPhone('')
+    setExtension('')
     setRole('worker')
     setLevels({})
     setError(null)
@@ -346,6 +353,8 @@ function CreateAccountModal({
         full_name: fullName,
         role,
         module_access: role === 'admin' ? {} : levels,
+        work_phone: workPhone.trim() || null,
+        telephony_extension: extension.trim() || null,
       })
       reset()
       onClose()
@@ -390,6 +399,12 @@ function CreateAccountModal({
         </Field>
         <Field label="Пароль" required>
           <Input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <Field label="Рабочий телефон">
+          <Input type="tel" autoComplete="off" maxLength={64} value={workPhone} onChange={event => setWorkPhone(event.target.value)} placeholder="+код страны и номер" />
+        </Field>
+        <Field label="Внутренний номер АТС" hint="Необязательно; от 1 до 10 цифр.">
+          <Input inputMode="numeric" autoComplete="off" maxLength={10} value={extension} onChange={event => setExtension(event.target.value)} />
         </Field>
         <Field label="Роль" required>
           <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>

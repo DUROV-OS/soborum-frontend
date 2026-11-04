@@ -1,6 +1,10 @@
 import { apiRequest } from '@/shared/lib/httpClient'
 export type Kind = 'deal' | 'contact' | 'company' | 'task' | 'pipeline' | 'stage' | 'inquiry'
+export type SpamFilter = 'normal' | 'spam' | 'all'
 export type Entry = {
+  priority?: 'low' | 'medium' | 'high' | null
+  source_created_at?: string | null
+  source_created_at_kind?: 'amocrm' | 'website' | 'local' | 'unknown'
   effective_owner_id?: number | null
   board_task_id?: number | null
   id: number

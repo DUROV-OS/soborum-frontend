@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
+import { TASK_PRIORITIES } from '@/tasks/types'
+import { priorityTone } from '@/tasks/components/priorityTone'
 import * as api from './api'
 import type { Catalog, Entry } from './api'
+import { CrmPhoneActions } from './CrmPhoneActions'
 
 type Props = {
   rows: Entry[]
@@ -139,13 +142,10 @@ export function CrmTasksTable({ rows, catalog, loading, canEdit, onOpen, onEdit,
 
   function client(entry: Entry) {
     const phone = text(entry.data.phone)
-    const dial = phone.replace(/[^\d+*#,;]/g, '')
     const name = entry.kind === 'inquiry' ? text(entry.data.contact_name) || entry.name : entry.name
     return <div key={entry.id} className="space-y-1">
       <button type="button" className="block text-left text-brand hover:underline" onClick={() => onOpen(entry)}>{name || 'Открыть карточку'}</button>
-      {phone ? dial && /\d/.test(dial)
-        ? <a className="block whitespace-nowrap text-ink hover:text-brand hover:underline" href={`tel:${dial}`}>{phone}</a>
-        : <span className="block text-muted">{phone}</span>
+      {phone ? <CrmPhoneActions phone={phone} name={name || entry.name} canMessage={canEdit && !entry.archived} className="text-ink" />
         : <span className="block text-xs text-muted">Телефон не указан</span>}
     </div>
   }
@@ -174,7 +174,7 @@ export function CrmTasksTable({ rows, catalog, loading, canEdit, onOpen, onEdit,
   return <div className="overflow-x-auto rounded-md border border-border bg-surface" aria-busy={loading}>
     <table className="w-full text-left text-[13px]" aria-label="Задачи CRM">
       <thead><tr className="border-b border-border bg-surface-muted">
-        {['Задача', 'Клиент / телефон', 'Ответственный', 'Срок', 'Статус', 'Действия'].map(label => <th key={label} className="px-4 py-2.5 font-medium text-muted">{label}</th>)}
+        {['Задача', 'Клиент / телефон', 'Ответственный', 'Приоритет', 'Срок', 'Статус', 'Действия'].map(label => <th key={label} className="px-4 py-2.5 font-medium text-muted">{label}</th>)}
       </tr></thead>
       <tbody>{tasks.map(task => {
         const editable = canEdit && !task.archived
@@ -199,6 +199,9 @@ export function CrmTasksTable({ rows, catalog, loading, canEdit, onOpen, onEdit,
             {catalog.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
           </select> : <span>{owner?.name || (ownerId ? `Пользователь #${ownerId}` : 'Не назначен')}</span>}
           {pending.has(task.id) && <p className="mt-1 text-xs text-muted" role="status">Сохранение…</p>}</td>
+          <td className="whitespace-nowrap px-4 py-3">{task.priority
+            ? <Chip tone={priorityTone(task.priority)}>{TASK_PRIORITIES.find(priority => priority.key === task.priority)?.label || '—'}</Chip>
+            : <span className="text-muted">—</span>}</td>
           <td className={`whitespace-nowrap px-4 py-3 ${overdue ? 'text-danger' : ''}`}>{dueDate(task.data.due_at)}</td>
           <td className="whitespace-nowrap px-4 py-3"><Chip tone={task.data.completed ? 'success' : 'neutral'}>{task.data.completed ? 'Выполнена' : 'Открыта'}</Chip></td>
           <td className="px-4 py-3"><div className="flex flex-wrap gap-2">
@@ -209,7 +212,7 @@ export function CrmTasksTable({ rows, catalog, loading, canEdit, onOpen, onEdit,
           </div></td>
         </tr>
       })}
-      {!tasks.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">{loading ? 'Загрузка…' : 'Нет задач'}</td></tr>}
+      {!tasks.length && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">{loading ? 'Загрузка…' : 'Нет задач'}</td></tr>}
       </tbody>
     </table>
   </div>

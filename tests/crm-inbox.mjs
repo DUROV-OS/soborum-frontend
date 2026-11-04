@@ -71,7 +71,7 @@ try {
   assert.equal(await column.locator('[data-inquiry-id="8000"]').count(), 1)
   assert.equal(await page.locator('[data-inquiry-id="8001"]').count(), 0)
   assert.equal(await page.getByRole('heading', { name: /Неразобранные|Без воронки/ }).count(), 0)
-  while (await inbox.getByRole('button', { name: /^Показать ещё заявки/ }).count()) await inbox.getByRole('button', { name: /^Показать ещё заявки/ }).click()
+  while (await inbox.getByRole('button', { name: /^Показать ещё карточки/ }).count()) await inbox.getByRole('button', { name: /^Показать ещё карточки/ }).click()
   const ids = await inbox.locator('[data-inquiry-id]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.inquiryId)))
   assert.deepEqual(ids.sort((a,b) => a-b), [...Array.from({ length: 172 }, (_,i) => 7000+i), 8000])
   assert.equal(new Set(ids).size, 173)

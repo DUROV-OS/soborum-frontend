@@ -20,6 +20,7 @@ interface AuthState {
   addAccount: (input: authApi.CreateAccountInput) => Promise<void>
   setAccountRole: (id: number, role: Role) => Promise<void>
   setJobRole: (id: number, role: JobRole | null) => Promise<void>
+  setWorkPhone: (id: number, input: authApi.WorkPhoneInput) => Promise<void>
   resetPassword: (id: number) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
@@ -120,6 +121,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setJobRole: async (id, role) => {
     const updated = await authApi.updateJobRole(id, role)
     set((state) => ({ accounts: state.accounts.map((a) => a.id === id ? updated : a), current: state.current?.id === id ? updated : state.current }))
+  },
+
+  setWorkPhone: async (id, input) => {
+    const updated = await authApi.updateWorkPhone(id, input)
+    set((state) => ({ accounts: state.accounts.map((account) => account.id === id ? updated : account), current: state.current?.id === id ? updated : state.current }))
   },
 
   resetPassword: async (id) => {

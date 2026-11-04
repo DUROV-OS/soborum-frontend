@@ -168,7 +168,7 @@ export function PartnersPage() {
               </option>
             ))}
           </Select>
-          <Button variant="secondary" onClick={handleExport} disabled={exporting || loading}>
+          <Button variant="secondary" onClick={handleExport} disabled={exporting || loading} title="Скачать выбранный список в редактируемом формате .xlsx">
             <Download size={16} />
             {exporting ? 'Готовлю файл…' : 'Экспорт в Excel'}
           </Button>
@@ -179,6 +179,7 @@ export function PartnersPage() {
             </Button>
           )}
         </div>
+        <p className="text-[12px] text-muted">Excel содержит выбранный список и доступен для редактирования. Изменения в скачанном файле не меняют базу партнёров.</p>
       </div>
 
       {exportError && (

@@ -9,7 +9,7 @@ export function isSalesManager(account: Account | null): boolean {
 
 export function salesNavigationLevel(account: Account, section: SectionId): AccessLevel {
   if (['today', 'work', 'chats', 'notifications', 'feedback_my'].includes(section)) return 'full'
-  const level = section === 'crm' || section === 'clients' ? account.module_access.clients
+  const level = section === 'crm' || section === 'clients' || section === 'partners' ? account.module_access.clients
     : section === 'tasks' ? account.module_access.tasks : 'none'
   return level ?? 'none'
 }
@@ -25,6 +25,7 @@ export function salesRouteAllowed(pathname: string, search: string): boolean {
   }
   if (pathname === '/tasks') return !query.has('scope') || query.get('scope') === 'mine'
   if (['/today', '/work', '/sales', '/team', '/notifications', '/feedback', '/feedback/my'].includes(pathname)) return true
-  if (/^\/chats(?:\/\d+)?$/.test(pathname)) return true
+  if (/^\/chats(?:\/-?\d+)?$/.test(pathname)) return true
+  if (/^\/partners(?:\/\d+)?$/.test(pathname)) return true
   return false
 }

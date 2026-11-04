@@ -82,7 +82,7 @@ async function setup({ level = 'full', failContact = false, delayed = false, mob
 }
 
 const row = (page, id) => page.locator(`[data-task-id="${id}"]`)
-async function ready(page) { await row(page, 1).getByRole('link', { name: '+7 (900) 111-22-33', exact: true }).waitFor() }
+async function ready(page) { await row(page, 1).getByRole('button', { name: 'Действия с номером +7 (900) 111-22-33', exact: true }).waitFor() }
 async function saved(page, id, owner) {
   await page.waitForFunction(({ id, owner }) => {
     const row = document.querySelector(`[data-task-id="${id}"]`)
@@ -93,10 +93,10 @@ async function saved(page, id, owner) {
 try {
   const t = await setup(), { page } = t
   await ready(page)
-  await row(page, 7).getByRole('link', { name: '+79003330005', exact: true }).waitFor()
+  await row(page, 7).getByRole('button', { name: 'Действия с номером +79003330005', exact: true }).waitFor()
   assert.equal(await row(page, 1).getByLabel('Ответственный: Первый звонок', { exact: true }).inputValue(), '6')
-  assert.equal(await row(page, 1).getByRole('link', { name: '+7 (900) 111-22-33', exact: true }).getAttribute('href'), 'tel:+79001112233')
-  assert.equal(await row(page, 1).getByRole('link').count(), 2)
+  assert.equal(await row(page, 1).getByRole('button', { name: 'Действия с номером +7 (900) 111-22-33', exact: true }).getAttribute('aria-haspopup'), 'dialog')
+  assert.equal(await row(page, 1).getByRole('button', { name: /^Действия с номером/ }).count(), 2)
   await row(page, 8).getByRole('button', { name: 'Новый клиент', exact: true }).waitFor()
   await row(page, 9).getByText('Не привязана', { exact: true }).waitFor()
   assert.equal(t.reads.filter(path => path === '/api/crm/entries/100').length, 1)

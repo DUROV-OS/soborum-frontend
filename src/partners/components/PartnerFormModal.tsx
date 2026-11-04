@@ -5,6 +5,7 @@ import { MESSENGER_SUGGESTIONS } from '@/clients/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
+import { ApiError } from '@/shared/lib/httpClient'
 import { usePartnersStore } from '../store'
 import { Partner, PARTNER_CATEGORIES, PartnerCategory, PartnerContact, PartnerInput } from '../types'
 
@@ -56,6 +57,7 @@ export function PartnerFormModal({
   partner,
   initial,
   onCreated,
+  onCreateUncertain,
 }: {
   open: boolean
   onClose: () => void
@@ -66,6 +68,8 @@ export function PartnerFormModal({
    * карточка: так форму зовут из «Кто рекомендовал» при создании клиента (0083-c)
    * и из чата MAX (0105). */
   onCreated?: (partner: Partner) => void
+  /** A failed response may follow a successful create; caller can switch to existing records. */
+  onCreateUncertain?: (name: string) => void
 }) {
   const create = usePartnersStore((s) => s.create)
   const update = usePartnersStore((s) => s.update)
@@ -120,6 +124,10 @@ export function PartnerFormModal({
       if (onCreated) onCreated(created)
       else navigate(`/partners/${created.id}`)
     } catch (e) {
+      if (onCreateUncertain && (!(e instanceof ApiError) || e.status >= 500)) {
+        onCreateUncertain(input.name)
+        return
+      }
       setError(e instanceof Error ? e.message : 'Не удалось добавить партнёра')
     } finally {
       setSaving(false)

@@ -10,6 +10,7 @@ import { Chip } from '@/shared/ui/Chip'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
+import { CrmTaskClientBlock } from './CrmTaskClientBlock'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import * as api from './api'
@@ -18,6 +19,10 @@ import { LeadControl } from './LeadControl'
 import { CrmBoard } from './CrmBoard'
 import { CrmRecordCard } from './CrmRecordCard'
 import { CrmTasksTable } from './CrmTasksTable'
+import { TaskPriorityFilter } from '@/tasks/components/TaskPriorityFilter'
+import type { TaskPriority } from '@/tasks/types'
+import { CrmDateFilter, CrmDateSelection } from './CrmDateFilter'
+import { crmDateQuery, crmSourceDateLabel } from './dates'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -64,6 +69,9 @@ export function CrmPage() {
   const [archive, setArchive] = useState('active')
   const [query, setQuery] = useState('')
   const [owner, setOwner] = useState('')
+  const [priority, setPriority] = useState<TaskPriority | ''>('')
+  const [dates, setDates] = useState<CrmDateSelection>({ from: '', to: '', unknown: false })
+  const [spam, setSpam] = useState<api.SpamFilter>('normal')
   const [offset, setOffset] = useState(0)
   const [result, setResult] = useState<{ total: number; items: Entry[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
@@ -85,6 +93,9 @@ export function CrmPage() {
     setStage('')
     setSelected(null)
     setOwner('')
+    setPriority('')
+    setDates({ from: '', to: '', unknown: false })
+    setSpam('normal')
   }, [kind])
   useEffect(() => {
     if (isBoard) return
@@ -106,11 +117,15 @@ export function CrmPage() {
     let current = true
     const timer = setTimeout(() => {
       setLoading(true)
+      setError('')
       api
         .list(kind, {
           query,
           archive,
           owner_id: owner === '' ? undefined : Number(owner),
+          priority: kind === 'task' && priority ? priority : undefined,
+          ...(['deal', 'inquiry'].includes(kind) ? crmDateQuery(dates.from, dates.to, dates.unknown) : {}),
+          spam: ['deal', 'inquiry'].includes(kind) ? spam : undefined,
           pipeline_id: kind === 'deal' && pipeline ? Number(pipeline) : undefined,
           stage_id: kind === 'deal' && stage ? Number(stage) : undefined,
           offset,
@@ -129,7 +144,7 @@ export function CrmPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [kind, query, archive, owner, pipeline, stage, offset, revision, isBoard])
+  }, [kind, query, archive, owner, priority, dates, spam, pipeline, stage, offset, revision, isBoard])
   const refreshHistory = (entry: Entry, offset = 0) =>
     api
       .history(entry.id, offset)
@@ -165,6 +180,10 @@ export function CrmPage() {
   const selectedStage = catalog.stages.find((s) => s.id === selected?.data.stage_id)
   const acceptInquiry = async (inquiry: Entry, targetStage?: Entry, targetPipeline?: string) => {
     setError('')
+    if (inquiry.data.is_spam === true) {
+      setError('Сначала уберите отметку «Спам» в карточке заявки.')
+      return
+    }
     try {
       // Imported inquiries can wrap an existing unsorted deal. Keep its commercial data.
       const linked = inquiry.data.deal_id ? await apiRequest<Entry>({ section: 'crm', path: `/entries/${inquiry.data.deal_id}` }) : null
@@ -246,6 +265,13 @@ export function CrmPage() {
           <option value="0">Без ответственного</option>
           {catalog.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
         </Select>}
+        {kind === 'task' && <TaskPriorityFilter value={priority} onChange={value => { setPriority(value); setOffset(0) }} className="sm:max-w-56" />}
+        {['deal', 'inquiry'].includes(kind) && <Select aria-label="Фильтр спама" className="sm:max-w-52" value={spam}
+          onChange={event => { setSpam(event.target.value as api.SpamFilter); setOffset(0) }}>
+          <option value="normal">Без спама</option>
+          <option value="spam">Только спам</option>
+          <option value="all">Все, включая спам</option>
+        </Select>}
         {kind === 'deal' && (
           <>
             {!isBoard && <Select
@@ -300,12 +326,17 @@ export function CrmPage() {
           <option value="all">Все записи</option>
         </Select>
       </div>
+      {['deal', 'inquiry'].includes(kind) && <div className="mb-4 rounded-xl border border-border bg-surface p-3">
+        <CrmDateFilter dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} onChange={value => { setDates(value); setOffset(0) }} />
+        {(dates.from || dates.to || dates.unknown) && <Button size="sm" variant="ghost" onClick={() => { setDates({ from: '', to: '', unknown: false }); setOffset(0) }}>Сбросить даты</Button>}
+      </div>}
       {error && (
         <p role="alert" className="my-3 text-danger">
           {error}
         </p>
       )}
       {isBoard ? <CrmBoard catalog={catalog} pipeline={boardPipeline} stage={stage} query={query} archive={archive} owner={owner}
+        dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} spam={spam}
         revision={revision} canEdit={canEdit} onPipeline={id => { setPipeline(id); setStage('') }} onOpen={open}
         onCreate={target => setEditing({ kind: 'deal', initialData: { pipeline_id: target.data.pipeline_id, stage_id: target.id, amount: 0, currency: 'RUB' } })}
         onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <>{kind === 'task' ? <CrmTasksTable
@@ -323,6 +354,7 @@ export function CrmPage() {
             accessor: (r) => (
               <div className="font-medium">
                 {r.name}
+                {r.kind === 'inquiry' && r.data.is_spam === true && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Спам</span>}
                 {r.archived && <span className="ml-2 text-xs text-muted">Архив</span>}
               </div>
             ),
@@ -349,6 +381,7 @@ export function CrmPage() {
                 'Действует'
               ),
           },
+          ...(['deal', 'inquiry'].includes(kind) ? [{ header: 'Дата заявки', accessor: (r: Entry) => crmSourceDateLabel(r) }] : []),
           {
             header: 'Ответственный',
             accessor: (r) =>
@@ -434,6 +467,7 @@ export function CrmPage() {
               )}
             </div>
             {selected.kind==='task' && <div className="space-y-2"><p className="whitespace-pre-wrap">{String(selected.data.description||'')}</p>{!!selected.data.result&&<p className="whitespace-pre-wrap">Результат: {String(selected.data.result)}</p>}</div>}
+            {selected.kind === 'task' && <CrmTaskClientBlock entityId={Number(selected.data.entity_id) || null} canMessage={canEdit && !selected.archived} onOpenCRM={open} />}
             {selected.kind === 'deal' && (
               <div className="rounded-xl bg-surface-muted p-4">
                 <p className="text-lg font-medium">{money(selected.data.amount)}</p>

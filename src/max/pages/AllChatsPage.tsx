@@ -2,7 +2,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { ArrowLeft, Check, Copy, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -21,6 +25,13 @@ import { AddContactModal } from '../components/AddContactModal'
 import { MaxAttachButton, MaxPendingFile } from '../components/MaxFilePicker'
 import { ForwardMessageModal, MaxMessageActions } from '../components/MaxMessageActions'
 import { useMaxEvents } from '../realtime'
+import { crmCardPath } from '../crmLinks'
+
+function maxFailure(error: unknown, sending = false) {
+  if (error instanceof ApiError && error.status === 403) return 'Недостаточно прав для этого действия в MAX.'
+  return sending ? 'Не удалось подтвердить отправку. Обновите переписку перед повтором: сообщение могло быть доставлено.'
+    : 'Подключение MAX недоступно. Руководителю нужно восстановить вход в рабочий аккаунт MAX.'
+}
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -110,7 +121,7 @@ export function AllChatsPage() {
       setChats(res.chats)
       setChatsError(null)
     } catch (err) {
-      if (!silent) setChatsError(err instanceof ApiError ? err.message : 'Не удалось загрузить чаты')
+      setChatsError(maxFailure(err))
     } finally {
       if (!silent) setChatsLoading(false)
     }
@@ -154,7 +165,7 @@ export function AllChatsPage() {
         if (!cancelled) setHistory(res)
       })
       .catch((err) => {
-        if (!cancelled) setHistoryError(err instanceof ApiError ? err.message : 'Не удалось загрузить переписку')
+        if (!cancelled) setHistoryError(maxFailure(err))
       })
       .finally(() => {
         if (!cancelled) setHistoryLoading(false)
@@ -203,7 +214,7 @@ export function AllChatsPage() {
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
     } catch (err) {
-      setSendError(err instanceof ApiError ? err.message : 'Не удалось отправить сообщение')
+      setSendError(maxFailure(err, true))
     } finally {
       setSending(false)
     }
@@ -304,6 +315,7 @@ export function AllChatsPage() {
                   <span className="truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
                   <span className="shrink-0 text-[10px] text-muted">{relTime(c.lastEventTime)}</span>
                 </div>
+                {c.phone && <span className="text-[12px] text-muted">{formatPhone(c.phone)}</span>}
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1 text-[12px] text-muted">
                     <ReadMark status={c.lastMessage?.readStatus} />
@@ -505,27 +517,36 @@ function ChatClientSwitcher({
   onLinked: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const salesManager = useAuthStore(state => isSalesManager(state.current))
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
+  useEffect(() => { setOpen(false) }, [chat?.id])
   if (!chat) return null
 
   const linkedClient = chat.linkedClientId != null
   const linkedPartner = chat.linkedPartnerId != null
-  const label = linkedClient
+  const linkedCrm = chat.linkedCrmId != null
+  const label = linkedCrm ? chat.linkedCrmName || 'Карточка CRM' : linkedClient
     ? chat.linkedClientName ?? 'Клиент'
     : linkedPartner
       ? `Партнёр ${chat.linkedPartnerName ?? ''}`.trim()
-      : 'Не привязан'
+      : 'Привязать чат'
+  const destination = linkedCrm ? crmCardPath(chat.linkedCrmKind || 'contact', chat.linkedCrmId!)
+    : linkedPartner ? `/partners/${chat.linkedPartnerId}` : linkedClient && !salesManager ? `/clients/${chat.linkedClientId}` : null
 
   return (
     <>
-      <button
+      {destination ? <Link className="inline-flex max-w-[180px] items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-brand-dark" to={destination}><UserCheck size={13} className="shrink-0" /><span className="truncate">{label}</span></Link>
+      : linkedClient ? <span className="text-[12px] text-muted">Связан с карточкой клиента</span>
+      : canEdit && <button
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
       >
-        {linkedClient || linkedPartner ? <UserCheck size={13} /> : <Link2 size={13} />}
+        <Link2 size={13} />
         {label}
-      </button>
+      </button>}
       <LinkClientModal
+        key={chat.id}
         chatId={chat.id}
         peer={peer}
         chatTitle={chat.title}

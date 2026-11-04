@@ -1,241 +1,143 @@
-import { useEffect, useState } from 'react'
-import { User, UserPlus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import * as clientsApi from '@/clients/api'
-import { CreateClientInitial, CreateClientModal } from '@/clients/components/CreateClientModal'
-import { Client } from '@/clients/types'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
+import * as crm from '@/crm/api'
 import * as partnersApi from '@/partners/api'
-import { PartnerFormInitial, PartnerFormModal } from '@/partners/components/PartnerFormModal'
-import { Partner } from '@/partners/types'
+import { PartnerFormModal } from '@/partners/components/PartnerFormModal'
+import type { Partner } from '@/partners/types'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Field'
+import { Field, Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
-import { formatPhone } from '../phone'
-import { MaxDialogPeer } from '../types'
+import { chatLinkError, crmCardPath, linkCrmFromMax } from '../crmLinks'
+import type { MaxDialogPeer } from '../types'
 
-/** Название привязки чата, созданного вместе с клиентом из MAX (0099). */
-const NEW_CLIENT_LINK_LABEL = 'С клиентом'
-/** Название привязки чата, созданного вместе с партнёром из MAX (0105). */
-const NEW_PARTNER_LINK_LABEL = 'С партнёром'
+type Choice = { id: number; name: string; phone: string }
+type Kind = 'contact' | 'company' | 'partner'
 
-/** Способ связи MAX для новой карточки из личного диалога: номер, а без него
- * имя собеседника в MAX (общее для клиента и партнёра, 0099/0105). */
-function maxContactFromPeer(peer: MaxDialogPeer, title: string | null): { name: string; phone: string; contact: string } {
-  const name = peer.name ?? title ?? ''
-  const phone = peer.phone ? formatPhone(peer.phone) : ''
-  const contact = phone || name
-  return { name, phone, contact }
-}
-
-/** Данные для формы «Новый клиент» из личного диалога (0099). */
-function initialClientFromChat(peer: MaxDialogPeer, title: string | null): CreateClientInitial {
-  const { name, phone, contact } = maxContactFromPeer(peer, title)
-  return { fullName: name, phone, contacts: contact ? [{ messenger: 'MAX', contact }] : undefined }
-}
-
-/** Данные для формы «Новый партнёр» из личного диалога (0105) — категорию и
- * город оттуда не вывести, их дозаполняет сотрудник. */
-function initialPartnerFromChat(peer: MaxDialogPeer, title: string | null): PartnerFormInitial {
-  const { name, phone, contact } = maxContactFromPeer(peer, title)
-  return { name, phone, contacts: contact ? [{ messenger: 'MAX', contact }] : undefined }
-}
-
-/** Обратная привязка (0053): выбор клиента, к которому привязывается открытый
- * чат MAX, с указанием названия привязки (различает несколько чатов одного
- * клиента). Если чат уже привязан к другому клиенту — бэк отдаёт явный отказ
- * (409) с предложением открепить его там. */
-export function LinkClientModal({
-  chatId,
-  peer,
-  chatTitle,
-  open,
-  onClose,
-  onLinked,
-}: {
-  chatId: number
-  /** Собеседник личного диалога — для «Новый клиент из этого чата» (0099);
-   * у группы и «Избранного» null, и кнопки нет. */
-  peer: MaxDialogPeer | null
-  chatTitle: string | null
-  open: boolean
-  onClose: () => void
-  onLinked: () => void
+/** Sales cards only. Opening this modal never requests the ERP clients API. */
+export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLinked }: {
+  chatId: number; peer: MaxDialogPeer | null; chatTitle: string | null
+  open: boolean; onClose: () => void; onLinked: () => void
 }) {
   const navigate = useNavigate()
-  const [creating, setCreating] = useState(false)
-  const [creatingPartner, setCreatingPartner] = useState(false)
-  const [clients, setClients] = useState<Client[]>([])
-  const [loading, setLoading] = useState(false)
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
+  const [kind, setKind] = useState<Kind>('contact')
   const [query, setQuery] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [linkingId, setLinkingId] = useState<number | null>(null)
-  const [pendingClient, setPendingClient] = useState<Client | null>(null)
-  const [label, setLabel] = useState('')
-
+  const [offset, setOffset] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [choices, setChoices] = useState<Choice[]>([])
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [creating, setCreating] = useState<'contact' | 'company' | null>(null)
+  const [creatingPartner, setCreatingPartner] = useState(false)
+  const [pendingPartner, setPendingPartner] = useState<Partner | null>(null)
+  const [uncertainPartner, setUncertainPartner] = useState(false)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const mutation = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  useEffect(() => { if (!open) { setOffset(0); setChoices([]) } }, [open])
   useEffect(() => {
-    if (!open) return
-    setQuery('')
-    setError(null)
-    setPendingClient(null)
-    setLabel('')
-    setLoading(true)
-    clientsApi
-      .listClients()
-      .then(setClients)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Не удалось загрузить клиентов'))
-      .finally(() => setLoading(false))
-  }, [open])
+    if (!open || !canEdit || creating || creatingPartner || pendingPartner) return
+    let cancelled = false
+    setLoading(true); setError('')
+    const timer = window.setTimeout(async () => {
+      try {
+        let rows: Choice[], count: number
+        if (kind === 'partner') {
+          const found = (await partnersApi.listPartners()).filter(row => [row.name, row.phone, row.email, row.city].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+          rows = found.slice(offset, offset + 50).map(row => ({ id: row.id, name: row.name, phone: row.phone || '' })); count = found.length
+        } else {
+          const found = await crm.list(kind, { query, offset, limit: 50 })
+          rows = found.items.map(row => ({ id: row.id, name: row.name, phone: typeof row.data.phone === 'string' ? row.data.phone : '' })); count = found.total
+        }
+        if (!cancelled) { setChoices(previous => offset ? [...previous, ...rows] : rows); setTotal(count) }
+      } catch { if (!cancelled) { setError('Не удалось загрузить карточки. Повторите поиск.'); setChoices([]); setTotal(0) } }
+      finally { if (!cancelled) setLoading(false) }
+    }, 150)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [open, canEdit, kind, query, offset, creating, creatingPartner, pendingPartner])
 
-  const q = query.trim().toLowerCase()
-  const visible = clients.filter((c) => {
-    if (!q) return true
-    return [c.full_name, c.phone, c.email].filter(Boolean).join(' ').toLowerCase().includes(q)
-  })
-
-  /** Клиент из чата создан — сразу привязываем к нему этот чат и открываем
-   * карточку. Привязка не удалась — клиент остаётся, показываем причину. */
-  async function linkCreated(client: Client) {
+  function beginCreate(next: 'contact' | 'company') {
+    setOffset(0); setCreating(next); setName(peer?.name || chatTitle || ''); setPhone(peer?.phone || ''); setEmail(''); setError('')
+  }
+  function close() { if (!mutation.current) onClose() }
+  async function bindExisting(choice: Choice) {
+    if (mutation.current || !canEdit) return
+    mutation.current = true; setBusy(true); setError('')
     try {
-      await clientsApi.createChatLink(client.id, chatId, NEW_CLIENT_LINK_LABEL)
-      onLinked()
-      onClose()
-      navigate(`/clients/${client.id}`)
-    } catch (e) {
-      const reason = e instanceof Error ? e.message : 'неизвестная ошибка'
-      setError(`Клиент «${client.full_name}» создан, но чат к нему не привязан: ${reason}`)
-    }
+      if (kind === 'partner') {
+        await partnersApi.createChatLink(choice.id, chatId, 'MAX')
+        if (!mounted.current) return
+        onLinked(); onClose(); navigate(`/partners/${choice.id}`)
+      } else {
+        const link = await linkCrmFromMax({ max_chat_id: chatId, entity_id: choice.id })
+        if (!mounted.current) return
+        onLinked(); onClose(); navigate(crmCardPath(link.entity_kind, link.entity_id))
+      }
+    } catch (cause) { if (mounted.current) setError(chatLinkError(cause)) }
+    finally { mutation.current = false; if (mounted.current) setBusy(false) }
+  }
+  async function createCard() {
+    if (!creating || !name.trim() || mutation.current || !canEdit) return
+    mutation.current = true; setBusy(true); setError('')
+    try {
+      const link = await linkCrmFromMax({ max_chat_id: chatId, create: { kind: creating, name: name.trim(), phone: phone.trim(), email: email.trim() } })
+      if (!mounted.current) return
+      onLinked(); onClose(); navigate(crmCardPath(link.entity_kind, link.entity_id))
+    } catch (cause) { if (mounted.current) setError(chatLinkError(cause)) }
+    finally { mutation.current = false; if (mounted.current) setBusy(false) }
+  }
+  async function bindCreatedPartner(partner: Partner) {
+    if (mutation.current || !canEdit) return
+    setCreatingPartner(false); setPendingPartner(partner)
+    mutation.current = true; setBusy(true); setError('')
+    try {
+      // Retry reuses the already-created partner, including a lost bind response.
+      const current = await partnersApi.getPartner(partner.id)
+      if (!current.chat_links.some(link => link.max_chat_id === chatId)) await partnersApi.createChatLink(partner.id, chatId, 'MAX')
+      if (!mounted.current) return
+      setPendingPartner(null); onLinked(); onClose(); navigate(`/partners/${partner.id}`)
+    } catch (cause) { if (mounted.current) setError(`Партнёр уже создан. ${chatLinkError(cause)}`) }
+    finally { mutation.current = false; if (mounted.current) setBusy(false) }
   }
 
-  /** То же самое для партнёра (0105) — новая карточка сразу привязывается к
-   * этому чату; если привязка не удалась (чат уже занят), партнёр остаётся
-   * созданным отдельно. */
-  async function linkCreatedPartner(partner: Partner) {
-    try {
-      await partnersApi.createChatLink(partner.id, chatId, NEW_PARTNER_LINK_LABEL)
-      onLinked()
-      onClose()
-      navigate(`/partners/${partner.id}`)
-    } catch (e) {
-      const reason = e instanceof Error ? e.message : 'неизвестная ошибка'
-      setError(`Партнёр «${partner.name}» создан, но чат к нему не привязан: ${reason}`)
-    }
-  }
-
-  async function confirmLink() {
-    if (!pendingClient) return
-    const trimmed = label.trim()
-    if (!trimmed) {
-      setError('Укажите название привязки')
-      return
-    }
-    setLinkingId(pendingClient.id)
-    setError(null)
-    try {
-      await clientsApi.createChatLink(pendingClient.id, chatId, trimmed)
-      onLinked()
-      onClose()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось привязать клиента')
-      setPendingClient(null)
-    } finally {
-      setLinkingId(null)
-    }
-  }
-
-  return (
-    <>
-      <Modal open={open && !creating && !creatingPartner} onClose={onClose} title="Привязать чат" width="max-w-xl">
-        {pendingClient ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-[13px] text-ink">
-              Клиент «{pendingClient.full_name}» — укажите название привязки (например, «С клиентом»,
-              «С помощником»):
-            </p>
-            <Input
-              autoFocus
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Название привязки"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') confirmLink()
-              }}
-            />
-            {error && <p className="text-[12px] text-danger">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setPendingClient(null)} disabled={linkingId !== null}>
-                Назад
-              </Button>
-              <Button size="sm" onClick={confirmLink} disabled={linkingId !== null}>
-                {linkingId !== null ? 'Привязка…' : 'Привязать'}
-              </Button>
-            </div>
+  if (!canEdit) return null
+  return <>
+    <Modal open={open && !creatingPartner} onClose={close} title={creating ? (creating === 'company' ? 'Новая компания из чата' : 'Новый клиент из чата') : 'Привязать чат'} width="max-w-xl">
+      <div className="space-y-3">
+        {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
+        {pendingPartner ? <>
+          <p className="text-[13px]">Партнёр «{pendingPartner.name}» создан. Осталось связать с ним этот чат.</p>
+          <Button onClick={() => bindCreatedPartner(pendingPartner)} disabled={busy}>Повторить привязку</Button>
+        </> : creating ? <>
+          <Field label={creating === 'company' ? 'Название компании' : 'Имя клиента'}><Input autoFocus value={name} maxLength={1000} onChange={event => setName(event.target.value)} disabled={busy} /></Field>
+          <Field label="Телефон"><Input value={phone} maxLength={100} onChange={event => setPhone(event.target.value)} disabled={busy} /></Field>
+          <Field label="Email"><Input value={email} maxLength={255} onChange={event => setEmail(event.target.value)} disabled={busy} /></Field>
+          <p className="text-[12px] text-muted">Карточка появится в CRM вместе со связью с этим чатом. Сообщение отправлено не будет.</p>
+          <div className="flex justify-end gap-2"><Button variant="ghost" disabled={busy} onClick={() => { setCreating(null); setError('') }}>Назад</Button><Button disabled={busy || !name.trim()} onClick={createCard}>{busy ? 'Сохранение…' : 'Создать и привязать'}</Button></div>
+        </> : <>
+          <Field label="Раздел"><Select value={kind} disabled={busy} onChange={event => { setKind(event.target.value as Kind); setOffset(0); setChoices([]) }}><option value="contact">Контакты CRM</option><option value="company">Компании CRM</option><option value="partner">Партнёры</option></Select></Field>
+          <Input placeholder="Поиск по имени, телефону, email…" value={query} disabled={busy} onChange={event => { setQuery(event.target.value); setOffset(0) }} />
+          {uncertainPartner && <p role="alert" className="text-[13px] text-danger">Не удалось подтвердить создание партнёра. Проверьте найденные карточки: партнёр мог уже сохраниться. Выберите существующего партнёра для привязки.</p>}
+          {peer && chatId !== 0 && !uncertainPartner && <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('contact')}>Новый клиент из этого чата</Button>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('company')}>Новая компания</Button>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => { setCreatingPartner(true); setError('') }}>Новый партнёр</Button>
+          </div>}
+          <div className="max-h-[45vh] space-y-1 overflow-y-auto">
+            {choices.map(choice => <button type="button" disabled={busy || loading} key={choice.id} className="block w-full rounded border border-border p-3 text-left text-[13px] disabled:opacity-50" onClick={() => bindExisting(choice)}><span className="block font-medium">{choice.name}</span>{choice.phone && <span className="block text-[12px] text-muted">{choice.phone}</span>}</button>)}
+            {loading && <p className="text-[13px] text-muted">Загрузка карточек…</p>}
+            {!loading && !error && !choices.length && <p className="text-[13px] text-muted">Карточки не найдены</p>}
+            {choices.length < total && <Button variant="ghost" size="sm" disabled={loading || busy} onClick={() => setOffset(choices.length)}>Загрузить ещё</Button>}
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по имени, телефону, email…"
-            />
-            {error && <p className="text-[12px] text-danger">{error}</p>}
-            {peer && (
-              <div className="flex flex-wrap gap-2">
-                <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreating(true)}>
-                  <UserPlus size={14} />
-                  Новый клиент из этого чата
-                </Button>
-                <Button variant="ghost" size="sm" className="self-start" onClick={() => setCreatingPartner(true)}>
-                  <UserPlus size={14} />
-                  Новый партнёр из этого чата
-                </Button>
-              </div>
-            )}
-            <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto">
-              {loading && <p className="py-6 text-center text-[13px] text-muted">Загрузка клиентов…</p>}
-              {!loading && visible.length === 0 && (
-                <p className="py-6 text-center text-[13px] text-muted">Клиенты не найдены</p>
-              )}
-              {visible.map((client) => (
-                <button
-                  key={client.id}
-                  type="button"
-                  onClick={() => {
-                    setPendingClient(client)
-                    setLabel('')
-                    setError(null)
-                  }}
-                  disabled={linkingId !== null}
-                  className="flex items-center gap-3 rounded-md border border-border px-3 py-2.5 text-left hover:bg-surface-muted disabled:opacity-50"
-                >
-                  <User size={16} className="shrink-0 text-muted" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-ink">{client.full_name}</span>
-                    <span className="block truncate text-[12px] text-muted">{client.phone}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </Modal>
-      {/* Форма клиента — вместо окна привязки, а не поверх него. */}
-      {open && creating && peer && (
-        <CreateClientModal
-          open
-          onClose={() => setCreating(false)}
-          initial={initialClientFromChat(peer, chatTitle)}
-          onCreated={linkCreated}
-        />
-      )}
-      {/* Форма партнёра — то же самое (0105). */}
-      {open && creatingPartner && peer && (
-        <PartnerFormModal
-          open
-          onClose={() => setCreatingPartner(false)}
-          initial={initialPartnerFromChat(peer, chatTitle)}
-          onCreated={linkCreatedPartner}
-        />
-      )}
-    </>
-  )
+        </>}
+      </div>
+    </Modal>
+    {open && creatingPartner && peer && <PartnerFormModal open onClose={() => setCreatingPartner(false)} initial={{ name: peer.name || chatTitle || '', phone: peer.phone || '', contacts: [{ messenger: 'MAX', contact: peer.phone || peer.name || chatTitle || '' }] }} onCreated={bindCreatedPartner} onCreateUncertain={createdName => { setCreatingPartner(false); setUncertainPartner(true); setKind('partner'); setOffset(0); setQuery(createdName) }} />}
+  </>
 }
