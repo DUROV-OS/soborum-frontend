@@ -16,7 +16,8 @@
     "test:warehouse-queue": "node tests/warehouse-queue.mjs",
     "test:margin-preview": "node tests/margin-preview.mjs",
     "test:costing": "node tests/costing.mjs",
-    "test:costing-integration": "node tests/costing-integration.mjs"
+    "test:costing-integration": "node tests/costing-integration.mjs",
+    "test:costing-experience": "node tests/costing-experience.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

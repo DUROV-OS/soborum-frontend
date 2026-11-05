@@ -38,6 +38,10 @@ export const WORKFLOWS: WorkGroup[] = [
       { id: 'costing-prices', label: 'Розничные цены', to: '/costing?tab=prices', section: 'costing', note: 'Замороженные ставки и версии прайса' },
       { id: 'costing-addons', label: 'Допы и замены', to: '/costing?tab=addon', section: 'costing', note: 'Опции, состав и вычет базовых материалов' },
       { id: 'costing-packages', label: 'Пакеты опций', to: '/costing?tab=package', section: 'costing', note: 'Наборы допов и пакетные скидки' },
+      { id: 'costing-assistant', label: 'Проверка расчётов', to: '/costing?tab=assistant', section: 'costing', note: 'Цены, составы и отклонения от целевой маржи' },
+      { id: 'costing-journal', label: 'Журнал изменений', to: '/costing?tab=journal', section: 'costing', note: 'Автор и значения до и после правок' },
+      { id: 'costing-settings', label: 'Настройки расчётов', to: '/costing?tab=settings', section: 'costing', note: 'Проценты, округление и бренд' },
+      { id: 'costing-help', label: 'Руководство по сметам', to: '/costing?tab=help', section: 'estimates', note: 'Инструкции и пошаговое обучение' },
     ],
   },
   {
