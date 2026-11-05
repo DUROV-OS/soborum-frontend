@@ -67,7 +67,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['today', 'crm', 'partners', 'tasks', 'chats', 'notifications', 'feedback_my'] : MENU
+  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'tasks', 'chats', 'notifications', 'feedback_my'] : MENU
   let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []

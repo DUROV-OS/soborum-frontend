@@ -32,6 +32,7 @@ import { CrmPage } from '@/crm/CrmPage'
 import { RecipesPage } from '@/moysklad/RecipesPage'
 import { PurchasingPage } from '@/purchasing/PurchasingPage'
 import { SalesPage } from '@/sales/SalesPage'
+import { CostingPage } from '@/costing/CostingPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
@@ -79,6 +80,7 @@ export function AppRouter() {
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
+        <Route path="/costing" element={<AccessGate section="estimates"><CostingPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />
         <Route path="/moysklad" element={<AccessGate section="moysklad"><MoyskladPage /></AccessGate>} />

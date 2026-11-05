@@ -7,6 +7,7 @@ import {
   Package,
   Building2,
   ShoppingBag,
+  Calculator,
   type LucideIcon,
 } from 'lucide-react'
 import type { SectionId } from './sections'
@@ -27,6 +28,18 @@ export type WorkGroup = { id: string; label: string; note: string; icon: LucideI
 // One process tree for the sidebar, work hub and the current section's sub-menu.
 // Route/query values are UI state; module grants and API scopes remain unchanged.
 export const WORKFLOWS: WorkGroup[] = [
+  {
+    id: 'costing', label: 'Сметы и цены', icon: Calculator,
+    note: 'Состав изделий, розничный прайс и версии клиентских предложений',
+    entries: [
+      { id: 'costing-estimates', label: 'Клиентские сметы', to: '/costing?tab=estimates', section: 'estimates', note: 'Снимки цен, варианты, скидки и предложения' },
+      { id: 'costing-materials', label: 'Материалы для смет', to: '/costing?tab=materials', section: 'costing', note: 'Единицы, цены и общая номенклатура склада' },
+      { id: 'costing-templates', label: 'Типовые сметы', to: '/costing?tab=template', section: 'costing', note: 'Изделия, геометрия, состав и расходы' },
+      { id: 'costing-prices', label: 'Розничные цены', to: '/costing?tab=prices', section: 'costing', note: 'Замороженные ставки и версии прайса' },
+      { id: 'costing-addons', label: 'Допы и замены', to: '/costing?tab=addon', section: 'costing', note: 'Опции, состав и вычет базовых материалов' },
+      { id: 'costing-packages', label: 'Пакеты опций', to: '/costing?tab=package', section: 'costing', note: 'Наборы допов и пакетные скидки' },
+    ],
+  },
   {
     id: 'sales',
     label: 'Продажи',
