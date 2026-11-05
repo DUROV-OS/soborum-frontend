@@ -14,6 +14,7 @@ import { PartnersPage } from '@/partners/pages/PartnersPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
+import { ProductionLibraryPage } from '@/production/pages/ProductionLibraryPage'
 import { StageTemplateReviewPage } from '@/production/pages/StageTemplateReviewPage'
 import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
 import { ProductionBlocksTab } from '@/production/components/ProductionBlocksTab'
@@ -80,6 +81,7 @@ export function AppRouter() {
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
+        <Route path="/production-library" element={<AccessGate section="production"><ProductionLibraryPage /></AccessGate>} />
         <Route path="/costing" element={<AccessGate section="estimates"><CostingPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />

@@ -73,8 +73,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     return section && canSee(id) ? [section] : []
   })
   if (salesManager) {
+    items = items.map(item => item.id === 'estimates' ? { ...item, path: '/costing?tab=estimates' } : item)
     const crm = SECTIONS.find(s => s.id === 'crm')!
     const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
+    const estimates = SECTIONS.find(s => s.id === 'estimates')!
+    if (hasAccess('estimates')) items.splice(3, 0, { ...estimates, label: 'Каталог и цены', path: '/costing?tab=catalog' })
     if (hasAccess('crm')) items.splice(4, 0,
       { ...crm, label: 'Команда', path: '/team' },
     )
@@ -110,10 +113,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </button>
             {opened && (
               <ul id={'workflow-' + group.id} className="ml-6 mt-1 space-y-0.5 border-l border-white/15 pl-2">
-                {group.entries.map((entry) => {
+                {group.entries.map((entry, index) => {
                   const active = context?.entry.id === entry.id
                   return (
                     <li key={entry.id}>
+                      {entry.category && group.entries[index - 1]?.category !== entry.category && <p className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-white/50">{entry.category}</p>}
                       <Link
                         to={entry.to}
                         onClick={onClose}
@@ -168,11 +172,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 >
                   <NavLink
                     to={section.path}
+                    aria-current={section.id === 'estimates' && (new URLSearchParams(search).get('tab') || 'estimates') !== new URLSearchParams(section.path.split('?')[1]).get('tab') ? false : 'page'}
                     end={section.path === '/feedback'}
                     onClick={onClose}
                     className={({ isActive }) =>
                       `group flex min-h-[52px] items-center gap-3.5 rounded-xl px-4 py-3 text-[14px] transition-colors ${
-                        (section.id === 'work' ? workActive : isActive)
+                        (section.id === 'work' ? workActive : isActive && (section.id !== 'estimates' || (new URLSearchParams(search).get('tab') || 'estimates') === new URLSearchParams(section.path.split('?')[1]).get('tab')))
                           ? 'bg-white font-medium text-sidebar'
                           : 'text-white/75 hover:bg-sidebar-accent hover:text-white'
                       }`

@@ -22,12 +22,13 @@ export type WorkEntry = {
   public?: boolean
   readOnly?: boolean
   signal?: boolean
+  category?: string
 }
 export type WorkGroup = { id: string; label: string; note: string; icon: LucideIcon; entries: WorkEntry[] }
 
 // One process tree for the sidebar, work hub and the current section's sub-menu.
 // Route/query values are UI state; module grants and API scopes remain unchanged.
-export const WORKFLOWS: WorkGroup[] = [
+const WORKFLOW_DEFINITIONS: WorkGroup[] = [
   {
     id: 'costing', label: 'Сметы и цены', icon: Calculator,
     note: 'Состав изделий, розничный прайс и версии клиентских предложений',
@@ -254,6 +255,9 @@ export const WORKFLOWS: WorkGroup[] = [
         signal: true,
         note: 'Этапы, материалы, задачи и готовность домов',
       },
+      { id: 'house-techcards', label: 'Техкарты домов', to: '/production-library?tab=cards', section: 'production', note: 'Черновики по моделям, нормы материалов и источники' },
+      { id: 'house-projects', label: 'Проекты АР и КР', to: '/production-library?tab=projects', section: 'production', note: 'Рабочие чертежи и редакции по каждому дому' },
+      { id: 'production-standards', label: 'ГОСТы и СП', to: '/production-library?tab=standards', section: 'production', note: 'Нормативные документы и официальный источник' },
       {
         id: 'recipes',
         label: 'Техкарты и выпуск',
@@ -432,6 +436,30 @@ export const WORKFLOWS: WorkGroup[] = [
   },
 ]
 
+// Customer documents and internal reference data belong to separate levels of
+// the same departmental menu. They keep their existing routes and API grants.
+const groupById = Object.fromEntries(WORKFLOW_DEFINITIONS.map(group => [group.id, group]))
+const withCategory = (entries: WorkEntry[], category: string) => entries.map(entry => ({ ...entry, category }))
+export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
+  .filter(group => !['costing', 'crm', 'goods'].includes(group.id))
+  .map(group => {
+    if (group.id === 'sales') return { ...group, entries: [
+      { ...groupById.crm.entries[0], label: 'CRM', to: '/crm', note: 'Сделки, обращения, контакты и компании', category: 'Работа с клиентами' },
+      ...withCategory(groupById.crm.entries.filter(entry => ['clients', 'client-cycle', 'partners'].includes(entry.id)), 'Работа с клиентами'),
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-estimates'), 'Документы для клиентов'),
+      ...withCategory(group.entries, 'Документы для клиентов'),
+      { id: 'commercial-catalog', label: 'Каталог и цены', to: '/costing?tab=catalog', section: 'estimates' as SectionId, note: 'Утверждённый розничный прайс и варианты для клиента', category: 'Справочники продаж' },
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id !== 'costing-estimates' && entry.id !== 'costing-help'), 'Каталог и цены · внутренние справочники'),
+      ...withCategory(groupById.company.entries.filter(entry => entry.id === 'house-models'), 'Каталог и цены · внутренние справочники'),
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-help'), 'Помощь'),
+    ] }
+    if (group.id === 'warehouse') return { ...group, entries: [...withCategory(group.entries, 'Складские операции'), ...withCategory(groupById.goods.entries, 'Справочники')] }
+    if (group.id === 'production') return { ...group, entries: group.entries.map(entry => ({ ...entry, category: ['house-techcards', 'house-projects', 'production-standards', 'recipes'].includes(entry.id) ? 'Внутренние справочники' : 'Рабочие документы' })).sort((a, b) => Number(a.category === 'Внутренние справочники') - Number(b.category === 'Внутренние справочники')) }
+    if (group.id === 'money') return { ...group, label: 'Бухгалтерия' }
+    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => entry.id !== 'house-models') }
+    return group
+  })
+
 export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): WorkGroup[] {
   return WORKFLOWS.map((g) => ({
     ...g,
@@ -448,6 +476,7 @@ export function workflowContext(pathname: string, search: string, groups: WorkGr
       '/warehouse': 'materials',
       '/crm': 'deal',
       '/accounting': 'register',
+      '/production-library': 'cards',
     }
     if (defaults[pathname]) query.set('tab', defaults[pathname])
   }
