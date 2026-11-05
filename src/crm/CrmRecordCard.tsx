@@ -9,6 +9,7 @@ import type { Catalog, Entry, History } from './api'
 import { CrmPhoneActions } from './CrmPhoneActions'
 import { CrmChatLinks } from '@/max/components/CrmChatLinks'
 import { crmSourceDateLabel } from './dates'
+import { ContextPanel } from '@/costing/ContextPanel'
 
 type Props = {
   entry: Entry
@@ -290,6 +291,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
       <div className="flex min-h-0 min-w-0 flex-1">
         <aside aria-label="Данные карточки" className={`${mobileTab === 'data' ? 'block' : 'hidden'} min-h-0 w-full shrink-0 overflow-y-auto overscroll-contain border-r border-border bg-surface md:block md:w-[360px]`}>
           <div className="space-y-5 p-5">
+            {record.kind === 'deal' && <ContextPanel kind="deal" id={record.id} />}
             <div className="flex flex-wrap gap-2">
               {canEdit && record.kind !== 'inquiry' && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onEdit(record)}><Pencil size={14} />Редактировать</Button>}
               {canEdit && record.kind === 'inquiry' && !record.data.accepted_deal_id && record.data.is_spam !== true && <Button size="sm" disabled={!actionable} onClick={() => onAccept(record)}>Взять в работу</Button>}

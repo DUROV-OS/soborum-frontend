@@ -15,7 +15,8 @@
     "test:today-workspaces": "node tests/today-workspaces.mjs",
     "test:warehouse-queue": "node tests/warehouse-queue.mjs",
     "test:margin-preview": "node tests/margin-preview.mjs",
-    "test:costing": "node tests/costing.mjs"
+    "test:costing": "node tests/costing.mjs",
+    "test:costing-integration": "node tests/costing-integration.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
