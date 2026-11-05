@@ -33,11 +33,12 @@ async function readStage(base: Record<string, string | number | undefined>, id: 
   return { total: first.total, items }
 }
 
-export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, dateFrom = '', dateTo = '', dateUnknown = false, spam = 'normal',
+export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, dateFrom = '', dateTo = '', dateUnknown = false, spam = 'normal', temperature = '',
   revision, canEdit, onPipeline, onOpen, onCreate, onTask, onAccept, onChanged, onList }: {
   catalog: Catalog; pipeline: string; stage: string; query: string; archive: string; owner: string; revision: number; canEdit: boolean
   dateFrom?: string; dateTo?: string; dateUnknown?: boolean
   spam?: api.SpamFilter
+  temperature?: string
   onPipeline: (id: string) => void; onOpen: (entry: Entry) => void; onCreate: (stage: Entry) => void
   onTask: (entry: Entry) => void; onChanged: () => void; onList: () => void
   onAccept: (entry: Entry, targetStage?: Entry, targetPipeline?: string) => void
@@ -67,13 +68,13 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     setSummary(null); setSummaryError(false)
     if (!pipeline) return
     const timer = window.setTimeout(() => {
-      api.kanbanSummary({ pipeline_id: Number(pipeline), query, archive, owner_id: owner === '' ? undefined : Number(owner), spam, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }).then(result => {
+      api.kanbanSummary({ pipeline_id: Number(pipeline), query, archive, owner_id: owner === '' ? undefined : Number(owner), spam, temperature: temperature || undefined, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }).then(result => {
         if (!Array.isArray(result.columns)) throw new Error('Неверный ответ сводки')
         if (!cancelled) setSummary(result)
       }).catch(() => { if (!cancelled) setSummaryError(true) })
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [pipeline, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, revision, reload])
+  }, [pipeline, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload])
 
   useEffect(() => {
     const run = ++generation.current
@@ -83,7 +84,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     if (!pipeline) return
     // Count and page each stage independently: a busy first column must not hide other stages.
     const timer = window.setTimeout(async () => {
-      const base = { query, archive, pipeline_id: Number(pipeline), owner_id: owner === '' ? undefined : Number(owner), spam, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }
+      const base = { query, archive, pipeline_id: Number(pipeline), owner_id: owner === '' ? undefined : Number(owner), spam, temperature: temperature || undefined, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }
       api.list('deal', { ...base, stage_id: stage ? Number(stage) : undefined, limit: 1 })
         .then(r => { if (!cancelled) setTotal(r.total) }).catch(() => {})
       const queue = [...stages]
@@ -104,7 +105,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     return () => { cancelled = true; window.clearTimeout(timer); generation.current++ }
     // Stage metadata changes do not discard a loaded page unless the IDs change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pipeline, stage, stageKey, newStage?.id, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, revision, reload])
+  }, [pipeline, stage, stageKey, newStage?.id, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload])
 
   const loadMore = async (id: number) => {
     const column = columns[id], run = generation.current, key = `${run}:${id}`
@@ -112,7 +113,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     pageLoads.current.add(key)
     setColumns(previous => ({ ...previous, [id]: { ...column, loading: true, error: '' } }))
     try {
-      const data = await readStage({ query, archive, owner_id: owner === '' ? undefined : Number(owner), pipeline_id: Number(pipeline), spam,
+      const data = await readStage({ query, archive, owner_id: owner === '' ? undefined : Number(owner), pipeline_id: Number(pipeline), spam, temperature: temperature || undefined,
         ...crmDateQuery(dateFrom, dateTo, dateUnknown) }, id, id === newStage?.id, column.offset)
       if (generation.current === run) setColumns(previous => ({ ...previous, [id]: {
         total: data.total, offset: column.offset + data.items.length, loading: false, error: '',
@@ -220,7 +221,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
             </div>
             <div className="max-h-[66vh] min-h-48 space-y-2 overflow-y-auto px-2 pb-3">
               {includesInbox && <CrmInboxColumn catalog={catalog} pipeline={pipeline} query={query} archive={archive} owner={owner}
-                dateFrom={dateFrom} dateTo={dateTo} dateUnknown={dateUnknown} spam={spam} dealEntries={column.items} dealsLoading={column.loading}
+                dateFrom={dateFrom} dateTo={dateTo} dateUnknown={dateUnknown} spam={spam} temperature={temperature} dealEntries={column.items} dealsLoading={column.loading}
                 renderDeal={entry => renderDeal(entry, s)} revision={revision + reload} canEdit={canEdit && busy === null}
                 onCount={setInboxCount} onOpen={onOpen} onAccept={entry => onAccept(entry)} onDragStart={entry => { dragged.current = entry }} onDragEnd={() => { dragged.current = null; setOver('') }} />}
               {!includesInbox && column.items.map(entry => renderDeal(entry, s))}

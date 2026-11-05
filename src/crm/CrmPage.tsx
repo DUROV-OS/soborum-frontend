@@ -23,6 +23,7 @@ import { TaskPriorityFilter } from '@/tasks/components/TaskPriorityFilter'
 import type { TaskPriority } from '@/tasks/types'
 import { CrmDateFilter, CrmDateSelection } from './CrmDateFilter'
 import { crmDateQuery, crmSourceDateLabel } from './dates'
+import { asObject, CrmAgencyFields, CrmCommercialFields, CrmCustomerFields, CrmReferralFields, TEMPERATURES } from './CrmSalesFields'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -72,6 +73,7 @@ export function CrmPage() {
   const [priority, setPriority] = useState<TaskPriority | ''>('')
   const [dates, setDates] = useState<CrmDateSelection>({ from: '', to: '', unknown: false })
   const [spam, setSpam] = useState<api.SpamFilter>('normal')
+  const [temperature, setTemperature] = useState('')
   const [offset, setOffset] = useState(0)
   const [result, setResult] = useState<{ total: number; items: Entry[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
@@ -96,6 +98,7 @@ export function CrmPage() {
     setPriority('')
     setDates({ from: '', to: '', unknown: false })
     setSpam('normal')
+    setTemperature('')
   }, [kind])
   useEffect(() => {
     if (isBoard) return
@@ -126,6 +129,7 @@ export function CrmPage() {
           priority: kind === 'task' && priority ? priority : undefined,
           ...(['deal', 'inquiry'].includes(kind) ? crmDateQuery(dates.from, dates.to, dates.unknown) : {}),
           spam: ['deal', 'inquiry'].includes(kind) ? spam : undefined,
+          temperature: ['deal', 'inquiry', 'contact'].includes(kind) && temperature ? temperature : undefined,
           pipeline_id: kind === 'deal' && pipeline ? Number(pipeline) : undefined,
           stage_id: kind === 'deal' && stage ? Number(stage) : undefined,
           offset,
@@ -144,7 +148,7 @@ export function CrmPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [kind, query, archive, owner, priority, dates, spam, pipeline, stage, offset, revision, isBoard])
+  }, [kind, query, archive, owner, priority, dates, spam, temperature, pipeline, stage, offset, revision, isBoard])
   const refreshHistory = (entry: Entry, offset = 0) =>
     api
       .history(entry.id, offset)
@@ -312,6 +316,9 @@ export function CrmPage() {
             </Select>
           </>
         )}
+        {['deal', 'inquiry', 'contact'].includes(kind) && <Select aria-label="Фильтр температуры" className="sm:max-w-52" value={temperature} onChange={event => { setTemperature(event.target.value); setOffset(0) }}>
+          <option value="">Любая температура</option>{TEMPERATURES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}<option value="unknown">Не указана</option>
+        </Select>}
         <Select
           aria-label="Архив продаж"
           className="sm:max-w-44"
@@ -336,7 +343,7 @@ export function CrmPage() {
         </p>
       )}
       {isBoard ? <CrmBoard catalog={catalog} pipeline={boardPipeline} stage={stage} query={query} archive={archive} owner={owner}
-        dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} spam={spam}
+        dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} spam={spam} temperature={temperature}
         revision={revision} canEdit={canEdit} onPipeline={id => { setPipeline(id); setStage('') }} onOpen={open}
         onCreate={target => setEditing({ kind: 'deal', initialData: { pipeline_id: target.data.pipeline_id, stage_id: target.id, amount: 0, currency: 'RUB' } })}
         onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <>{kind === 'task' ? <CrmTasksTable
@@ -643,7 +650,27 @@ function Editor({
   const [error, setError] = useState('')
   const [contactQuery, setContactQuery] = useState('')
   const [contacts, setContacts] = useState<Entry[]>([])
+  const [linkedContacts, setLinkedContacts] = useState<Entry[]>([])
+  const isAgency = kind === 'deal' && catalog.pipelines.find(item => item.id === data.pipeline_id)?.data.purpose === 'agency'
+  const linkedKey = Array.isArray(data.contact_ids) ? data.contact_ids.join(',') : ''
+  const invalidReferral = data.referral != null && !Number(asObject(data.referral).agent_contact_id)
+  const missingChildDate = Array.isArray(asObject(data.customer).children_birth_dates) && (asObject(data.customer).children_birth_dates as string[]).some(value => !value)
   const put = (key: string, value: unknown) => setData((d) => ({ ...d, [key]: value }))
+  useEffect(() => {
+    let current = true
+    const ids = linkedKey ? linkedKey.split(',').map(Number) : []
+    setLinkedContacts([])
+    const queue = [...ids], found: Entry[] = []
+    void Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length && current) {
+        const id = queue.shift()!
+        const entry = await apiRequest<Entry>({ section: 'crm', path: `/entries/${id}` })
+        if (entry.kind === 'contact') found.push(entry)
+      }
+    })).then(() => { if (current) setLinkedContacts(ids.flatMap(id => found.filter(item => item.id === id))) })
+      .catch(error => { if (current) setError(error instanceof Error ? error.message : 'Не удалось загрузить контакты') })
+    return () => { current = false }
+  }, [linkedKey])
   useEffect(() => {
     if (kind !== 'deal' || !contactQuery.trim()) {
       setContacts([])
@@ -689,7 +716,7 @@ function Editor({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button disabled={busy || !name.trim()} onClick={save}>
+          <Button disabled={busy || !name.trim() || invalidReferral || missingChildDate} onClick={save}>
             {busy ? 'Сохранение…' : 'Сохранить'}
           </Button>
         </>
@@ -713,6 +740,8 @@ function Editor({
             </Field>
           </>
         )}
+        {['contact', 'inquiry'].includes(kind) && <CrmCustomerFields value={data.customer} onChange={value => put('customer', value)} />}
+        {missingChildDate && <p role="alert" className="text-sm text-danger">Заполните добавленные даты рождения детей или уберите пустые строки.</p>}
         {['deal', 'stage'].includes(kind) && (
           <Field label="Воронка" required>
             <Select
@@ -789,7 +818,7 @@ function Editor({
                 key={c.id}
                 className="block w-full rounded-lg border border-border p-2 text-left text-sm"
                 onClick={() => {
-                  put('contact_ids', [c.id])
+                  setData(previous => ({ ...previous, contact_ids: [...new Set([...(Array.isArray(previous.contact_ids) ? previous.contact_ids : []), c.id])] }))
                   setContactQuery(c.name)
                   setContacts([])
                 }}
@@ -801,8 +830,13 @@ function Editor({
             {Array.isArray(data.contact_ids) && data.contact_ids.length > 0 && (
               <p className="text-xs text-muted">Привязано контактов: {data.contact_ids.length}</p>
             )}
+            {!isAgency && linkedContacts.length > 0 && <Field label="Основной контакт сделки"><Select value={String(data.primary_contact_id || linkedContacts[0]?.id || '')} onChange={event => put('primary_contact_id', Number(event.target.value))}>
+              {linkedContacts.map(contact => <option key={contact.id} value={contact.id}>{contact.name}{contact.data.phone ? ` · ${String(contact.data.phone)}` : ''}</option>)}
+            </Select></Field>}
+            {isAgency ? <CrmAgencyFields value={data.agency_profile} contacts={linkedContacts} onChange={value => put('agency_profile', value)} /> : <CrmCommercialFields data={data} put={put} />}
           </>
         )}
+        {['contact', 'deal', 'inquiry'].includes(kind) && !isAgency && <CrmReferralFields value={data.referral} onChange={value => put('referral', value)} />}
         {kind === 'task' && (
           <>
             <Field label="Описание задачи"><Textarea aria-label="Описание задачи" value={String(data.description??'')} onChange={e=>put('description',e.target.value)}/></Field>

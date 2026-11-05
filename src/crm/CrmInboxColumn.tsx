@@ -12,7 +12,7 @@ const text = (value: unknown) => typeof value === 'string' ? value.trim() : ''
 const title = (entry: Entry) => text(entry.data.contact_name) || text(entry.data.phone) || text(entry.data.email) || entry.name || `Заявка #${entry.id}`
 
 /** Inbox cards retain their inquiry identity and do not imply acceptance or create deals. */
-export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateFrom = '', dateTo = '', dateUnknown = false, spam = 'normal',
+export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateFrom = '', dateTo = '', dateUnknown = false, spam = 'normal', temperature = '',
   revision, canEdit, onOpen, onAccept, onCount, onDragStart, onDragEnd, dealEntries = [], dealsLoading = false, renderDeal }: {
   catalog: Catalog
   pipeline: string
@@ -23,6 +23,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
   dateTo?: string
   dateUnknown?: boolean
   spam?: api.SpamFilter
+  temperature?: string
   dealEntries?: Entry[]
   dealsLoading?: boolean
   renderDeal?: (entry: Entry) => ReactNode
@@ -49,7 +50,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
     setLimits({})
     const timer = window.setTimeout(async () => {
       try {
-        const filters = { query, archive, owner_id: owner === '' ? undefined : Number(owner), spam, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }
+        const filters = { query, archive, owner_id: owner === '' ? undefined : Number(owner), spam, temperature: temperature || undefined, ...crmDateQuery(dateFrom, dateTo, dateUnknown) }
         const first = await api.list('inquiry', { ...filters, limit: FETCH_SIZE, offset: 0 })
         if (cancelled) return
         const byId = new Map(first.items.map(entry => [entry.id, entry]))
@@ -82,7 +83,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
       }
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [query, archive, owner, dateFrom, dateTo, dateUnknown, spam, revision, reload])
+  }, [query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload])
 
   const defaultPipeline = catalog.pipelines.find(item => item.name.trim().toLocaleLowerCase('ru-RU') === 'допродажная воронка')?.id ?? catalog.pipelines[0]?.id
   // Website intake may have no assigned funnel yet; display it at the agreed entry point without marking it processed.

@@ -24,7 +24,7 @@ export type Catalog = {
 }
 export type History = {
   total: number
-  items: { id: string; created_at: string; text: string; source: string; details: Record<string, unknown> }[]
+  items: { id: string; created_at: string; text: string; source: string; details: Record<string, unknown>; source_record_id?: number }[]
 }
 export const catalog = () => apiRequest<Catalog>({ section: 'crm', path: '/catalog' })
 export type KanbanSummary = { columns: { pipeline_id: number; stage_id: number; count: number; amounts: Record<string, number>; unpriced_count: number }[]; unmapped_count: number }

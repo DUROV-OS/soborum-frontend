@@ -66,6 +66,8 @@ async function setup({ mobile = false, level = 'full', selected = 101, malformed
         body = { total: items.length, items: items.slice(offset, offset + limit) }
       } else if (path === '/api/notifications/unread-count') body = { unread_count: 0 }
       else if (path === '/api/crm/attention') body = { total: 0, items: [], counts: {}, settings: { response_hours: 24, idle_days: 3 } }
+      else if (path === '/api/costing/context') body = { estimates: [], templates: [], links: [], order_lines: null, can_import_recipe: false }
+      else if (path === '/api/crm/agency-sources') body = { total: 0, items: [], configured: false }
     }
     if (/\/history$/.test(path) && url.searchParams.get('offset') === '2' && state.delayHistory) {
       const delay = state.delayHistory; state.delayHistory = 0
