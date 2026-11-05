@@ -9,6 +9,7 @@ import { ConfirmationBadge } from '../components/ConfirmationBadge'
 import { PlanningImage } from '../components/PlanningImage'
 import { HouseModelDetail } from '../types'
 import { ContextPanel } from '@/costing/ContextPanel'
+import { HouseConnections } from '@/costing/CatalogConnections'
 
 function Section({ title, content }: { title: string; content: string | null }) {
   return (
@@ -77,6 +78,7 @@ export function HouseModelDetailPage() {
           </div>
 
           <Section title="Характеристики" content={model.characteristics_md} />
+          <HouseConnections modelKey={key} />
           <ContextPanel kind="model" id={key} />
 
           <section className="rounded-xl border border-border bg-surface p-4">

@@ -469,6 +469,10 @@ export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): Wo
 
 export function workflowContext(pathname: string, search: string, groups: WorkGroup[] = WORKFLOWS) {
   const query = new URLSearchParams(search)
+  if (pathname.startsWith('/costing/catalog/') || pathname.startsWith('/costing/models/')) {
+    pathname = '/costing'
+    query.set('tab', 'catalog')
+  }
   if (!query.has('tab')) {
     const defaults: Record<string, string> = {
       '/sales': query.has('shipment') ? 'shipments' : 'orders',

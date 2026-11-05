@@ -34,6 +34,7 @@ import { RecipesPage } from '@/moysklad/RecipesPage'
 import { PurchasingPage } from '@/purchasing/PurchasingPage'
 import { SalesPage } from '@/sales/SalesPage'
 import { CostingPage } from '@/costing/CostingPage'
+import { CatalogDetailPage } from '@/costing/CatalogDetailPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
@@ -83,6 +84,8 @@ export function AppRouter() {
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
         <Route path="/production-library" element={<AccessGate section="production"><ProductionLibraryPage /></AccessGate>} />
         <Route path="/costing" element={<AccessGate section="estimates"><CostingPage /></AccessGate>} />
+        <Route path="/costing/catalog/:itemId" element={<AccessGate section="estimates"><CatalogDetailPage /></AccessGate>} />
+        <Route path="/costing/models/:modelKey" element={<AccessGate section="estimates"><CatalogDetailPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />
         <Route path="/moysklad" element={<AccessGate section="moysklad"><MoyskladPage /></AccessGate>} />
