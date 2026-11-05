@@ -726,8 +726,9 @@ function Editor({
         <Field label="Название" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        {['contact', 'company'].includes(kind) && (
+        {['contact', 'company', 'inquiry'].includes(kind) && (
           <>
+            {kind === 'inquiry' && <Field label="Контакт заявки"><Input value={String(data.contact_name ?? '')} onChange={event => put('contact_name', event.target.value)} /></Field>}
             <Field label="Телефон">
               <Input value={String(data.phone ?? '')} onChange={(e) => put('phone', e.target.value)} />
             </Field>

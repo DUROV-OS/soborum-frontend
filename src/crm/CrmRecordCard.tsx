@@ -70,6 +70,13 @@ const eventKind = (event: Event): EventKind => {
   return 'notes'
 }
 const dedupe = <T,>(values: T[], key: (item: T) => string | number) => Array.from(new Map(values.map(item => [key(item), item])).values())
+function agencyRoles(data: Record<string, unknown>, contactId: number) {
+  const members = asObject(data.agency_profile).members
+  const labels: Record<string, string> = { owner: 'Собственник компании', decision_maker: 'ЛПР', marketer: 'Маркетолог', agent: 'Агент' }
+  if (!Array.isArray(members)) return ''
+  const roles = asObject(members.find(member => asObject(member).contact_id === contactId)).roles
+  return Array.isArray(roles) ? roles.map(role => labels[String(role)] || '').filter(Boolean).join(' · ') : ''
+}
 
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return <div className="grid min-w-0 grid-cols-[110px_minmax(0,1fr)] gap-3 py-2 text-[13px]"><dt className="text-muted">{label}</dt><dd className="min-w-0 whitespace-pre-wrap break-words text-ink">{children}</dd></div>
@@ -295,7 +302,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
           <div className="space-y-5 p-5">
             {record.kind === 'deal' && <ContextPanel kind="deal" id={record.id} />}
             <div className="flex flex-wrap gap-2">
-              {canEdit && record.kind !== 'inquiry' && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onEdit(record)}><Pencil size={14} />Редактировать</Button>}
+              {canEdit && (record.kind !== 'inquiry' || !record.data.accepted_deal_id) && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onEdit(record)}><Pencil size={14} />Редактировать</Button>}
               {canEdit && record.kind === 'inquiry' && !record.data.accepted_deal_id && record.data.is_spam !== true && <Button size="sm" disabled={!actionable} onClick={() => onAccept(record)}>Взять в работу</Button>}
               {canEdit && record.kind === 'inquiry' && !record.data.accepted_deal_id && !record.archived && <Button size="sm" variant="secondary" disabled={!actionable}
                 onClick={() => void mutate('spam', () => api.patch(record, { data: { is_spam: record.data.is_spam !== true } }))}>
@@ -318,7 +325,8 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
             </section>}
             {(record.kind === 'contact' || record.kind === 'company' || (record.kind === 'inquiry' && !inquiryContactCovered)) && <section className="space-y-3 border-t border-border pt-4"><h3 className="flex items-center gap-2 text-[13px] font-semibold"><UserRound size={16} />{record.kind === 'inquiry' ? String(record.data.contact_name || 'Контакт заявки') : kindLabels[record.kind]}</h3><ContactLinks data={record.data} name={String(record.data.contact_name || record.name)} canMessage={canEdit && !record.archived} />{record.kind !== 'inquiry' && <dl><Detail label="Ответственный">{readableField('responsible_user_id', record.data.responsible_user_id, catalog, related)}</Detail></dl>}</section>}
             {['contact', 'company'].includes(record.kind) && <div className="border-t border-border pt-4"><CrmChatLinks entryId={record.id} canEdit={canEdit && !record.archived} /></div>}
-            {related.filter(item => ['contact', 'company'].includes(item.kind)).map(item => <section key={item.id} className="space-y-3 border-t border-border pt-4"><div className="flex items-start gap-2">{item.kind === 'company' ? <Building2 size={16} className="mt-0.5 shrink-0 text-muted" /> : <UserRound size={16} className="mt-0.5 shrink-0 text-muted" />}<div className="min-w-0"><p className="text-[11px] uppercase tracking-wide text-muted">{kindLabels[item.kind]}</p><button className="break-words text-left text-[14px] font-medium text-brand hover:underline" onClick={() => onOpen(item)}>{item.name}</button></div>{canEdit && !item.archived && <button aria-label={`Редактировать ${item.name}`} className="ml-auto shrink-0 rounded p-1 text-muted hover:bg-surface-muted" disabled={loading || !!busy} onClick={() => onEdit(item)}><Pencil size={14} /></button>}</div><ContactLinks data={item.data} name={item.name} canMessage={canEdit && !record.archived && !item.archived} /><CrmSalesDetails data={item.data} customerOnly /><CustomFields value={item.data.custom_fields} /></section>)}
+            {related.filter(item => ['contact', 'company'].includes(item.kind)).map(item => <section key={item.id} className="space-y-3 border-t border-border pt-4"><div className="flex items-start gap-2">{item.kind === 'company' ? <Building2 size={16} className="mt-0.5 shrink-0 text-muted" /> : <UserRound size={16} className="mt-0.5 shrink-0 text-muted" />}<div className="min-w-0"><p className="text-[11px] uppercase tracking-wide text-muted">{agencyRoles(record.data, item.id) || kindLabels[item.kind]}</p><button className="break-words text-left text-[14px] font-medium text-brand hover:underline" onClick={() => onOpen(item)}>{item.name}</button></div>{canEdit && !item.archived && <button aria-label={`Редактировать ${item.name}`} className="ml-auto shrink-0 rounded p-1 text-muted hover:bg-surface-muted" disabled={loading || !!busy} onClick={() => onEdit(item)}><Pencil size={14} /></button>}</div><ContactLinks data={item.data} name={item.name} canMessage={canEdit && !record.archived && !item.archived} /><CrmSalesDetails data={item.data} customerOnly /><CustomFields value={item.data.custom_fields} /></section>)}
+            {record.kind === 'inquiry' && commercial && <CrmSalesDetails data={record.data} customerOnly />}
             <CrmSalesDetails data={(commercial || record).data} />
             {Array.isArray((commercial || record).data.custom_fields) && ((commercial || record).data.custom_fields as unknown[]).length > 0 && <section className="border-t border-border pt-4"><h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">Дополнительные поля</h3><CustomFields value={(commercial || record).data.custom_fields} /></section>}
             {record.kind === 'task' && <dl className="border-t border-border pt-4">{['task_type', 'due_at', 'description', 'completed', 'result'].filter(key => record.data[key] != null).map(key => <Detail key={key} label={fieldLabels[key]}>{readableField(key, record.data[key], catalog, related)}</Detail>)}</dl>}

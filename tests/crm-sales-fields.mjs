@@ -22,6 +22,7 @@ async function setup({ selected = 101, role = 'worker', eligible = true, mobile 
   const records = new Map([
     entry(101, 'contact', 'Клиент для проверки', { phone: '+79000000111', email: 'test@example.invalid', customer, custom_fields: [] }),
     entry(201, 'deal', 'Дом для проверки', { pipeline_id: 1, stage_id: 10, amount: 4500000, currency: 'RUB', contact_ids: [101], needs: { extras: [] } }),
+    entry(301, 'inquiry', 'Новая заявка для проверки', { contact_name: 'Проверочный контакт', phone: '+79000000301', source_name: 'Исходный сайт', customer: { city: 'Тамбов' } }),
     entry(801, 'deal', 'АН Первое', { pipeline_id: 32, stage_id: 9782, contact_ids: Array.from({ length: 13 }, (_, i) => 901 + i), agency_profile: { members: [] } }),
     ...Array.from({ length: 13 }, (_, i) => entry(901 + i, 'contact', `Сотрудник ${i + 1}`, { phone: '+7900000' + String(i + 1).padStart(4, '0') })),
     entry(950, 'contact', 'Новый связанный контакт', { phone: '+79000000950' }),
@@ -148,6 +149,8 @@ try {
   assert.equal(agencyData.agency_profile.members.filter(item => item.roles.includes('agent')).length, 10)
   assert.equal(agencyData.contact_ids.length, 14)
   assert.equal(agencyData.stage_id, 9782)
+  await t.page.getByRole('dialog', { name: 'АН Первое', exact: true }).getByText('Собственник компании', { exact: true }).waitFor()
+  await t.page.getByRole('dialog', { name: 'АН Первое', exact: true }).getByText('ЛПР', { exact: true }).waitFor()
   assert.ok(!t.reads.some(request => request.method !== 'GET' && /\/users/.test(request.path)))
   assert.equal(t.errors.length, 0)
   report.checks.push('Owner, decision maker, marketer and ten external agents; appending a contact keeps all old links and business stage')
@@ -168,6 +171,21 @@ try {
   assert.ok(t.reads.some(request => request.path === '/api/crm/entries' && request.query.kind === 'deal' && request.query.temperature === 'hot'))
   assert.equal(t.errors.length, 0)
   report.checks.push('Same temperature reaches list, kanban, inbox and column summaries')
+  await t.context.close()
+
+  t = await setup({ selected: 301 }); dialog = await editor(t)
+  await dialog.getByLabel('Контакт заявки', { exact: true }).fill('Контакт после уточнения')
+  await dialog.getByLabel('Телефон №2', { exact: true }).fill('+79000000302')
+  await dialog.getByLabel('Город', { exact: true }).fill('Воронеж')
+  await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await dialog.waitFor({ state: 'detached' })
+  assert.equal(t.writes.length, 1)
+  assert.equal(t.writes[0].path, '/api/crm/entries/301')
+  assert.equal(t.writes[0].input.data.source_name, 'Исходный сайт')
+  assert.equal(t.writes[0].input.data.customer.city, 'Воронеж')
+  assert.ok(!t.writes[0].input.data.accepted_deal_id)
+  assert.equal(t.errors.length, 0)
+  report.checks.push('Unaccepted inquiry can be edited in place without acceptance, stage movement or source replacement')
   await t.context.close()
   report.ok = true
 } catch (error) {
