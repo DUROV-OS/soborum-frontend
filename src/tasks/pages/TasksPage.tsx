@@ -93,7 +93,7 @@ function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
 }
 
 /** Если ответственный явно не проставлен, но у задачи ровно один исполнитель —
- * он же считается ответственным (правило Арсения). */
+ * он же считается ответственным (правило Разработчика). */
 function isResponsibleFor(task: Task, id: number): boolean {
   if (task.responsible) return task.responsible.id === id
   return task.assignees.length === 1 && task.assignees[0].id === id
