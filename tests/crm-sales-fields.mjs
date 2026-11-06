@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
-const base = 'http://127.0.0.1:4197'
+const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:4197'
 const browser = await chromium.launch({ headless: true })
 const report = { ok: false, synthetic_api: true, production_requests: 0, checks: [] }
 const entry = (id, kind, name, data = {}) => ({ id, kind, name, data, version: 1, archived: false, updated_at: '2026-11-05T10:00:00Z' })
@@ -46,6 +46,10 @@ async function setup({ selected = 101, role = 'worker', eligible = true, mobile 
     } else if (method !== 'GET') { status = 400; body = { detail: 'Запись запрещена в синтетической проверке' } }
     else if (path === '/api/auth/me') body = { id: 6, full_name: 'Тестовый менеджер', role, job_role: 'manager', is_active: true, access_profile: role === 'admin' ? null : 'sales_manager', module_access: { clients: 'full', tasks: 'edit' } }
     else if (path === '/api/crm/catalog') body = { pipelines, stages, users: [{ id: 6, name: 'Тестовый менеджер' }], counts: {} }
+    else if (/^\/api\/crm\/agencies\/\d+\/logo$/.test(path)) {
+      const row = records.get(Number(path.split('/')[4]))
+      body = { agency_id: row.id, version: row.version, logo: null }
+    }
     else if (path === '/api/crm/agency-sources') body = { total: sources.length, items: sources, configured: true }
     else if (path === '/api/crm/entries') {
       const p = url.searchParams

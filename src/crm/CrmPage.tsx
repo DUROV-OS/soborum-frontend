@@ -420,7 +420,7 @@ export function CrmPage() {
       </div>
       </>}
       {selected && ['deal', 'inquiry', 'contact', 'company'].includes(selected.kind) && <CrmRecordCard
-        key={`${selected.id}:${selected.version}`} entry={selected} catalog={catalog} canEdit={canEdit} canFull={canFull}
+        key={selected.id} entry={selected} catalog={catalog} canEdit={canEdit} canFull={canFull}
         onClose={() => setSelected(null)} onOpen={open}
         onEdit={entry => setEditing({ entry, kind: entry.kind })}
         onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry}

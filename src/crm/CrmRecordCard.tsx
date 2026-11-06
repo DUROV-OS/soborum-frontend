@@ -12,6 +12,7 @@ import { crmSourceDateLabel } from './dates'
 import { ContextPanel } from '@/costing/ContextPanel'
 import { asObject, CrmSalesDetails } from './CrmSalesFields'
 import { CrmImportReview } from './CrmImportReview'
+import { CrmAgencyLogo } from './CrmAgencyLogo'
 
 type Props = {
   entry: Entry
@@ -300,6 +301,10 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
       <div className="flex min-h-0 min-w-0 flex-1">
         <aside aria-label="Данные карточки" className={`${mobileTab === 'data' ? 'block' : 'hidden'} min-h-0 w-full shrink-0 overflow-y-auto overscroll-contain border-r border-border bg-surface md:block md:w-[360px]`}>
           <div className="space-y-5 p-5">
+            {record.kind === 'deal' && catalog.pipelines.some(item => item.id === Number(record.data.pipeline_id) && item.data.purpose === 'agency') &&
+              <CrmAgencyLogo key={record.id} entry={record} canEdit={canEdit} canFull={canFull} disabled={loading || !!busy} stageChanged={stageChanged}
+                onBusy={value => setBusy(value ? 'logo' : '')} onReload={() => setRevision(value => value + 1)}
+                onChanged={updated => { setRecord(updated); onChanged(updated); setRevision(value => value + 1) }} />}
             {record.kind === 'deal' && <ContextPanel kind="deal" id={record.id} />}
             <div className="flex flex-wrap gap-2">
               {canEdit && (record.kind !== 'inquiry' || !record.data.accepted_deal_id) && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onEdit(record)}><Pencil size={14} />Редактировать</Button>}
