@@ -65,12 +65,12 @@ export const updateStockDocument = (row: StockDocument, note: string, lines: Doc
     method: 'PATCH',
     body: { version: row.version, note, lines },
   })
-export const postStockDocument = (row: StockDocument, request_id: string) =>
+export const postStockDocument = (row: StockDocument, request_id: string, act_id?: number) =>
   apiRequest<StockDocument>({
     section: 'warehouse',
     path: `/documents/${row.id}/post`,
     method: 'POST',
-    body: { version: row.version, request_id },
+    body: { version: row.version, request_id, ...(row.kind==='inventory'?{act_id,confirmed:true}:{}) },
   })
 export const recountStockDocument = (row: StockDocument) =>
   apiRequest<StockDocument>({

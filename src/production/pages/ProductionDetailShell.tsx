@@ -1,3 +1,4 @@
+import { LegacyIssueReconciliation } from '@/warehouse/LegacyIssueReconciliation'
 import { WarehouseHandoff } from '@/warehouse/WarehouseControl'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
@@ -87,6 +88,7 @@ export function ProductionDetailShell() {
       {deleteError && <p className="mb-3 text-[12px] text-danger">{deleteError}</p>}
 
       <WarehouseHandoff productionId={productionId} />
+      <LegacyIssueReconciliation productionId={productionId} />
       <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist">
         {TABS.map((tab) => (
           <NavLink

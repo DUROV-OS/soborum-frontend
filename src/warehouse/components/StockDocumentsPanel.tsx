@@ -1,3 +1,4 @@
+import { InventoryEvidence } from '../InventoryEvidence'
 import { useCallback, useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Button } from '@/shared/ui/Button'
@@ -467,6 +468,7 @@ function DocumentDetail({
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState<'post' | 'recount' | 'archive' | null>(null)
+  const [actId,setActId]=useState<number|null>(null)
   const [postKey, setPostKey] = useState(() => crypto.randomUUID())
   const editable = canEdit && !row.archived && row.status === 'draft'
   const dirty = note !== row.note || values.some((v, i) => v !== (row.lines[i].quantity ?? ''))
@@ -493,7 +495,7 @@ function DocumentDetail({
   }
   async function post() {
     await run(async () => {
-      const next = await api.postStockDocument(row, postKey)
+      const next = await api.postStockDocument(row, postKey, actId??undefined)
       await useWarehouseStore.getState().load()
       useWarehouseStore.setState((s) => ({ operationsVersion: s.operationsVersion + 1 }))
       return next
@@ -536,7 +538,7 @@ function DocumentDetail({
           )}
           {editable && (row.kind === 'transfer' || canFull) && (
             <Button
-              disabled={busy || dirty || !note.trim() || row.lines.some((l) => l.quantity == null)}
+              disabled={busy || dirty || !note.trim() || row.lines.some((l) => l.quantity == null) || (row.kind==='inventory'&&!actId)}
               onClick={() => setConfirm('post')}
             >
               Провести
@@ -638,6 +640,7 @@ function DocumentDetail({
         </div>
         <LinePager count={row.lines.length} page={page} onChange={setPage} />
         {dirty && <p className="text-sm text-muted">Перед проведением сохраните изменения.</p>}
+        {row.kind==='inventory'&&<InventoryEvidence row={row} canEdit={canEdit} disabled={busy||dirty} onReady={id=>{if(actId!==id){setActId(id);setPostKey(crypto.randomUUID())}}}/>}
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -662,7 +665,7 @@ function DocumentDetail({
           <div className="rounded-md border border-border bg-surface-muted p-3 text-sm">
             <p>
               {confirm === 'post'
-                ? 'Провести документ? Остатки изменятся, строки станут недоступны для правки.'
+                ? row.kind==='inventory'?'Подтверждаете, что акт и все фактические количества проверены? Проведение исправит остатки на указанную разницу.':'Провести документ? Остатки изменятся, строки станут недоступны для правки.'
                 : confirm === 'recount'
                   ? 'Переснять текущие учётные остатки? Все введённые фактические количества будут очищены для повторного пересчёта.'
                   : row.archived
