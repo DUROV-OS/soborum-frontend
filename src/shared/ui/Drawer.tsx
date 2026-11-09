@@ -10,6 +10,7 @@ export function Drawer({
   children,
   width = 'max-w-xl',
   bodyClassName = 'flex-1 overflow-y-auto px-6 py-5',
+  modal = true,
 }: {
   open: boolean
   onClose: () => void
@@ -18,6 +19,7 @@ export function Drawer({
   children: ReactNode
   width?: string
   bodyClassName?: string
+  modal?: boolean
 }) {
   const dialogRef = useDialogFocus(open, onClose)
   if (!open) return null
@@ -28,7 +30,7 @@ export function Drawer({
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
-        aria-modal
+        aria-modal={modal}
         aria-label={title}
         className={`flex h-full w-full ${width} flex-col bg-surface shadow-xl`}
       >

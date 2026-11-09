@@ -9,6 +9,7 @@ import { Topbar } from './Topbar'
 import { WorkflowBar } from './WorkflowBar'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
+import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -23,7 +24,7 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
-    <div className="flex h-dvh w-full">
+    <BrowserPhoneProvider><div className="flex h-dvh w-full">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
@@ -41,6 +42,6 @@ export function AppShell() {
       </div>
       {!salesManager && <MeetingPanel />}
       {!salesManager && <NotificationToasts />}
-    </div>
+    </div></BrowserPhoneProvider>
   )
 }

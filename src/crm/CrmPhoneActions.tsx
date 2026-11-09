@@ -29,8 +29,8 @@ function maxError(error: unknown, sending = false) {
 }
 
 /** Opening the menu never calls, creates a contact or sends a message. */
-export function CrmPhoneActions({ phone, name, canMessage = true, className = '', onMax }: {
-  phone: string; name: string; canMessage?: boolean; className?: string; onMax?: () => void
+export function CrmPhoneActions({ phone, name, canMessage = true, className = '', onMax, onCall }: {
+  phone: string; name: string; canMessage?: boolean; className?: string; onMax?: () => void; onCall?: (phone: string) => void
 }) {
   const manager = useAuthStore(state => state.current?.job_role === 'manager')
   const normalized = crmPhoneNumber(phone)
@@ -135,7 +135,7 @@ export function CrmPhoneActions({ phone, name, canMessage = true, className = ''
               if (onMax) { close(); onMax() } else { setMode('max'); setError(''); setNotice('') }
             }}><MessageCircle size={16} />Написать в MAX</Button>}
             <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { setMode('telegram'); setError(''); setNotice('') }}><MessageCircle size={16} />Написать в Telegram</Button>
-            <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { setMode('call'); setError(''); setNotice('') }}><Phone size={16} />Позвонить</Button>
+            <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { if (onCall) { close(); onCall(normalized!) } else { setMode('call'); setError(''); setNotice('') } }}><Phone size={16} />Позвонить</Button>
           </div>
           <p className="text-xs text-muted">Для Telegram используется общий корпоративный аккаунт.</p>
           {manager && !onMax && <p className="text-xs text-muted">Чтобы написать в MAX, откройте карточку клиента → «Связь с клиентом» → MAX.</p>}

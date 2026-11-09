@@ -15,6 +15,7 @@ type Call = {
 }
 const time = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const states: Record<string, string> = {
+  in_progress: 'Звонок выполняется', local_recording: 'Сохраняем запись разговора', no_recording: 'Запись отсутствует',
   waiting_recording: 'Ожидаем запись от МегаФона', queued: 'В очереди на расшифровку',
   processing: 'Распознаём и анализируем', ready: 'Текст и анализ готовы', error: 'Нужна проверка обработки',
 }
@@ -120,6 +121,7 @@ function CallItem({ call, canEdit, clientId, entityId, isDeal, refresh }: {
       <span className="font-medium">{call.direction === 'out' ? 'Исходящий' : 'Входящий'} · {call.phone}</span>
       <span className="block text-sm text-muted">{call.started_at ? new Date(call.started_at).toLocaleString('ru-RU') : 'Время уточняется'} · {time(call.duration)} · {states[call.processing] ?? call.processing}</span>
       {call.reviewed_at && <span className="text-sm">Проверено {new Date(call.reviewed_at).toLocaleString('ru-RU')}</span>}
+      {call.analysis.summary && <span className="mt-2 block text-sm text-ink">{call.analysis.summary}</span>}
     </summary>
     <div className="mt-3 space-y-3">
       {error && <p role="alert" className="text-danger">{error}</p>}
