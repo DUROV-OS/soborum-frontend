@@ -19,6 +19,7 @@ import { CreateMovementModal } from '../components/CreateMovementModal'
 import { MoneySummaryTiles } from '../components/MoneySummaryTiles'
 import { OverviewTab } from '../components/OverviewTab'
 import { EvidenceWorkspace } from '../components/EvidenceWorkspace'
+import { ActualCostsWorkspace } from '../components/ActualCostsWorkspace'
 import { ImportStatementModal } from '../components/ImportStatementModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
 import { SalaryTab } from './SalaryTab'
@@ -143,7 +144,7 @@ export function AccountingPage() {
   })
   // Вкладки: сводка по обеим организациям, затем вкладка на каждое юрлицо
   // (реестр её счёта), затем прежняя вкладка «Сотрудники» (0081-b).
-  const [tab, setTab] = useQueryChoice('tab', ['review', 'overview', 'register', 'counterparties', 'salary'], 'review')
+  const [tab, setTab] = useQueryChoice('tab', ['review', 'costs', 'overview', 'register', 'counterparties', 'salary'], 'review')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [customRangeOpen, setCustomRangeOpen] = useState(
@@ -314,6 +315,7 @@ export function AccountingPage() {
         <Tabs
           tabs={[
             { key: 'review', label: 'Рабочий обзор' },
+            { key: 'costs', label: 'Затраты проектов' },
             { key: 'overview', label: 'Сводка' },
             ...organizations.map((org) => ({ key: `org-${org.id}`, label: org.short_name })),
             { key: 'counterparties', label: 'Контрагенты' },
@@ -321,7 +323,7 @@ export function AccountingPage() {
           ]}
           activeKey={tab === 'register' ? `org-${selectedOrganizationId}` : tab}
           onChange={(key) => {
-            if (key === 'review' || key === 'overview' || key === 'salary' || key === 'counterparties') {
+            if (key === 'review' || key === 'costs' || key === 'overview' || key === 'salary' || key === 'counterparties') {
               setTab(key)
               return
             }
@@ -333,6 +335,8 @@ export function AccountingPage() {
 
       {tab === 'review' ? (
         <EvidenceWorkspace />
+      ) : tab === 'costs' ? (
+        <ActualCostsWorkspace />
       ) : tab === 'overview' ? (
         <OverviewTab />
       ) : tab === 'counterparties' ? (
