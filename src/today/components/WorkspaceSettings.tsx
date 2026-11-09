@@ -59,10 +59,9 @@ export function WorkspaceSettings({ userId, jobRole, onApply }: { userId: number
     } catch { setError('Не удалось сохранить настройки. Проверьте подключение и попробуйте снова.') }
     finally { setSaving(false) }
   }
-  return <section className="rounded-2xl border border-border bg-surface p-4 sm:p-5" aria-labelledby="workspace-settings-title">
-    <h2 id="workspace-settings-title" className="text-[15px] font-semibold text-ink">Настроить рабочий экран</h2>
-    <p className="mt-1 text-[12px] text-muted">Настройки сохраняются в вашей учётной записи. Права доступа задаёт администратор.</p>
-    <details className="mt-3"><summary className="cursor-pointer text-[13px] font-medium text-brand">Выбрать блоки и направления</summary>
+  return <section className="rounded-xl border border-border bg-surface px-4 py-3" aria-label="Настроить рабочий экран">
+    <details><summary className="cursor-pointer text-[13px] font-medium text-brand">Выбрать блоки и направления <span className="ml-2 font-normal text-muted">· {viewLabels[draft.view]}</span></summary>
+    <p className="mt-3 text-[12px] text-muted">Настройки сохраняются в вашей учётной записи. Права доступа задаёт администратор.</p>
     {loading ? <p role="status" className="mt-3 text-[13px] text-muted">Загружаем настройки…</p> : <>
       {error && <p role="alert" className="mt-3 text-[13px] text-danger">{error} <button type="button" onClick={() => setReload((x) => x + 1)} className="font-medium underline">Повторить загрузку</button></p>}
       {!error && <><p className="mt-4 text-[13px] font-medium text-ink">Экран: {viewLabels[draft.view]}</p>

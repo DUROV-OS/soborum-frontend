@@ -62,9 +62,12 @@ function TodayContent({ userId }: { userId: number }) {
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-[34px]">Главное на сегодня<span className="text-brand">.</span></h1>
           <p className="mt-2 text-[13px] capitalize text-muted">{today}</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        {hasAccess('admin') && <Button variant="secondary" size="sm" onClick={() => navigate('/integrity')}><ShieldCheck size={14} />История и подтверждения</Button>}
         <Button variant="secondary" size="sm" onClick={refreshPage} disabled={workspace !== 'manager' && loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные
         </Button>
+        </div>
       </div>
 
       <WorkspaceSettings userId={userId} jobRole={jobRole} onApply={applySettings} />

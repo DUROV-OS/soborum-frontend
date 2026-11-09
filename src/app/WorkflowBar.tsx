@@ -1,9 +1,10 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 
 export function WorkflowBar() {
+  const navigate = useNavigate()
   const hasAccess = useAuthStore((s) => s.hasAccess),
     location = useLocation()
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
@@ -11,31 +12,18 @@ export function WorkflowBar() {
   // Costing has its own role-aware navigation and mobile section selector.
   if (salesManager || !context || location.pathname === '/costing') return null
   return (
-    <nav aria-label={'Раздел ' + context.group.label} className="mb-5 min-w-0 border-b border-border pb-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+    <nav aria-label={'Раздел ' + context.group.label} className="mb-4 flex min-w-0 items-center justify-between gap-3 text-[13px] text-muted">
+      <div className="flex min-w-0 items-center gap-2">
         <Link to="/work" aria-label="Все разделы работы" className="hover:text-ink">
           Работа
         </Link>
         <span>›</span>
         <span className="font-medium text-ink">{context.group.label}</span>
-        <span className="hidden lg:inline">· {context.group.note}</span>
+        <span className="hidden truncate sm:inline">› {context.entry.label}</span>
       </div>
-      <div className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 sm:flex-wrap">
-        {context.group.entries.map((e) => (
-          <Link
-            key={e.id}
-            to={e.to}
-            aria-current={context.entry.id === e.id ? 'page' : undefined}
-            className={
-              'shrink-0 rounded-pill px-3 py-2 text-sm ' +
-              (context.entry.id === e.id ? 'bg-brand text-white' : 'bg-surface text-muted hover:text-ink')
-            }
-          >
-            {e.label}
-            {e.readOnly && <span className="ml-1.5 text-[10px] opacity-75">Просмотр</span>}
-          </Link>
-        ))}
-      </div>
+      <select aria-label={'Перейти в раздел ' + context.group.label} value={context.entry.to} onChange={event => navigate(event.target.value)} className="min-h-10 min-w-0 max-w-[55%] truncate rounded-lg border border-border bg-surface px-3 text-[13px] text-ink sm:max-w-[240px]">
+        {context.group.entries.map(entry => <option key={entry.id} value={entry.to}>{entry.label}{entry.readOnly ? ' · архив' : ''}</option>)}
+      </select>
     </nav>
   )
 }

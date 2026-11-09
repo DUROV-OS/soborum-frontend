@@ -45,6 +45,7 @@ import { WorkPage } from '@/work/pages/WorkPage'
 import { AccountingPage } from '@/accounting/pages/AccountingPage'
 import { SuppliersPage } from '@/suppliers/pages/SuppliersPage'
 import { TodayPage } from '@/today/pages/TodayPage'
+import { IntegrityPage } from '@/integrity/IntegrityPage'
 import { SalesWorkspace, SalesTeam } from '@/work/pages/SalesWorkspace'
 import { SECTIONS } from '@/shared/sections'
 import { AccessGate } from './AccessGate'
@@ -79,6 +80,7 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
+        <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
