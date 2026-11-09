@@ -14,6 +14,7 @@ import { AccessLevel, Account, JobRole, Role } from '../types'
 import type { CreateAccountInput } from '../api'
 import { EmployeeWorkPhone } from './EmployeeWorkPhone'
 import { CommunicationSettings } from '@/crm/CommunicationSettings'
+import { MaxConnectionSettings } from '@/max/MaxConnectionSettings'
 
 const ACCESS_LEVEL_OPTIONS: [AccessLevel, string][] = [
   ['none', 'Нет доступа'],
@@ -198,6 +199,8 @@ export function AccessMatrixPage() {
       {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}
       {notice && <p className="mb-4 rounded-md bg-success-bg p-2.5 text-[13px] text-success">{notice}</p>}
       <CommunicationSettings accounts={accounts} />
+
+      <MaxConnectionSettings />
 
       <section className="mb-5 rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-[16px] font-semibold text-ink">Должности и рабочие экраны</h2>

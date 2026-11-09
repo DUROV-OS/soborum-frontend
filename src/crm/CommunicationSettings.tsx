@@ -44,13 +44,11 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
     finally { setBusy(false) }
   }
   return <details className="mb-5 rounded-2xl border border-border bg-surface p-5">
-    <summary className="cursor-pointer text-base font-semibold">МегаФон и MAX</summary>
+    <summary className="cursor-pointer text-base font-semibold">МегаФон: звонки и распределение</summary>
     <div className="mt-4 space-y-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2">
         <p>МегаФон: <strong>{status ? connectionLabels[status.megafon.state] : 'Загрузка…'}</strong></p>
-        <p>MAX: <strong>{status ? connectionLabels[status.max.state] : 'Загрузка…'}</strong></p>
       </div>
-      {status?.max.state === 'reauth_required' && <p>Владельцу нужно повторно войти в рабочий аккаунт MAX и восстановить защищённое подключение на сервере.</p>}
       {status && !status.megafon.configured && <p>На сервере нужно задать адрес ВАТС и ключ управления. Для входящих событий нужен отдельный ключ CRM. Ключи в этой форме не отображаются.</p>}
       <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busy} onClick={() => void inspect()}>{busy ? 'Подождите…' : 'Проверить связь без звонка и сообщений'}</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => refresh(v => v + 1)}>Загрузить сохранённые настройки</Button></div>
       {check && <p className="text-xs text-muted">Последняя проверка: {new Date(check.checked_at).toLocaleString('ru-RU')}</p>}
