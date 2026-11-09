@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { approveItem } from './costing-approval-fixtures.mjs'
 const base = process.env.COSTING_TEST_URL ?? 'http://127.0.0.1:5178'
 const out = 'test-results/costing-experience'
 await mkdir(out, { recursive: true })
@@ -17,6 +18,7 @@ try {
   const b = await create('/materials', { name: 'Другая доска для теста', unit: 'м3', category: 'Дерево', price: '80', price_source: 'Синтетический прайс', effective_on: '2026-01-01' })
   const item = await create('/items', { kind: 'template', title: 'Тестовый дом', content: { category: 'Дом', model: 'Синтетическая комплектация', retail_price: '1000', lines: [{ material_id: a.id, quantity: '2.5', pieces: 2, price: '13.37', price_reason: 'Старая договорная цена' }], expenses: { labor: '0', transport: '0', subcontract: '0', overhead: '0', commercial: '0', advertising: '0', taxes: '0', reserve: '0', evidence: 'Только синтетическая модель' } } })
   const page = await context.newPage()
+  await approveItem(request,base,'Тестовый дом')
   page.on('pageerror', e => errors.push(e.message))
   await page.goto(base + '/costing?tab=template')
   let card = page.getByRole('article', { name: 'Типовая смета: Тестовый дом', exact: true })
@@ -41,6 +43,9 @@ try {
   await dialog.getByLabel('Состав изделия: материал 1', { exact: true }).selectOption(String(b.id))
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
   card = page.getByRole('article', { name: 'Типовая смета: Тестовый дом — копия', exact: true })
+  await card.waitFor()
+  await approveItem(request,base,'Тестовый дом — копия')
+  await page.reload()
   await card.getByText('400 ₽', { exact: true }).waitFor()
   await card.getByText('Маржа 41.00%', { exact: true }).waitFor()
   const rows = await (await request.get(base + '/api/costing/items?kind=template')).json()

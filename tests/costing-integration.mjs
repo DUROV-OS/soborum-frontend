@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { approveItem, approveQuote } from './costing-approval-fixtures.mjs'
 const base = process.env.COSTING_TEST_URL ?? 'http://127.0.0.1:5178'
 await mkdir('test-results/costing', {recursive:true})
 const browser = await chromium.launch({headless:true})
@@ -19,19 +20,22 @@ try {
   let dialog = page.getByRole('dialog')
   await dialog.getByRole('button',{name:'Создать типовую смету из техкарты',exact:true}).click()
   await dialog.getByRole('link',{name:'Техкарта связанного дома · типовая смета',exact:true}).click()
+  await page.getByRole('link',{name:'Указать модель в настройках комплектации →',exact:true}).click()
   dialog = page.getByRole('dialog')
   await dialog.getByLabel('Замороженная цена, ₽',{exact:true}).fill('300')
   await dialog.getByRole('button',{name:'Указать нули для всех расходов',exact:true}).click()
   await dialog.getByLabel('Основание расходов').fill('Синтетическая модель интеграции')
   await dialog.getByRole('button',{name:'Сохранить',exact:true}).click()
   await page.getByRole('dialog').waitFor({state:'hidden'})
+  await approveItem(context.request,base,'Техкарта связанного дома')
   checks.push('Общая техкарта открыла типовую смету с теми же материалами и изделием')
   await page.goto(base+'/costing?tab=estimates&deal='+ids.deal_id+'&new=1')
   dialog = page.getByRole('dialog')
   await dialog.getByLabel('Название / клиент').fill('Дом по связанной сделке')
   await dialog.getByLabel('Типовая смета',{exact:true}).selectOption({label:'Техкарта связанного дома · 300 ₽'})
   await dialog.getByRole('button',{name:'Создать смету',exact:true}).click()
-  await page.getByRole('dialog').getByRole('button',{name:'Утвердить',exact:true}).click()
+  const signed=await approveQuote(context.request,base,'Дом по связанной сделке')
+  await page.goto(base+'/costing?tab=estimates&estimate='+signed.id)
   await page.getByRole('dialog').getByRole('button',{name:'Создать заказ покупателя',exact:true}).click()
   const newOrder = page.getByRole('dialog',{name:'Заказ из утверждённой сметы',exact:true})
   await newOrder.getByLabel('Покупатель',{exact:true}).selectOption(String(ids.buyer_id))
@@ -65,4 +69,10 @@ try {
   const result={checks,uncaught_page_errors:errors,production_test_writes:false,isolated_database:true}
   await writeFile('test-results/costing/integration.json',JSON.stringify(result,null,2)+'\n')
   console.log(JSON.stringify(result,null,2))
+} catch(error) {
+  for(const context of browser.contexts()) for(const page of context.pages()) {
+    await page.screenshot({path:'test-results/costing/integration-failure.png',fullPage:true})
+    console.error('Isolated page:',page.url(),(await page.locator('body').innerText()).slice(-4000))
+  }
+  throw error
 } finally {await browser.close()}

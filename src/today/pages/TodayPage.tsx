@@ -63,6 +63,7 @@ function TodayContent({ userId }: { userId: number }) {
           <p className="mt-2 text-[13px] capitalize text-muted">{today}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+        {(hasAccess('admin') || jobRole === 'production_manager' || jobRole === 'accountant') && <Button variant="secondary" size="sm" onClick={() => navigate('/cost-approvals')}><CheckCheck size={14} />Согласования расчётов</Button>}
         {hasAccess('admin') && <Button variant="secondary" size="sm" onClick={() => navigate('/integrity')}><ShieldCheck size={14} />История и подтверждения</Button>}
         <Button variant="secondary" size="sm" onClick={refreshPage} disabled={workspace !== 'manager' && loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные

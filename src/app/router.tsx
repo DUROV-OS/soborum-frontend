@@ -34,6 +34,7 @@ import { RecipesPage } from '@/moysklad/RecipesPage'
 import { PurchasingPage } from '@/purchasing/PurchasingPage'
 import { SalesPage } from '@/sales/SalesPage'
 import { CostingPage } from '@/costing/CostingPage'
+import { ApprovalsPage } from '@/costing/ApprovalsPage'
 import { CatalogDetailPage } from '@/costing/CatalogDetailPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
@@ -81,6 +82,7 @@ export function AppRouter() {
       >
         <Route index element={<RootRedirect />} />
         <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
+        <Route path="/cost-approvals" element={<ApprovalsPage />} />
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
         <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />

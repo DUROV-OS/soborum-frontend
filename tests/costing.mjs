@@ -1,7 +1,8 @@
 // Run against tests/costing_browser_app.py only: real API, isolated synthetic database.
 import assert from 'node:assert/strict'
-import { mkdir } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
+import { approveItem, approveQuote } from './costing-approval-fixtures.mjs'
 const base = process.env.COSTING_TEST_URL ?? 'http://127.0.0.1:5178'
 const output = 'test-results/costing'
 await mkdir(output, { recursive: true })
@@ -37,6 +38,8 @@ try {
   await dialog.getByLabel('Основание расходов').fill('В этой синтетической модели дополнительные расходы отсутствуют')
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await page.getByText('Дом для теста', { exact: true }).waitFor()
+  await approveItem(context.request, base, 'Дом для теста')
+  await page.reload()
   await page.getByText(/^Маржа 47(?:[.,]00)?%$/).waitFor()
   checks.push('Состав типового изделия и точная маржа 47%')
   await page.getByRole('navigation', { name: 'Разделы смет' }).getByRole('button', { name: 'Клиентские сметы', exact: true }).click()
@@ -45,10 +48,12 @@ try {
   await dialog.getByLabel('Название / клиент').fill('Клиент тестового дома')
   await dialog.getByLabel('Типовая смета', { exact: true }).selectOption({ label: 'Дом для теста · 150 ₽' })
   await dialog.getByRole('button', { name: 'Проверить расчёт' }).click()
-  await dialog.getByText('Себестоимость: 79,5 ₽ · Маржа: 47.00%').waitFor()
+  await dialog.getByText('Состав и работы должен согласовать начальник производства', { exact: true }).waitFor()
   await dialog.getByRole('button', { name: 'Создать смету', exact: true }).click()
   dialog = page.getByRole('dialog')
-  await dialog.getByRole('button', { name: 'Утвердить', exact: true }).click()
+  await dialog.getByRole('link', { name: 'Согласования и документы', exact: true }).waitFor()
+  const signed = await approveQuote(context.request, base, 'Клиент тестового дома')
+  await page.goto(base + '/costing?tab=estimates&estimate=' + signed.id)
   await dialog.getByText(/утверждена/).waitFor()
   const downloadPromise = page.waitForEvent('download')
   await dialog.getByRole('button', { name: 'PDF', exact: true }).click()
@@ -72,9 +77,9 @@ try {
   const comparison = page.getByRole('dialog', { name: 'Сравнить актуализацию' })
   await comparison.getByText('98,5 ₽', { exact: true }).waitFor()
   await comparison.getByRole('button', { name: 'Сохранить новую версию', exact: true }).click()
-  await page.getByRole('dialog').getByText(/Версия 2/).waitFor()
+  await page.getByRole('dialog').getByText(new RegExp('Версия ' + (signed.version + 1))).waitFor()
   assert.ok(await page.getByRole('dialog').getByText('снимок расчёта', { exact: false }).isVisible())
-  checks.push('Старый снимок не изменился; актуализация создала версию 2 и отозвала утверждение')
+  checks.push('Старый снимок не изменился; актуализация создала новую версию и отозвала утверждение')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: output + '/estimate-mobile.png', fullPage: true })
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
@@ -119,6 +124,7 @@ try {
   await dialog.getByLabel('Основание расходов').fill('Синтетическая модель')
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await packs.getByText('Тестовый доп', { exact: true }).waitFor()
+  await approveItem(options.request, base, 'Тестовый доп')
   await packs.getByRole('navigation', { name: 'Разделы смет' }).getByRole('button', { name: 'Пакеты опций', exact: true }).click()
   await packs.getByRole('button', { name: 'Новый пакет', exact: true }).click()
   dialog = packs.getByRole('dialog')
@@ -127,6 +133,8 @@ try {
   await dialog.getByLabel('Добавить доп в пакет').selectOption({ label: 'Тестовый доп' })
   await dialog.getByLabel('Объём допа 1').fill('2')
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await approveItem(options.request, base, 'Тестовый пакет')
+  await packs.reload()
   await packs.getByText('160 ₽', { exact: true }).waitFor()
   await packs.getByRole('button', { name: 'Зафиксировать цены допов', exact: true }).click()
   await packs.getByText('Сохранено', { exact: true }).waitFor()
@@ -161,6 +169,9 @@ try {
   await dialog.getByLabel('Состав изделия: количество 1', { exact: true }).fill('2.5')
   await dialog.getByLabel('Состав изделия: штук 1', { exact: true }).fill('2')
   await dialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  await approveItem(options.request, base, 'Дом для теста — копия')
+  await packs.reload()
+  await packs.getByRole('button', { name: 'Таблица', exact: true }).click()
   await packs.getByText('46.00%', { exact: true }).waitFor()
   const copyRow = packs.getByRole('row').filter({ has: packs.getByText('Дом для теста — копия', { exact: true }) })
   for (const name of ['Excel состава', 'Печать состава']) {
@@ -175,14 +186,18 @@ try {
   await dialog.getByLabel('Типовая смета', { exact: true }).selectOption({ label: 'Дом для теста — копия · 1 000 ₽' })
   await dialog.getByLabel('Скидка, ₽', { exact: true }).fill('12.34')
   await dialog.getByRole('button', { name: 'Проверить расчёт' }).click()
-  await dialog.getByText('Итого: 987,66 ₽', { exact: true }).waitFor()
+  await dialog.getByText('Состав и работы должен согласовать начальник производства', { exact: true }).waitFor()
   await dialog.getByRole('button', { name: 'Создать смету', exact: true }).click()
+  const discounted = await approveQuote(options.request, base, 'Скидка в рублях')
+  await packs.goto(base + '/costing?tab=estimates&estimate=' + discounted.id)
   await packs.getByRole('dialog').getByRole('paragraph').filter({ hasText: /^987,66 ₽$/ }).waitFor()
   await packs.getByRole('dialog').getByRole('button', { name: 'Создать копию', exact: true }).click()
   await packs.getByRole('dialog', { name: /Скидка в рублях — копия/ }).waitFor()
-  await packs.getByRole('dialog').getByRole('paragraph').filter({ hasText: /^987,66 ₽$/ }).waitFor()
-  checks.push('Копирование состава, объём × штуки, печать/Excel типовой сметы, рублёвая скидка и копия клиентской сметы')
+  assert.equal(await packs.getByRole('dialog').getByRole('paragraph').filter({ hasText: /^987,66 ₽$/ }).count(), 0)
+  checks.push('Копирование состава, объём × штуки, печать/Excel, рублёвая скидка; копия требует новых согласований')
   await options.close()
   assert.deepEqual(errors, [])
-  console.log(JSON.stringify({ checks, pageErrors: errors, artifacts: output }, null, 2))
+  const report = { checks, pageErrors: errors, artifacts: output }
+  await writeFile(output + '/report.json',JSON.stringify(report,null,2))
+  console.log(JSON.stringify(report, null, 2))
 } finally { await browser.close() }
