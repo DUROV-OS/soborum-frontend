@@ -300,6 +300,13 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     note: 'Платежи, счета организаций и расчёты с контрагентами',
     entries: [
       {
+        id: 'money-review',
+        label: 'Рабочий обзор',
+        to: '/accounting?tab=review',
+        section: 'accounting',
+        note: 'Документы, распределение по проектам и личная проверка бухгалтера',
+      },
+      {
         id: 'money-register',
         label: 'Платежи',
         to: '/accounting?tab=register',
@@ -480,7 +487,7 @@ export function workflowContext(pathname: string, search: string, groups: WorkGr
       '/purchasing': query.has('return') ? 'returns' : 'orders',
       '/warehouse': 'materials',
       '/crm': 'deal',
-      '/accounting': 'register',
+      '/accounting': 'review',
       '/production-library': 'cards',
     }
     if (defaults[pathname]) query.set('tab', defaults[pathname])

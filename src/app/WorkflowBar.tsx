@@ -10,7 +10,7 @@ export function WorkflowBar() {
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
   // Costing has its own role-aware navigation and mobile section selector.
-  if (salesManager || !context || location.pathname === '/costing') return null
+  if (salesManager || !context || ['/costing', '/accounting'].includes(location.pathname)) return null
   return (
     <nav aria-label={'Раздел ' + context.group.label} className="mb-4 flex min-w-0 items-center justify-between gap-3 text-[13px] text-muted">
       <div className="flex min-w-0 items-center gap-2">

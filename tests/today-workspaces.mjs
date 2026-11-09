@@ -39,7 +39,7 @@ async function setup({ jobRole = null, access = { tasks: 'view', clients: 'view'
   await page.getByRole('region', { name: 'Отдел продаж' }).waitFor()
   return { context, page, requests, state }
  }
- await page.getByText('Выбрать блоки и направления').click()
+ await page.getByText('Настроить экран', { exact: false }).click()
  await page.getByRole('button', { name: 'Сохранить настройки' }).waitFor()
  return { context, page, requests, state }
 }

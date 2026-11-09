@@ -98,6 +98,7 @@ export function MovementDetailDrawer({
       }
     >
       <div className="flex flex-col gap-5">
+        {movement.direction === 'expense' && <div className="rounded-xl border border-border bg-surface-muted p-3 text-sm"><p>Статус проводки не подтверждает проверку документов и фактическую себестоимость.</p><Link className="mt-2 inline-block font-medium text-brand" to={`/accounting?tab=review&evidence=${movement.id}`} onClick={onClose}>Открыть основания и проверку платежа →</Link></div>}
         <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
           <Row label="Сумма" value={money(movement.amount, sign)} />
           <Row label="Налог" value={money(movement.tax, '')} />

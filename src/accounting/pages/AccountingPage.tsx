@@ -18,6 +18,7 @@ import { CounterpartyPicker } from '../components/CounterpartyPicker'
 import { CreateMovementModal } from '../components/CreateMovementModal'
 import { MoneySummaryTiles } from '../components/MoneySummaryTiles'
 import { OverviewTab } from '../components/OverviewTab'
+import { EvidenceWorkspace } from '../components/EvidenceWorkspace'
 import { ImportStatementModal } from '../components/ImportStatementModal'
 import { MovementDetailDrawer } from '../components/MovementDetailDrawer'
 import { SalaryTab } from './SalaryTab'
@@ -142,7 +143,7 @@ export function AccountingPage() {
   })
   // Вкладки: сводка по обеим организациям, затем вкладка на каждое юрлицо
   // (реестр её счёта), затем прежняя вкладка «Сотрудники» (0081-b).
-  const [tab, setTab] = useQueryChoice('tab', ['overview', 'register', 'counterparties', 'salary'], 'register')
+  const [tab, setTab] = useQueryChoice('tab', ['review', 'overview', 'register', 'counterparties', 'salary'], 'review')
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [customRangeOpen, setCustomRangeOpen] = useState(
@@ -292,7 +293,7 @@ export function AccountingPage() {
           <p className="mt-1 text-[13px] text-muted">
             {tab === 'register' && currentOrganization
               ? `${currentOrganization.name} — движение денег по выбранному счёту.`
-              : 'Движение денежных средств обеих организаций: приход, расход и сальдо по счетам.'}
+              : 'Деньги, документы и проверка расходов по организациям, счетам и проектам.'}
           </p>
         </div>
         {tab === 'register' && accountOptions.length > 0 && (
@@ -312,6 +313,7 @@ export function AccountingPage() {
       <div className="mb-4">
         <Tabs
           tabs={[
+            { key: 'review', label: 'Рабочий обзор' },
             { key: 'overview', label: 'Сводка' },
             ...organizations.map((org) => ({ key: `org-${org.id}`, label: org.short_name })),
             { key: 'counterparties', label: 'Контрагенты' },
@@ -319,7 +321,7 @@ export function AccountingPage() {
           ]}
           activeKey={tab === 'register' ? `org-${selectedOrganizationId}` : tab}
           onChange={(key) => {
-            if (key === 'overview' || key === 'salary' || key === 'counterparties') {
+            if (key === 'review' || key === 'overview' || key === 'salary' || key === 'counterparties') {
               setTab(key)
               return
             }
@@ -329,7 +331,9 @@ export function AccountingPage() {
         />
       </div>
 
-      {tab === 'overview' ? (
+      {tab === 'review' ? (
+        <EvidenceWorkspace />
+      ) : tab === 'overview' ? (
         <OverviewTab />
       ) : tab === 'counterparties' ? (
         <CounterpartiesTab />
