@@ -21,7 +21,7 @@ export function Drawer({
   bodyClassName?: string
   modal?: boolean
 }) {
-  const dialogRef = useDialogFocus(open, onClose)
+  const dialogRef = useDialogFocus(open, onClose, modal)
   if (!open) return null
 
   return (
