@@ -35,7 +35,11 @@ async function setup({ jobRole = null, access = { tasks: 'view', clients: 'view'
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
  })
  await page.goto(baseURL + '/today')
- await page.getByText('Выбрать блоки и направления').click()
+ if (jobRole === 'manager') {
+  await page.getByRole('region', { name: 'Отдел продаж' }).waitFor()
+  return { context, page, requests, state }
+ }
+ await page.getByText('Настроить экран', { exact: false }).click()
  await page.getByRole('button', { name: 'Сохранить настройки' }).waitFor()
  return { context, page, requests, state }
 }
@@ -58,7 +62,15 @@ try {
  await a.page.getByRole('button', { name: /Задача под моим контролем/ }).click()
  await a.page.getByRole('dialog', { name: 'Задача под моим контролем' }).waitFor()
  assert.ok(a.page.url().includes('task=5'))
- await a.page.getByRole('dialog', { name: 'Задача под моим контролем' }).getByRole('button', { name: 'Закрыть' }).click()
+ const dialog = a.page.getByRole('dialog', { name: 'Задача под моим контролем' })
+ await dialog.getByRole('button', { name: 'Закрыть', exact: true }).focus()
+ await a.page.keyboard.press('Shift+Tab')
+ assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true, 'Shift+Tab must stay in dialog')
+ await a.page.keyboard.press('Tab')
+ assert.equal(await dialog.evaluate(el => el.contains(document.activeElement)), true, 'Tab must stay in dialog')
+ await a.page.keyboard.press('Escape')
+ await dialog.waitFor({ state: 'hidden' })
+ assert.equal(await a.page.evaluate(() => document.body.style.overflow), '', 'Scroll lock must be released')
  assert.ok(!a.page.url().includes('task=5'))
  await a.context.close()
  const anotherDevice = await setup({ state })
@@ -66,7 +78,8 @@ try {
  assert.equal(await anotherDevice.page.getByRole('checkbox', { name: 'Производство', exact: true }).isChecked(), false)
  await anotherDevice.context.close()
  const m = await setup({ jobRole: 'manager' })
- await m.page.getByText('Мой клиент · Позвонить').waitFor()
+ await m.page.getByRole('region', { name: 'Отдел продаж' }).getByRole('link', { name: /Сделки/ }).waitFor()
+ assert.equal(m.requests.filter(x => x === '/api/dashboard/today' || x === '/api/clients/').length, 0)
  assert.equal(await m.page.getByText('Чужой клиент', { exact: false }).count(), 0)
  assert.equal(await m.page.getByRole('button', { name: 'Руководитель', exact: true }).count(), 0)
  await m.context.close()

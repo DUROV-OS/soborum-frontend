@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { isSalesManager, salesHome, salesRouteAllowed } from '@/auth/salesNavigation'
 import { LoginPage } from '@/auth/pages/LoginPage'
 import { AccessMatrixPage } from '@/auth/pages/AccessMatrixPage'
 import { useAuthStore } from '@/auth/store'
@@ -13,6 +14,7 @@ import { PartnersPage } from '@/partners/pages/PartnersPage'
 import { TasksPage } from '@/tasks/pages/TasksPage'
 import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
 import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
+import { ProductionLibraryPage } from '@/production/pages/ProductionLibraryPage'
 import { StageTemplateReviewPage } from '@/production/pages/StageTemplateReviewPage'
 import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
 import { ProductionBlocksTab } from '@/production/components/ProductionBlocksTab'
@@ -31,6 +33,9 @@ import { CrmPage } from '@/crm/CrmPage'
 import { RecipesPage } from '@/moysklad/RecipesPage'
 import { PurchasingPage } from '@/purchasing/PurchasingPage'
 import { SalesPage } from '@/sales/SalesPage'
+import { CostingPage } from '@/costing/CostingPage'
+import { ApprovalsPage } from '@/costing/ApprovalsPage'
+import { CatalogDetailPage } from '@/costing/CatalogDetailPage'
 import { AiChatPage } from '@/ai/pages/AiChatPage'
 import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
 import { BoardPage } from '@/board/pages/BoardPage'
@@ -41,13 +46,19 @@ import { WorkPage } from '@/work/pages/WorkPage'
 import { AccountingPage } from '@/accounting/pages/AccountingPage'
 import { SuppliersPage } from '@/suppliers/pages/SuppliersPage'
 import { TodayPage } from '@/today/pages/TodayPage'
+import { IntegrityPage } from '@/integrity/IntegrityPage'
+import { SalesWorkspace, SalesTeam } from '@/work/pages/SalesWorkspace'
 import { SECTIONS } from '@/shared/sections'
 import { AccessGate } from './AccessGate'
 import { AppShell } from './AppShell'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const current = useAuthStore((s) => s.current)
+  const location = useLocation()
   if (!current) return <Navigate to="/login" replace />
+  if (isSalesManager(current) && !salesRouteAllowed(location.pathname, location.search)) {
+    return <Navigate to={salesHome(current)} replace />
+  }
   return <>{children}</>
 }
 
@@ -58,6 +69,7 @@ function RootRedirect() {
 }
 
 export function AppRouter() {
+  const salesManager = useAuthStore((s) => isSalesManager(s.current))
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -69,8 +81,15 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
-        <Route path="/sales" element={<AccessGate section="sales"><SalesPage /></AccessGate>} />
+        <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
+        <Route path="/cost-approvals" element={<ApprovalsPage />} />
+        <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
+        <Route path="/team" element={salesManager ? <AccessGate section="crm"><SalesTeam /></AccessGate> : <Navigate to="/work" replace />} />
         <Route path="/recipes" element={<AccessGate section="recipes"><RecipesPage /></AccessGate>} />
+        <Route path="/production-library" element={<AccessGate section="production"><ProductionLibraryPage /></AccessGate>} />
+        <Route path="/costing" element={<AccessGate section="estimates"><CostingPage /></AccessGate>} />
+        <Route path="/costing/catalog/:itemId" element={<AccessGate section="estimates"><CatalogDetailPage /></AccessGate>} />
+        <Route path="/costing/models/:modelKey" element={<AccessGate section="estimates"><CatalogDetailPage /></AccessGate>} />
         <Route path="/purchasing" element={<AccessGate section="purchasing"><PurchasingPage /></AccessGate>} />
         <Route path="/crm" element={<AccessGate section="crm"><CrmPage /></AccessGate>} />
         <Route path="/moysklad" element={<AccessGate section="moysklad"><MoyskladPage /></AccessGate>} />
@@ -93,7 +112,7 @@ export function AppRouter() {
           path="/today"
           element={
             <AccessGate section="today">
-              <TodayPage />
+              {salesManager ? <SalesWorkspace /> : <TodayPage />}
             </AccessGate>
           }
         />
@@ -239,7 +258,7 @@ export function AppRouter() {
             </AccessGate>
           }
         />
-        <Route path="/work" element={<WorkPage />} />
+        <Route path="/work" element={salesManager ? <SalesWorkspace view="work" /> : <WorkPage />} />
         <Route
           path="/accounting"
           element={
@@ -248,7 +267,7 @@ export function AppRouter() {
             </AccessGate>
           }
         />
-        <Route path="/suppliers" element={<SuppliersPage />} />
+        <Route path="/suppliers" element={<AccessGate section="suppliers"><SuppliersPage /></AccessGate>} />
         <Route
           path="/board"
           element={

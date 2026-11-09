@@ -1,4 +1,6 @@
 import { Landmark } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/ui/DataTable'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { useAccountingStore } from '../store'
@@ -19,6 +21,10 @@ export function OverviewTab() {
   const summary = useAccountingStore((s) => s.summary)
   const loading = useAccountingStore((s) => s.summaryLoading)
   const selectOrganization = useAccountingStore((s) => s.selectOrganization)
+  const loadSummary = useAccountingStore((s) => s.loadSummary)
+  const [, setParams] = useSearchParams()
+
+  if (!loading && !summary) return <EmptyState title="Сводка временно недоступна" description="Данные не загружены; это не означает отсутствие операций." action={<Button onClick={() => void loadSummary()}>Повторить загрузку</Button>} />
 
   if (!loading && (!summary || summary.organizations.length === 0)) {
     return (
@@ -51,7 +57,7 @@ export function OverviewTab() {
       <MoneySummaryTiles
         totals={summary?.total ?? null}
         loading={loading}
-        hint="Обе организации, проведённые проводки"
+        hint="Все организации, проведённые записи реестра"
       />
       <DataTable
         columns={[
@@ -88,7 +94,7 @@ export function OverviewTab() {
         ]}
         rows={rows}
         keyOf={(r) => r.key}
-        onRowClick={(r) => selectOrganization(r.orgId)}
+        onRowClick={(r) => { selectOrganization(r.orgId); setParams(previous => { const next = new URLSearchParams(previous); next.set('tab', 'register'); return next }) }}
         loading={loading}
         emptyLabel="Сводить нечего"
       />

@@ -1,0 +1,44 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowRight, FileCheck2, FileQuestion, Wallet } from 'lucide-react'
+import { useAuthStore } from '@/auth/store'
+import { EvidenceOverview, evidenceApi, cash } from '@/accounting/evidence'
+import { governance, ReviewQueue, Plan } from '@/costing/governance'
+
+export function DirectorOverview({ refresh, attention }: { refresh: number; attention?: { id: string; title: string; description: string; count: number; href: string }[] }) {
+  const canFinance = useAuthStore(s => s.hasAccess('accounting'))
+  const canCosting = useAuthStore(s => s.hasAccess('costing') || s.hasAccess('admin'))
+  const navigate = useNavigate()
+  const [finance, setFinance] = useState<EvidenceOverview | null>(null), [queue, setQueue] = useState<ReviewQueue | null>(null), [plans, setPlans] = useState<Plan[] | null>(null)
+  const [errors, setErrors] = useState<string[]>([]), [busy, setBusy] = useState(true), [retry, setRetry] = useState(0)
+  useEffect(() => {
+    let active = true
+    setBusy(true); setErrors([]); setFinance(null); setQueue(null); setPlans(null)
+    Promise.allSettled([canFinance ? evidenceApi<EvidenceOverview>('/overview', 'GET', undefined, { limit: 5, filter: 'attention' }) : Promise.resolve(null), canCosting ? governance<ReviewQueue>('/queue') : Promise.resolve(null), canCosting ? governance<Plan[]>('/month-plans') : Promise.resolve(null)]).then(([money, estimates, months]) => {
+      if (!active) return
+      const failed: string[] = []
+      if (money.status === 'fulfilled') setFinance(money.value); else failed.push('Деньги и документы не загружены')
+      if (estimates.status === 'fulfilled') setQueue(estimates.value); else failed.push('Согласования смет не загружены')
+      if (months.status === 'fulfilled') setPlans(months.value); else failed.push('Месячные планы не загружены')
+      setErrors(failed); setBusy(false)
+    })
+    return () => { active = false }
+  }, [canFinance, canCosting, refresh, retry])
+  const ready = queue?.estimates.filter(e => e.state.next_stage === 'director')
+  const waitingPlans = plans?.filter(p => p.current && p.accounting_approved && !p.director_approved)
+  const decisions = [...(ready ?? []).map(e => ({ key: `project-${e.id}`, title: e.title, subtitle: `${e.number} · состав и расходы согласованы`, href: `/cost-approvals?kind=estimate&id=${e.id}` })), ...(waitingPlans ?? []).map(p => ({ key: `month-${p.id}`, title: `Расходы на ${p.month.slice(0, 7)}`, subtitle: `Версия ${p.version} · бухгалтер проверила основания`, href: `/cost-approvals?kind=month&id=${p.id}` }))]
+  const tiles = [
+    ...(canCosting ? [{ title: 'Готовы к вашему решению', value: queue && plans ? decisions.length : null, note: 'Цена проекта и месячные расходы', href: '/cost-approvals', icon: FileCheck2 }] : []),
+    ...(canFinance ? [{ title: 'Без документов', value: finance?.counts.no_document ?? null, note: 'Нужны сканы и проверка бухгалтера', href: '/accounting?tab=review&review=no_document', icon: FileQuestion }, { title: 'На проверке у бухгалтера', value: finance?.counts.pending ?? null, note: finance?.responsible?.name ?? 'Ответственный не назначен', href: '/accounting?tab=review&review=pending', icon: FileCheck2 }, { title: 'Изменились основания', value: finance?.counts.stale ?? null, note: 'Старое подтверждение больше не действует', href: '/accounting?tab=review&review=stale', icon: FileQuestion }] : []),
+  ]
+  return <section aria-labelledby="director-decisions" className="space-y-5">
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-widest text-brand">Рабочий экран руководителя</p><h2 id="director-decisions" className="mt-2 text-2xl font-semibold tracking-tight">Решения и состояние дел</h2><p className="mt-2 text-sm text-muted">Сначала — основания и ответственные. Каждая цифра открывает свою очередь.</p></div>{finance && <span className="text-xs text-muted">Данные на {new Date(finance.as_of).toLocaleTimeString('ru-RU')}</span>}</div>
+    {errors.length > 0 && <div role="alert" className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm">{errors.join('. ')}. Недоступные показатели не считаются нулевыми. <button className="font-medium text-brand underline" onClick={() => setRetry(v => v + 1)}>Повторить</button></div>}
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{tiles.map(tile => <button key={tile.title} onClick={() => navigate(tile.href)} className="rounded-2xl border border-border bg-surface p-4 text-left transition-colors sm:p-5 hover:border-brand/50"><div className="flex items-center justify-between text-brand"><tile.icon size={20} /><ArrowRight size={17} /></div><p className="mt-3 text-2xl font-semibold tabular-nums sm:text-3xl">{tile.value ?? '—'}</p><p className="mt-2 text-sm font-semibold">{tile.title}</p><p className="mt-1 hidden text-xs leading-relaxed text-muted sm:block">{tile.value === null ? busy ? 'Загружаем данные…' : 'Данные недоступны' : tile.note}</p></button>)}</div>
+    {attention && attention.length > 0 && <div className="rounded-2xl border border-border bg-surface p-5"><h3 className="text-lg font-semibold">Отклонения и сроки</h3><div className="mt-3 grid gap-3 lg:grid-cols-2">{attention.map(item => <button key={item.id} onClick={() => navigate(item.href)} className="flex items-start gap-3 rounded-xl bg-surface-muted p-3 text-left"><strong className="rounded-lg bg-surface px-3 py-2 text-lg">{item.count}</strong><span className="min-w-0"><span className="block text-sm font-semibold">{item.title}</span><span className="mt-1 block text-xs text-muted">{item.description}</span></span><ArrowRight size={16} className="ml-auto shrink-0 text-muted" /></button>)}</div></div>}
+    <div className={`grid gap-5 ${canFinance && canCosting ? 'xl:grid-cols-2' : ''}`}>
+      {canCosting && <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6"><h3 className="text-lg font-semibold">Ваша очередь согласования</h3><p className="mt-1 text-sm text-muted">Личные согласования Ильи и Татьяны сохраняются отдельно.</p>{!queue || !plans ? <p className="mt-4 text-sm text-muted">{busy ? 'Проверяем текущие этапы…' : 'Очередь временно недоступна.'}</p> : decisions.length ? <ul className="mt-4 divide-y divide-border">{decisions.slice(0, 5).map(item => <li key={item.key}><button onClick={() => navigate(item.href)} className="flex w-full items-center justify-between gap-3 py-3 text-left"><span className="min-w-0"><span className="block break-words text-sm font-semibold">{item.title}</span><span className="mt-1 block text-xs text-muted">{item.subtitle}</span></span><ArrowRight size={17} className="shrink-0 text-muted" /></button></li>)}</ul> : <div className="mt-4 rounded-xl bg-surface-muted p-4 text-sm"><p className="font-medium">Готовых решений для вас пока нет</p><p className="mt-1 text-muted">Это не означает, что все расчёты проверены. Незавершённые этапы видны в общей очереди.</p></div>}<button className="mt-4 text-sm font-medium text-brand" onClick={() => navigate('/cost-approvals')}>Все этапы и недостающие основания →</button>{queue && queue.estimates.length >= 200 && <p className="mt-2 text-xs text-muted">Показаны последние 200 смет; количество решений относится к этой выборке.</p>}</div>}
+      {canFinance && <div className="rounded-2xl border border-border bg-surface p-5 sm:p-6"><div className="flex items-center gap-2"><Wallet size={20} className="text-brand" /><h3 className="text-lg font-semibold">Деньги и достоверность учёта</h3></div><p className="mt-2 text-sm text-muted">Все организации · весь период реестра</p>{finance ? finance.totals.length ? finance.totals.map(t => <div key={t.currency} className="mt-4 space-y-3"><div className="flex flex-wrap justify-between gap-2 text-sm"><span className="text-muted">Поступило · {t.currency}</span><strong>{cash(t.income, t.currency)}</strong></div><div className="flex flex-wrap justify-between gap-2 text-sm"><span className="text-muted">Выплачено</span><strong>{cash(t.expense, t.currency)}</strong></div><button onClick={() => navigate('/accounting?tab=review&review=attention')} className="w-full rounded-xl bg-surface-muted p-3 text-left"><span className="block text-xs text-muted">Из выплат документально не проверено</span><span className="mt-1 block text-lg font-semibold">{cash(t.unverified_expense, t.currency)}</span></button></div>) : <p className="mt-4 text-sm text-muted">В реестре пока нет операций.</p> : <p className="mt-4 text-sm text-muted">{busy ? 'Загружаем реестр…' : 'Финансовые данные недоступны.'}</p>}<p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted">Это движение денег по реестру. Банковская сверка ещё не подключена; фактическая прибыль не подтверждена. Авансы и расходы требуют отдельного учёта.</p></div>}
+    </div>
+  </section>
+}

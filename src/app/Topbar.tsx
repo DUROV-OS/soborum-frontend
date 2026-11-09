@@ -7,11 +7,13 @@ import { PushNotificationsButton } from '@/notifications/components/PushNotifica
 import { SECTIONS } from '@/shared/sections'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 
 export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   const location = useLocation()
   const section = SECTIONS.find((s) => location.pathname.startsWith(s.path))
   const hasAccess = useAuthStore((s) => s.hasAccess)
+  const salesManager = useAuthStore((s) => isSalesManager(s.current))
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
 
   return (
@@ -30,9 +32,9 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        <MeetingButton />
-        <PushNotificationsButton />
-        <FeedbackButton />
+        {!salesManager && <MeetingButton />}
+        {!salesManager && <PushNotificationsButton />}
+        {!salesManager && <FeedbackButton />}
         <RoleSwitcher />
       </div>
     </header>

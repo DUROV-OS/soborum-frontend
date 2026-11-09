@@ -1,3 +1,5 @@
+import { LegacyIssueReconciliation } from '@/warehouse/LegacyIssueReconciliation'
+import { WarehouseHandoff } from '@/warehouse/WarehouseControl'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
@@ -10,7 +12,7 @@ import { useProductionStore } from '../store'
  * Одно производство (один дом) — сущность разрастается за пределы списка
  * модулей: документы/поставки/сборка/остальное — внутренние разделы именно
  * этого производства, а не всего раздела «Производство» (см. запрос
- * Арсения от 16.09.2026 — список производств остаётся простым виджетом на
+ * Разработчика от 16.09.2026 — список производств остаётся простым виджетом на
  * /production, роутинг по разделам — только здесь, внутри /production/:id).
  */
 
@@ -85,6 +87,8 @@ export function ProductionDetailShell() {
       </div>
       {deleteError && <p className="mb-3 text-[12px] text-danger">{deleteError}</p>}
 
+      <WarehouseHandoff productionId={productionId} />
+      <LegacyIssueReconciliation productionId={productionId} />
       <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist">
         {TABS.map((tab) => (
           <NavLink

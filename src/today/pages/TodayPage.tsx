@@ -10,6 +10,7 @@ import { StatWidget } from '@/shared/ui/StatWidget'
 import { AktualnoeCard } from '../components/AktualnoeCard'
 import { useTodayStore } from '../store'
 import { PersonalWorkspace } from '../components/PersonalWorkspace'
+import { DirectorOverview } from '../components/DirectorOverview'
 import { defaults, WorkspacePreferences, WorkspaceSettings } from '../components/WorkspaceSettings'
 
 export function TodayPage() {
@@ -62,12 +63,18 @@ function TodayContent({ userId }: { userId: number }) {
           <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-[34px]">Главное на сегодня<span className="text-brand">.</span></h1>
           <p className="mt-2 text-[13px] capitalize text-muted">{today}</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <WorkspaceSettings userId={userId} jobRole={jobRole} onApply={applySettings} />
+        {(hasAccess('admin') || jobRole === 'production_manager' || jobRole === 'accountant') && <Button variant="secondary" size="sm" onClick={() => navigate('/cost-approvals')}><CheckCheck size={14} />Согласования расчётов</Button>}
+        {hasAccess('admin') && <Button variant="secondary" size="sm" onClick={() => navigate('/integrity')}><ShieldCheck size={14} />История и подтверждения</Button>}
         <Button variant="secondary" size="sm" onClick={refreshPage} disabled={workspace !== 'manager' && loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Обновить данные
         </Button>
+        </div>
       </div>
 
-      <WorkspaceSettings userId={userId} jobRole={jobRole} onApply={applySettings} />
+      {workspace === 'director' && <DirectorOverview refresh={refresh} attention={data && !error && settings.blocks.includes('attention') ? actions : undefined} />}
+      {workspace === 'accountant' && hasAccess('accounting') && <section className="rounded-2xl border border-border bg-surface p-5"><h2 className="text-lg font-semibold">Документы и расходы</h2><p className="mt-2 text-sm text-muted">Проверяйте основания платежей и разносите их по проектам и месяцам.</p><Button className="mt-4" onClick={() => navigate('/accounting?tab=review')}>Открыть рабочий обзор бухгалтера</Button></section>}
 
       {settings.blocks.includes('warehouse_links') && hasAccess('warehouse') && <section className="rounded-2xl border border-border bg-surface p-5"><h2 className="text-[18px] font-semibold text-ink">Работа склада</h2><p className="mt-1 text-[12px] text-muted">Заявки производства, выдача и приёмка материалов.</p><div className="mt-4 flex flex-wrap gap-3"><Button size="sm" onClick={() => navigate('/warehouse?tab=requests')}>Заявки производства</Button><Button size="sm" variant="secondary" onClick={() => navigate('/warehouse')}>Открыть склад</Button><Button size="sm" variant="secondary" onClick={() => navigate('/suppliers')}>Поставщики</Button></div></section>}
       {settings.blocks.includes('production_links') && hasAccess('production') && <section className="rounded-2xl border border-border bg-surface p-5"><h2 className="text-[18px] font-semibold text-ink">Работа производства</h2><p className="mt-1 text-[12px] text-muted">Откройте производство, чтобы проверить потребность и направить материалы на склад.</p><Button className="mt-4" size="sm" onClick={() => navigate('/production')}>Открыть производство</Button></section>}
@@ -85,7 +92,7 @@ function TodayContent({ userId }: { userId: number }) {
           <span className="shrink-0 text-[11px] text-muted">Данные на {new Date(data.generated_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
         </div>
 
-        {settings.blocks.includes('attention') && actions.length > 0 && (
+        {workspace !== 'director' && settings.blocks.includes('attention') && actions.length > 0 && (
           <section className="overflow-hidden rounded-2xl border border-border bg-surface" aria-labelledby="attention-title">
             <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-5 sm:px-6">
               <div><h2 id="attention-title" className="text-[18px] font-semibold tracking-tight text-ink">Требует внимания</h2>
@@ -123,8 +130,8 @@ function TodayContent({ userId }: { userId: number }) {
                   ))}
                 </div>
               )}
-              {aktualnoe?.degraded && aktualnoeItems.length > 0 && (
-                <p className="mt-3 text-[11px] text-muted">Подобрано по свежести работы — Марина ещё не подключена.</p>
+              {aktualnoeItems.length > 0 && (
+                <p className="mt-3 text-xs text-muted">Источник — записи Durov OS. {aktualnoe?.generated_at && `Срез на ${new Date(aktualnoe.generated_at).toLocaleString('ru-RU')}.`} Это активность, а не оценка готовности дома.</p>
               )}
             </section>
           )}
@@ -150,7 +157,7 @@ function TodayContent({ userId }: { userId: number }) {
         {settings.blocks.includes('metrics') && <section aria-labelledby="metrics-title">
           <h2 id="metrics-title" className="mb-4 text-[18px] font-semibold tracking-tight text-ink">Показатели по разделам</h2>
           {widgets.length === 0 ? <EmptyState title="Рабочие разделы пока не назначены" description="Администратор может назначить доступ в разделе «Доступ»." /> :
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {widgets.map((widget, index) => {
                 const section = SECTIONS.find((s) => s.id === (widget.section === 'users' ? 'admin' : widget.section))
                 return <StatWidget

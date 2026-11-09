@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { ReadRow, Section } from '@/clients/components/PanelPrimitives'
+import { CrmPhoneActions } from '@/crm/CrmPhoneActions'
 import { Button } from '@/shared/ui/Button'
 import { usePartnersStore } from '../store'
 import { categoryLabel } from '../types'
@@ -27,8 +28,10 @@ export function PartnerDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (partners.length === 0) load()
-  }, [partners.length, load])
+    // A MAX binding may have just been added after this partner entered the
+    // store. Reload on card navigation so the new chat link is visible.
+    load()
+  }, [partnerId, load])
 
   const partner = partners.find((p) => p.id === partnerId)
 
@@ -95,8 +98,9 @@ export function PartnerDetailPage() {
 
       <div className="flex flex-col gap-4">
         <Section title="Контакты">
-          <ReadRow label="Телефон" value={partner.phone} />
+          <ReadRow label="Телефон" value={partner.phone ? <CrmPhoneActions phone={partner.phone} name={partner.name} canMessage={canEdit} /> : undefined} />
           <ReadRow label="Почта" value={partner.email} />
+          {partner.chat_links.map(link => <ReadRow key={link.id} label="Чат MAX" value={<Link className="text-brand-dark underline" to={`/chats/${link.max_chat_id}`}>{link.label} · открыть переписку</Link>} />)}
           {partner.contacts.map((c, i) => (
             <ReadRow key={i} label={c.messenger} value={c.contact} />
           ))}

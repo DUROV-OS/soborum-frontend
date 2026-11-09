@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { ContextPanel } from '@/costing/ContextPanel'
 import { Plus, Play, Pencil, Trash2 } from 'lucide-react'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -28,6 +30,7 @@ const read = (query: string, archive: string) =>
 const qty = (n: string | number) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 6 })
 
 export function RecipesPage() {
+  const [params] = useSearchParams()
   const [items, setItems] = useState<Recipe[]>([])
   const [query, setQuery] = useState('')
   const [archive, setArchive] = useState('active')
@@ -41,6 +44,7 @@ export function RecipesPage() {
   const warehouse = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(production, 'edit')
   const canProduce = canEdit && accessLevelAtLeast(warehouse, 'edit')
+  useEffect(() => { const row = items.find(r => String(r.id) === params.get('recipe')); if (row) setSelected(row) }, [items, params])
   useEffect(() => {
     let current = true
     const timer = setTimeout(() => {
@@ -130,8 +134,9 @@ export function RecipesPage() {
       >
         {selected && (
           <div className="space-y-5">
+            <ContextPanel kind="recipe" id={selected.id} />
             <div className="flex gap-2">
-              {canEdit && (
+              {canEdit && !selected.content.stages.some(s => s.costing_estimate_id) && (
                 <Button variant="secondary" size="sm" onClick={() => setEditing({ row: selected })}>
                   <Pencil size={14} />
                   Изменить норматив
@@ -144,6 +149,7 @@ export function RecipesPage() {
                 </Button>
               )}
             </div>
+            {selected.content.stages.some(s => s.costing_estimate_id) && <p className="text-sm text-muted">Состав закреплён по утверждённой смете заказа. Выпуск доступен после подтверждения заказа и ограничен его количеством.</p>}
             {selected.content.warnings?.map((w, i) => (
               <p key={i} className="text-sm text-danger">
                 {w}

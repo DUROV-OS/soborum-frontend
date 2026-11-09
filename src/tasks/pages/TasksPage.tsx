@@ -17,7 +17,7 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { useSectionOnboarding } from '@/shared/lib/useSectionOnboarding'
 import { DateFilter, dateFilterRange, matchesDateFilter } from '@/shared/lib/dateFilter'
 import { useTasksStore } from '../store'
-import { TASK_PRIORITIES, TASK_STATES, Task } from '../types'
+import { TASK_PRIORITIES, TASK_STATES, Task, TaskPriority } from '../types'
 import { CreateTaskModal } from '../components/CreateTaskModal'
 import { DailyPlanPanel } from '../components/DailyPlanPanel'
 import { EmployeeWorkloadGrid } from '../components/EmployeeWorkloadGrid'
@@ -25,6 +25,7 @@ import { MyTasksPanel } from '../components/MyTasksPanel'
 import { priorityTone } from '../components/priorityTone'
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer'
 import { TaskPeopleBadges } from '../components/TaskPeopleBadges'
+import { TaskPriorityFilter } from '../components/TaskPriorityFilter'
 
 type SubTab = 'mine' | 'all' | 'employees'
 
@@ -92,7 +93,7 @@ function employeeOptions(tasks: Task[]): { id: number; full_name: string }[] {
 }
 
 /** Если ответственный явно не проставлен, но у задачи ровно один исполнитель —
- * он же считается ответственным (правило Арсения). */
+ * он же считается ответственным (правило Разработчика). */
 function isResponsibleFor(task: Task, id: number): boolean {
   if (task.responsible) return task.responsible.id === id
   return task.assignees.length === 1 && task.assignees[0].id === id
@@ -181,6 +182,9 @@ export function TasksPage() {
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
+  const [responsibleFilter, setResponsibleFilter] = useState('')
+  const [knownResponsibles, setKnownResponsibles] = useState<Record<number, string>>({})
   const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
   const [roleFilter, setRoleFilter] = useState<Record<EmployeeRole, boolean>>(ALL_ROLES)
   const specificEmployeeSelected = employeeFilter !== EMPLOYEE_ALL && employeeFilter !== EMPLOYEE_UNASSIGNED
@@ -212,6 +216,8 @@ export function TasksPage() {
     if (!openOnly) return
     setSubTab(searchParams.get('scope') === 'all' ? 'all' : 'mine')
     setSourceFilter('all')
+    setPriorityFilter('')
+    setResponsibleFilter('')
     setEmployeeFilter(EMPLOYEE_ALL)
     setDateFilter('all')
     setQuery('')
@@ -221,11 +227,24 @@ export function TasksPage() {
     if (subTab === 'employees') return
     let active = true
     setBoardReady(false); setBoardError(null)
-    load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine', ...(openOnly ? { status: 'open' as const } : {}) })
+    load({ scope: subTab === 'all' && canSeeAll ? 'all' : 'mine', ...(openOnly ? { status: 'open' as const } : {}), priority: priorityFilter || undefined, responsible_id: responsibleFilter === '' ? undefined : Number(responsibleFilter) })
       .then(() => { if (active) setBoardReady(true) })
       .catch(() => { if (active) setBoardError('Не удалось загрузить задачи. Обновите страницу и повторите попытку.') })
     return () => { active = false }
-  }, [load, subTab, canSeeAll, openOnly])
+  }, [load, subTab, canSeeAll, openOnly, priorityFilter, responsibleFilter])
+
+  useEffect(() => {
+    if (!boardReady) return
+    setKnownResponsibles(previous => {
+      const next = { ...previous }
+      let changed = false
+      for (const task of tasks) {
+        const person = task.responsible || (task.assignees.length === 1 ? task.assignees[0] : null)
+        if (person && next[person.id] !== person.full_name) { next[person.id] = person.full_name; changed = true }
+      }
+      return changed ? next : previous
+    })
+  }, [boardReady, tasks])
 
   const requestedTaskId = searchParams.get('task')
   useEffect(() => {
@@ -266,6 +285,11 @@ export function TasksPage() {
     .filter((t) => matchesDateFilter(t.deadline ?? t.created_at, range))
     .filter((t) => !q || t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q))
     .filter((t) => matchesEmployee(t, employeeFilter, roleFilter))
+  const visibleTasks = (subTab === 'mine' ? tasks : filtered)
+    .filter(task => !priorityFilter || task.priority === priorityFilter)
+    .filter(task => responsibleFilter === '' || (responsibleFilter === '0'
+      ? !task.responsible && task.assignees.length !== 1
+      : isResponsibleFor(task, Number(responsibleFilter))))
 
   return (
     <div>
@@ -308,7 +332,7 @@ export function TasksPage() {
 
       {openOnly && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-muted">
-          Показаны только открытые задачи — тот же набор, что в счётчике на Пульсе.
+          {responsibleFilter ? 'Показаны открытые задачи выбранного ответственного.' : priorityFilter ? 'Показаны открытые задачи выбранного приоритета.' : 'Показаны только открытые задачи — тот же набор, что в счётчике на Пульсе.'}
           <Button variant="secondary" size="sm" onClick={() => setSearchParams({}, { replace: true })}>
             Показать все, включая done
           </Button>
@@ -375,10 +399,21 @@ export function TasksPage() {
 
       {subTab === 'employees' && <EmployeeWorkloadGrid />}
 
+      {subTab !== 'employees' && <div className="mb-4 flex flex-wrap items-center gap-3" aria-label="Приоритет задач на доске">
+        <Select aria-label="Фильтр по ответственному" value={responsibleFilter} onChange={event => setResponsibleFilter(event.target.value)} className="w-full sm:max-w-56">
+          <option value="">Все ответственные</option>
+          <option value="0">Без ответственного</option>
+          {Object.entries(knownResponsibles).sort((a, b) => a[1].localeCompare(b[1], 'ru')).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </Select>
+        <TaskPriorityFilter value={priorityFilter} onChange={setPriorityFilter} />
+        {priorityFilter && <Button size="sm" variant="ghost" onClick={() => setPriorityFilter('')}>Сбросить приоритет</Button>}
+        <span className="text-[13px] text-muted" role="status">{loading || !boardReady ? 'Загрузка задач…' : `Задач: ${visibleTasks.length}`}</span>
+      </div>}
+
       {subTab !== 'employees' && (
         <KanbanBoard
           columns={TASK_STATES}
-          items={subTab === 'mine' ? tasks : filtered}
+          items={boardReady ? visibleTasks : []}
           keyOf={(t) => String(t.id)}
           columnOf={(t) => t.status}
           onCardClick={setSelected}
@@ -386,7 +421,7 @@ export function TasksPage() {
           sortItem={byDeadline}
           scrollColumns
           renderCard={(task) => (
-            <div>
+            <div data-task-card-id={task.id} data-priority={task.priority}>
               <div className="text-[13px] font-medium text-ink">{task.title}</div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <Chip tone="neutral">{SOURCE_LABEL[sourceOf(task)]}</Chip>

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { AnalysisEvidence } from './AnalysisEvidence'
 import { format } from 'date-fns'
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -41,21 +42,26 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
   const [data, setData] = useState<SectionAnalyticsOut | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const sequence = useRef(0)
 
   async function load(reload = false) {
+    const request = ++sequence.current
     setLoading(true)
     setError(null)
+    setData(null)
     try {
-      setData(await getSectionAnalytics(section, reload))
+      const result = await getSectionAnalytics(section, reload)
+      if (request === sequence.current) setData(result)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить ИИ-резюме')
+      if (request === sequence.current) setError(e instanceof Error ? e.message : 'Не удалось загрузить ИИ-резюме')
     } finally {
-      setLoading(false)
+      if (request === sequence.current) setLoading(false)
     }
   }
 
   useEffect(() => {
     if (canShow) load()
+    return () => { sequence.current += 1 }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canShow, section])
 
@@ -66,10 +72,10 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
           <Sparkles size={15} className="text-ai" />
-          ИИ-резюме
+          Анализ раздела
         </div>
         <div className="flex items-center gap-2">
-          {data && <Chip tone={STATUS_TONE[data.status]}>{STATUS_LABEL[data.status]}</Chip>}
+          {data && !error && <Chip tone={!data.source_hash || data.input_changed ? 'neutral' : data.source === 'ai' && data.status === 'green' ? 'info' : STATUS_TONE[data.status]}>{!data.source_hash || data.input_changed ? 'Нужна актуальная проверка' : `${data.source === 'ai' ? 'Оценка ИИ: ' : 'Правила: '}${STATUS_LABEL[data.status]}`}</Chip>}
           <button
             type="button"
             onClick={() => load(true)}
@@ -90,7 +96,12 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
             {error}
           </span>
         )}
-        {!loading && !error && data && <Markdown text={data.summary} />}
+        {!loading && !error && data && <>
+          {data.input_changed && <p role="alert" className="mb-2 text-warning">Данные изменились во время анализа. Этот вывод относится к предыдущему срезу; обновите анализ.</p>}
+          {!!data.rule_findings?.length && <div className="mb-3 rounded-lg bg-surface-muted p-3"><p className="font-medium">Обнаружено по правилам</p><ul className="mt-1 space-y-1">{data.rule_findings.map((finding, i) => <li key={i}>{finding}</li>)}</ul></div>}
+          {data.source === 'ai' && <p className="mb-1 text-xs font-medium text-muted">Черновик вывода ИИ · сотрудником не согласован</p>}
+          <Markdown text={data.summary} />
+        </>}
       </div>
       {data && !error && (
         <div className="mt-2 flex flex-col gap-1 text-[11px] text-muted">
@@ -99,8 +110,11 @@ export function SectionAnalyticsCard({ section }: { section: AnalyticsSection })
           )}
           <span>
             {data.source === 'rules' && 'оценка по правилам, ИИ недоступен · '}
-            данные на {format(new Date(data.generated_at), 'HH:mm')}
+            анализ от {format(new Date(data.generated_at), 'dd.MM.yyyy HH:mm')}
           </span>
+          {data.data_as_of && <span>Исходный срез: {format(new Date(data.data_as_of), 'dd.MM.yyyy HH:mm')}{data.cached ? ' · используется сохранённый анализ совпадающего среза' : ''}</span>}
+          {data.checked_at && <span>Актуальность среза проверена: {format(new Date(data.checked_at), 'dd.MM.yyyy HH:mm')}</span>}
+          <AnalysisEvidence snapshot={data.snapshot} sourceHash={data.source_hash} version={data.analysis_version} citations={data.citations} />
         </div>
       )}
     </div>

@@ -10,7 +10,7 @@ const HIDDEN_INTERVAL_MS = 60_000
  * о новых. Раз в 10 с, пока вкладка видима, раз в 60 с в фоне, сразу — при
  * возврате на вкладку. Монтируется один раз в `AppShell` (только для вошедшего).
  */
-export function useNotificationPolling() {
+export function useNotificationPolling(enabled = true) {
   const poll = useNotificationsStore((s) => s.poll)
   const resetPolling = useNotificationsStore((s) => s.resetPolling)
   const { pathname } = useLocation()
@@ -18,6 +18,7 @@ export function useNotificationPolling() {
   onPageRef.current = pathname.startsWith('/notifications')
 
   useEffect(() => {
+    if (!enabled) return
     let timer: number | undefined
     let inflight = false
 
@@ -52,5 +53,5 @@ export function useNotificationPolling() {
       document.removeEventListener('visibilitychange', onVisibility)
       resetPolling()
     }
-  }, [poll, resetPolling])
+  }, [poll, resetPolling, enabled])
 }

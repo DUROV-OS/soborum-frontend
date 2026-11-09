@@ -7,11 +7,15 @@ import { logClientEvent } from '@/shared/lib/clientLog'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { WorkflowBar } from './WorkflowBar'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
+import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
-  useNotificationPolling()
+  const salesManager = useAuthStore((s) => isSalesManager(s.current))
+  useNotificationPolling(!salesManager)
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -20,7 +24,7 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
-    <div className="flex h-dvh w-full">
+    <BrowserPhoneProvider><div className="flex h-dvh w-full">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
@@ -36,8 +40,8 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-      <MeetingPanel />
-      <NotificationToasts />
-    </div>
+      {!salesManager && <MeetingPanel />}
+      {!salesManager && <NotificationToasts />}
+    </div></BrowserPhoneProvider>
   )
 }

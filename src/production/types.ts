@@ -83,7 +83,7 @@ export interface ProductionAttention {
 
 export interface ProductionAktualnoe {
   stage: string
-  percent: number
+  percent: number | null
   phrase: string
 }
 
@@ -95,6 +95,15 @@ export interface DeadlineInsight {
   source: 'ai' | 'fallback' | 'none' | 'insufficient_data'
   /** Когда посчитан ответ (0084-c); null — старая запись кэша. */
   generated_at?: string | null
+  data_as_of?: string | null
+  source_hash?: string | null
+  input_snapshot?: Record<string, unknown>
+  analysis_version?: string | null
+  cached?: boolean
+  human_approved?: false
+  signal_index?: number | null
+  checked_at?: string | null
+  input_changed?: boolean
 }
 
 export interface ProductionHomeDocuments {

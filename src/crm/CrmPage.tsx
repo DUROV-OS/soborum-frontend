@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
-import { Link } from 'react-router-dom'
-import { Plus, Users, Archive, Pencil, Download } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Plus, Users, Archive, Pencil, Download, Columns3, List } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -10,11 +10,20 @@ import { Chip } from '@/shared/ui/Chip'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
+import { CrmTaskClientBlock } from './CrmTaskClientBlock'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import * as api from './api'
 import { Catalog, Entry, Kind, History } from './api'
 import { LeadControl } from './LeadControl'
+import { CrmBoard } from './CrmBoard'
+import { CrmRecordCard } from './CrmRecordCard'
+import { CrmTasksTable } from './CrmTasksTable'
+import { TaskPriorityFilter } from '@/tasks/components/TaskPriorityFilter'
+import type { TaskPriority } from '@/tasks/types'
+import { CrmDateFilter, CrmDateSelection } from './CrmDateFilter'
+import { crmDateQuery, crmSourceDateLabel } from './dates'
+import { asObject, CrmAgencyFields, CrmCommercialFields, CrmCustomerFields, CrmReferralFields, TEMPERATURES } from './CrmSalesFields'
 
 const labels: Record<Kind, string> = {
   deal: 'Сделки',
@@ -47,16 +56,26 @@ const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'com
 }))
 
 export function CrmPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [catalog, setCatalog] = useState<Catalog>({ pipelines: [], stages: [], users: [], counts: {} })
   const [kind, setKind] = useQueryChoice<Kind>(
     'tab',
     ['inquiry', 'deal', 'contact', 'company', 'task', 'pipeline', 'stage'],
     'deal',
   )
-  const [pipeline, setPipeline] = useState('')
+  const [pipeline, setPipeline] = useQueryChoice('pipeline', catalog.pipelines.map(p => String(p.id)), '')
+  const [view, setView] = useQueryChoice('view', ['board', 'list'] as const, 'board')
+  const isBoard = kind === 'deal' && view === 'board'
+  const boardPipeline = pipeline || String(catalog.pipelines[0]?.id || '')
   const [stage, setStage] = useState('')
   const [archive, setArchive] = useState('active')
   const [query, setQuery] = useState('')
+  const [owner, setOwner] = useState('')
+  const [priority, setPriority] = useState<TaskPriority | ''>('')
+  const [dates, setDates] = useState<CrmDateSelection>({ from: '', to: '', unknown: false })
+  const [spam, setSpam] = useState<api.SpamFilter>('normal')
+  const [temperature, setTemperature] = useState('')
   const [offset, setOffset] = useState(0)
   const [result, setResult] = useState<{ total: number; items: Entry[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
@@ -65,7 +84,8 @@ export function CrmPage() {
   const [history, setHistory] = useState<History>({ total: 0, items: [] })
   const [note, setNote] = useState('')
   const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
-  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry } | null>(null)
+  const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry; initialData?: Record<string, unknown>; initialName?: string } | null>(null)
+  const [showControl, setShowControl] = useState(false)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
   const [fileLibrary, setFileLibrary] = useState(false)
@@ -76,15 +96,23 @@ export function CrmPage() {
     setOffset(0)
     setStage('')
     setSelected(null)
+    setOwner('')
+    setPriority('')
+    setDates({ from: '', to: '', unknown: false })
+    setSpam('normal')
+    setTemperature('')
   }, [kind])
   useEffect(() => {
+    if (isBoard) return
     const interval = window.setInterval(() => { if (!document.hidden) setRevision(v=>v+1) }, 60000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [isBoard])
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('entry')
-    if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(open).catch(e=>setError(e.message))
-  }, [])
+    let live = true
+    const id = new URLSearchParams(location.search).get('entry')
+    if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(entry => { if (live) open(entry) }).catch(e=>{ if (live) setError(e.message) })
+    return () => { live = false }
+  }, [location.key])
   useEffect(() => {
     api
       .catalog()
@@ -92,13 +120,20 @@ export function CrmPage() {
       .catch((e) => setError(e.message))
   }, [revision])
   useEffect(() => {
+    if (isBoard) return
     let current = true
     const timer = setTimeout(() => {
       setLoading(true)
+      setError('')
       api
         .list(kind, {
           query,
           archive,
+          owner_id: owner === '' ? undefined : Number(owner),
+          priority: kind === 'task' && priority ? priority : undefined,
+          ...(['deal', 'inquiry'].includes(kind) ? crmDateQuery(dates.from, dates.to, dates.unknown) : {}),
+          spam: ['deal', 'inquiry'].includes(kind) ? spam : undefined,
+          temperature: ['deal', 'inquiry', 'contact'].includes(kind) && temperature ? temperature : undefined,
           pipeline_id: kind === 'deal' && pipeline ? Number(pipeline) : undefined,
           stage_id: kind === 'deal' && stage ? Number(stage) : undefined,
           offset,
@@ -117,7 +152,7 @@ export function CrmPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [kind, query, archive, pipeline, stage, offset, revision])
+  }, [kind, query, archive, owner, priority, dates, spam, temperature, pipeline, stage, offset, revision, isBoard])
   const refreshHistory = (entry: Entry, offset = 0) =>
     api
       .history(entry.id, offset)
@@ -130,10 +165,17 @@ export function CrmPage() {
     setHistory({ total: 0, items: [] })
     setAttached({ total: 0, items: [] })
     setNote('')
+    if (['deal', 'inquiry', 'contact', 'company'].includes(entry.kind)) return
     refreshHistory(entry)
     apiRequest<{ total: number; items: SourceFile[] }>({ section: 'crm', path: `/entries/${entry.id}/files` })
       .then(setAttached)
       .catch((e) => setError(e.message))
+  }
+  const closeCard = () => {
+    setSelected(null)
+    const params = new URLSearchParams(location.search)
+    params.delete('entry'); params.delete('channel')
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true })
   }
   const update = async (entry: Entry, fields: Parameters<typeof api.patch>[1]) => {
     setBusy(true)
@@ -150,13 +192,32 @@ export function CrmPage() {
     }
   }
   const selectedStage = catalog.stages.find((s) => s.id === selected?.data.stage_id)
+  const acceptInquiry = async (inquiry: Entry, targetStage?: Entry, targetPipeline?: string) => {
+    setError('')
+    if (inquiry.data.is_spam === true) {
+      setError('Сначала уберите отметку «Спам» в карточке заявки.')
+      return
+    }
+    try {
+      // Imported inquiries can wrap an existing unsorted deal. Keep its commercial data.
+      const linked = inquiry.data.deal_id ? await apiRequest<Entry>({ section: 'crm', path: `/entries/${inquiry.data.deal_id}` }) : null
+      if (linked && (linked.kind !== 'deal' || linked.archived)) throw new Error('Связанная сделка недоступна для принятия. Проверьте её историю.')
+      const pid = Number(targetStage?.data.pipeline_id || targetPipeline || inquiry.data.pipeline_id || boardPipeline)
+      const currentStage = catalog.stages.find(s => s.id === linked?.data.stage_id && s.data.pipeline_id === pid)
+      const firstStage = catalog.stages.filter(s => s.data.pipeline_id === pid && s.data.outcome === 'open').sort((a,b) => Number(a.data.sort)-Number(b.data.sort))[0]
+      setEditing({ kind: 'deal', inquiry,
+        initialName: linked?.name || String(inquiry.data.contact_name || inquiry.name),
+        initialData: { amount: 0, currency: 'RUB', ...linked?.data, pipeline_id: pid, stage_id: (targetStage || currentStage || firstStage)?.id, is_unsorted: false },
+      })
+    } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось открыть заявку') }
+  }
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-medium text-ink">CRM</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Воронки, сделки, контакты и последующие действия — в Соборуме.
+            Сделки по этапам, контакты и следующие действия.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -175,32 +236,16 @@ export function CrmPage() {
             </Button>
           )}
           {canEdit && kind !== 'inquiry' && (
-            <Button onClick={() => setEditing({ kind })}>
+            <Button onClick={() => setEditing({ kind, initialData: kind === 'deal' && boardPipeline ? { pipeline_id: Number(boardPipeline), stage_id: catalog.stages.filter(s => String(s.data.pipeline_id) === boardPipeline && s.data.outcome === 'open').sort((a, b) => Number(a.data.sort) - Number(b.data.sort))[0]?.id, amount: 0, currency: 'RUB' } : undefined })}>
               <Plus size={16} />
               {single[kind]}
             </Button>
           )}
         </div>
       </div>
-      <LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/>
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => {
-              setKind(t.key)
-              setOffset(0)
-            }}
-            className="rounded-xl border border-border bg-surface p-4 text-left hover:border-brand/40"
-          >
-            <p className="text-xs text-muted">{t.label}</p>
-            <p className="mt-1 text-xl font-medium">{(catalog.counts[t.key] ?? 0).toLocaleString('ru-RU')}</p>
-          </button>
-        ))}
-      </div>
-      <Tabs
+      <Tabs<Kind>
         tabs={
-          canFull ? [...tabs, { key: 'pipeline', label: 'Воронки' }, { key: 'stage', label: 'Этапы' }] : tabs
+          (canFull ? [...tabs, { key: 'pipeline' as Kind, label: 'Воронки' }, { key: 'stage' as Kind, label: 'Этапы' }] : tabs).map(t => ({ ...t, label: catalog.counts[t.key] === undefined ? t.label : `${t.label} · ${catalog.counts[t.key].toLocaleString('ru-RU')}` }))
         }
         activeKey={kind}
         onChange={(k) => {
@@ -209,6 +254,14 @@ export function CrmPage() {
           setStage('')
         }}
       />
+      {kind === 'deal' && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <div role="group" aria-label="Вид сделок" className="flex gap-1 rounded-xl border border-border bg-surface p-1">
+          <Button size="sm" variant={view === 'board' ? 'primary' : 'ghost'} aria-pressed={view === 'board'} onClick={() => setView('board')}><Columns3 size={16} />Канбан</Button>
+          <Button size="sm" variant={view === 'list' ? 'primary' : 'ghost'} aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={16} />Список</Button>
+        </div>
+        <Button size="sm" variant="secondary" aria-expanded={showControl} onClick={() => setShowControl(value => !value)}>Контроль следующих шагов</Button>
+      </div>}
+      {showControl && <div className="mt-4"><LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/></div>}
       <div className="my-4 flex flex-wrap gap-2">
         <Input
           aria-label="Поиск в продажах"
@@ -220,9 +273,22 @@ export function CrmPage() {
             setOffset(0)
           }}
         />
+        {['deal', 'inquiry', 'task'].includes(kind) && <Select aria-label="Фильтр по ответственному" className="sm:max-w-64" value={owner}
+          onChange={e => { setOwner(e.target.value); setOffset(0) }}>
+          <option value="">Все ответственные</option>
+          <option value="0">Без ответственного</option>
+          {catalog.users.map(user => <option key={user.id} value={user.id}>{user.name}</option>)}
+        </Select>}
+        {kind === 'task' && <TaskPriorityFilter value={priority} onChange={value => { setPriority(value); setOffset(0) }} className="sm:max-w-56" />}
+        {['deal', 'inquiry'].includes(kind) && <Select aria-label="Фильтр спама" className="sm:max-w-52" value={spam}
+          onChange={event => { setSpam(event.target.value as api.SpamFilter); setOffset(0) }}>
+          <option value="normal">Без спама</option>
+          <option value="spam">Только спам</option>
+          <option value="all">Все, включая спам</option>
+        </Select>}
         {kind === 'deal' && (
           <>
-            <Select
+            {!isBoard && <Select
               aria-label="Воронка"
               className="sm:max-w-64"
               value={pipeline}
@@ -238,7 +304,7 @@ export function CrmPage() {
                   {p.name}
                 </option>
               ))}
-            </Select>
+            </Select>}
             <Select
               aria-label="Этап"
               className="sm:max-w-64"
@@ -250,7 +316,7 @@ export function CrmPage() {
             >
               <option value="">Все этапы</option>
               {catalog.stages
-                .filter((s) => !pipeline || s.data.pipeline_id === Number(pipeline))
+                .filter((s) => !(isBoard ? boardPipeline : pipeline) || s.data.pipeline_id === Number(isBoard ? boardPipeline : pipeline))
                 .sort((a, b) => Number(a.data.sort) - Number(b.data.sort))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
@@ -260,6 +326,9 @@ export function CrmPage() {
             </Select>
           </>
         )}
+        {['deal', 'inquiry', 'contact'].includes(kind) && <Select aria-label="Фильтр температуры" className="sm:max-w-52" value={temperature} onChange={event => { setTemperature(event.target.value); setOffset(0) }}>
+          <option value="">Любая температура</option>{TEMPERATURES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}<option value="unknown">Не указана</option>
+        </Select>}
         <Select
           aria-label="Архив продаж"
           className="sm:max-w-44"
@@ -274,12 +343,24 @@ export function CrmPage() {
           <option value="all">Все записи</option>
         </Select>
       </div>
+      {['deal', 'inquiry'].includes(kind) && <div className="mb-4 rounded-xl border border-border bg-surface p-3">
+        <CrmDateFilter dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} onChange={value => { setDates(value); setOffset(0) }} />
+        {(dates.from || dates.to || dates.unknown) && <Button size="sm" variant="ghost" onClick={() => { setDates({ from: '', to: '', unknown: false }); setOffset(0) }}>Сбросить даты</Button>}
+      </div>}
       {error && (
         <p role="alert" className="my-3 text-danger">
           {error}
         </p>
       )}
-      <DataTable<Entry>
+      {isBoard ? <CrmBoard catalog={catalog} pipeline={boardPipeline} stage={stage} query={query} archive={archive} owner={owner}
+        dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} spam={spam} temperature={temperature}
+        revision={revision} canEdit={canEdit} onPipeline={id => { setPipeline(id); setStage('') }} onOpen={open}
+        onCreate={target => setEditing({ kind: 'deal', initialData: { pipeline_id: target.data.pipeline_id, stage_id: target.id, amount: 0, currency: 'RUB' } })}
+        onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry} onChanged={() => setRevision(value => value + 1)} onList={() => setView('list')} /> : <>{kind === 'task' ? <CrmTasksTable
+          rows={result.items} catalog={catalog} loading={loading} canEdit={canEdit} onOpen={open}
+          onEdit={entry => setEditing({ entry, kind: 'task' })} onReload={() => setRevision(value => value + 1)}
+          onChanged={entry => { setResult(previous => ({ ...previous, items: previous.items.map(item => item.id === entry.id ? entry : item) })); setRevision(value => value + 1) }}
+        /> : <DataTable<Entry>
         rows={result.items}
         loading={loading}
         keyOf={(r) => String(r.id)}
@@ -290,6 +371,7 @@ export function CrmPage() {
             accessor: (r) => (
               <div className="font-medium">
                 {r.name}
+                {r.kind === 'inquiry' && r.data.is_spam === true && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Спам</span>}
                 {r.archived && <span className="ml-2 text-xs text-muted">Архив</span>}
               </div>
             ),
@@ -301,16 +383,6 @@ export function CrmPage() {
                 <Chip tone="neutral">
                   {catalog.stages.find((s) => s.id === r.data.stage_id)?.name ?? '—'}
                 </Chip>
-              ) : kind === 'task' ? (
-                <span
-                  className={
-                    !r.data.completed && r.data.due_at && new Date(String(r.data.due_at)) < new Date()
-                      ? 'text-danger'
-                      : ''
-                  }
-                >
-                  {date(r.data.due_at)}
-                </span>
               ) : (
                 String(r.data.phone || r.data.email || '—')
               ),
@@ -320,23 +392,20 @@ export function CrmPage() {
             accessor: (r) =>
               kind === 'deal' ? (
                 money(r.data.amount)
-              ) : kind === 'task' ? (
-                <Chip tone={r.data.completed ? 'success' : 'neutral'}>
-                  {r.data.completed ? 'Выполнена' : 'Открыта'}
-                </Chip>
               ) : r.archived ? (
                 'В архиве'
               ) : (
                 'Действует'
               ),
           },
+          ...(['deal', 'inquiry'].includes(kind) ? [{ header: 'Дата заявки', accessor: (r: Entry) => crmSourceDateLabel(r) }] : []),
           {
             header: 'Ответственный',
             accessor: (r) =>
-              catalog.users.find((u) => u.id === r.data.responsible_user_id)?.name ?? 'Не назначен',
+              catalog.users.find((u) => u.id === (r.effective_owner_id ?? r.data.responsible_user_id))?.name ?? 'Не назначен',
           },
         ]}
-      />
+      />}
       <div className="mt-4 flex items-center justify-between text-sm">
         <span className="text-muted">
           {result.total ? offset + 1 : 0}–{Math.min(offset + 50, result.total)} из{' '}
@@ -359,26 +428,25 @@ export function CrmPage() {
           </Button>
         </div>
       </div>
+      </>}
+      {selected && ['deal', 'inquiry', 'contact', 'company'].includes(selected.kind) && <CrmRecordCard
+        key={selected.id} entry={selected} catalog={catalog} canEdit={canEdit} canFull={canFull}
+        onClose={closeCard} onOpen={open}
+        onEdit={entry => setEditing({ entry, kind: entry.kind })}
+        onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry}
+        onChanged={entry => { setSelected(entry); setRevision(value => value + 1) }} />}
       <Drawer
-        open={!!selected}
-        onClose={() => setSelected(null)}
+        open={!!selected && !['deal', 'inquiry', 'contact', 'company'].includes(selected.kind)}
+        onClose={closeCard}
         title={selected?.name ?? ''}
         subtitle={selected?.archived ? 'Архивная запись' : selectedStage?.name}
       >
-        {selected && (
+        {selected && !['deal', 'inquiry', 'contact', 'company'].includes(selected.kind) && (
           <div className="space-y-5 text-[13px]">
             <div className="flex flex-wrap gap-2">
               {canEdit && selected.kind==='deal' && !selected.archived && <Button size="sm" variant="secondary" onClick={()=>setEditing({kind:'task',related:selected})}>Назначить следующий шаг</Button>}
               {!!selected.board_task_id && <Link to="/tasks" className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent">Общий список задач</Link>}
               {selected.kind==='task' && !!selected.data.entity_id && <Button size="sm" variant="secondary" onClick={()=>apiRequest<Entry>({section:'crm',path:`/entries/${selected.data.entity_id}`}).then(open).catch(e=>setError(e.message))}>Связанная карточка</Button>}
-              {!!selected.data.client_id && (
-                <Link
-                  to={`/clients/${selected.data.client_id}`}
-                  className="inline-flex items-center rounded-full border border-border px-3 py-2 font-medium text-accent"
-                >
-                  Карточка клиента
-                </Link>
-              )}
               {canEdit && selected.kind !== 'inquiry' && (
                 <Button
                   size="sm"
@@ -390,7 +458,7 @@ export function CrmPage() {
                 </Button>
               )}
               {canEdit && selected.kind === 'inquiry' && !selected.archived && (
-                <Button size="sm" onClick={() => setEditing({ kind: 'deal', inquiry: selected })}>
+                <Button size="sm" onClick={() => void acceptInquiry(selected)}>
                   Принять в работу
                 </Button>
               )}
@@ -416,6 +484,7 @@ export function CrmPage() {
               )}
             </div>
             {selected.kind==='task' && <div className="space-y-2"><p className="whitespace-pre-wrap">{String(selected.data.description||'')}</p>{!!selected.data.result&&<p className="whitespace-pre-wrap">Результат: {String(selected.data.result)}</p>}</div>}
+            {selected.kind === 'task' && <CrmTaskClientBlock entityId={Number(selected.data.entity_id) || null} canMessage={canEdit && !selected.archived} onOpenCRM={open} />}
             {selected.kind === 'deal' && (
               <div className="rounded-xl bg-surface-muted p-4">
                 <p className="text-lg font-medium">{money(selected.data.amount)}</p>
@@ -535,6 +604,8 @@ export function CrmPage() {
           entry={editing.entry}
           inquiry={editing.inquiry}
           related={editing.related}
+          initialData={editing.initialData}
+          initialName={editing.initialName}
           catalog={catalog}
           onClose={() => setEditing(null)}
           onSaved={(entry) => {
@@ -553,6 +624,8 @@ function Editor({
   entry,
   inquiry,
   related,
+  initialData,
+  initialName,
   catalog,
   onClose,
   onSaved,
@@ -561,14 +634,16 @@ function Editor({
   entry?: Entry
   inquiry?: Entry
   related?: Entry
+  initialData?: Record<string, unknown>
+  initialName?: string
   catalog: Catalog
   onClose: () => void
   onSaved: (entry: Entry) => void
 }) {
-  const [name, setName] = useState(entry?.name ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
+  const [name, setName] = useState(entry?.name ?? initialName ?? inquiry?.name ?? (related?'Связаться: '+related.name:''))
   const first = catalog.pipelines[0]?.id
   const [data, setData] = useState<Record<string, unknown>>(
-    entry?.data ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??
+    entry?.data ?? initialData ?? (related ? {entity_id:related.id,responsible_user_id:related.data.responsible_user_id||null,due_at:new Date(Date.now()+24*3600000).toISOString()} : undefined) ??
       (kind === 'deal'
         ? {
             pipeline_id: first,
@@ -585,7 +660,27 @@ function Editor({
   const [error, setError] = useState('')
   const [contactQuery, setContactQuery] = useState('')
   const [contacts, setContacts] = useState<Entry[]>([])
+  const [linkedContacts, setLinkedContacts] = useState<Entry[]>([])
+  const isAgency = kind === 'deal' && catalog.pipelines.find(item => item.id === data.pipeline_id)?.data.purpose === 'agency'
+  const linkedKey = Array.isArray(data.contact_ids) ? data.contact_ids.join(',') : ''
+  const invalidReferral = data.referral != null && !Number(asObject(data.referral).agent_contact_id)
+  const missingChildDate = Array.isArray(asObject(data.customer).children_birth_dates) && (asObject(data.customer).children_birth_dates as string[]).some(value => !value)
   const put = (key: string, value: unknown) => setData((d) => ({ ...d, [key]: value }))
+  useEffect(() => {
+    let current = true
+    const ids = linkedKey ? linkedKey.split(',').map(Number) : []
+    setLinkedContacts([])
+    const queue = [...ids], found: Entry[] = []
+    void Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length && current) {
+        const id = queue.shift()!
+        const entry = await apiRequest<Entry>({ section: 'crm', path: `/entries/${id}` })
+        if (entry.kind === 'contact') found.push(entry)
+      }
+    })).then(() => { if (current) setLinkedContacts(ids.flatMap(id => found.filter(item => item.id === id))) })
+      .catch(error => { if (current) setError(error instanceof Error ? error.message : 'Не удалось загрузить контакты') })
+    return () => { current = false }
+  }, [linkedKey])
   useEffect(() => {
     if (kind !== 'deal' || !contactQuery.trim()) {
       setContacts([])
@@ -631,7 +726,7 @@ function Editor({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button disabled={busy || !name.trim()} onClick={save}>
+          <Button disabled={busy || !name.trim() || invalidReferral || missingChildDate} onClick={save}>
             {busy ? 'Сохранение…' : 'Сохранить'}
           </Button>
         </>
@@ -641,8 +736,9 @@ function Editor({
         <Field label="Название" required>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        {['contact', 'company'].includes(kind) && (
+        {['contact', 'company', 'inquiry'].includes(kind) && (
           <>
+            {kind === 'inquiry' && <Field label="Контакт заявки"><Input value={String(data.contact_name ?? '')} onChange={event => put('contact_name', event.target.value)} /></Field>}
             <Field label="Телефон">
               <Input value={String(data.phone ?? '')} onChange={(e) => put('phone', e.target.value)} />
             </Field>
@@ -655,6 +751,8 @@ function Editor({
             </Field>
           </>
         )}
+        {['contact', 'inquiry'].includes(kind) && <CrmCustomerFields value={data.customer} onChange={value => put('customer', value)} />}
+        {missingChildDate && <p role="alert" className="text-sm text-danger">Заполните добавленные даты рождения детей или уберите пустые строки.</p>}
         {['deal', 'stage'].includes(kind) && (
           <Field label="Воронка" required>
             <Select
@@ -731,7 +829,7 @@ function Editor({
                 key={c.id}
                 className="block w-full rounded-lg border border-border p-2 text-left text-sm"
                 onClick={() => {
-                  put('contact_ids', [c.id])
+                  setData(previous => ({ ...previous, contact_ids: [...new Set([...(Array.isArray(previous.contact_ids) ? previous.contact_ids : []), c.id])] }))
                   setContactQuery(c.name)
                   setContacts([])
                 }}
@@ -743,8 +841,13 @@ function Editor({
             {Array.isArray(data.contact_ids) && data.contact_ids.length > 0 && (
               <p className="text-xs text-muted">Привязано контактов: {data.contact_ids.length}</p>
             )}
+            {!isAgency && linkedContacts.length > 0 && <Field label="Основной контакт сделки"><Select value={String(data.primary_contact_id || linkedContacts[0]?.id || '')} onChange={event => put('primary_contact_id', Number(event.target.value))}>
+              {linkedContacts.map(contact => <option key={contact.id} value={contact.id}>{contact.name}{contact.data.phone ? ` · ${String(contact.data.phone)}` : ''}</option>)}
+            </Select></Field>}
+            {isAgency ? <CrmAgencyFields value={data.agency_profile} contacts={linkedContacts} onChange={value => put('agency_profile', value)} /> : <CrmCommercialFields data={data} put={put} />}
           </>
         )}
+        {['contact', 'deal', 'inquiry'].includes(kind) && !isAgency && <CrmReferralFields value={data.referral} onChange={value => put('referral', value)} />}
         {kind === 'task' && (
           <>
             <Field label="Описание задачи"><Textarea aria-label="Описание задачи" value={String(data.description??'')} onChange={e=>put('description',e.target.value)}/></Field>

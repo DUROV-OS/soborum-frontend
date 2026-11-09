@@ -3,6 +3,7 @@ import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
 import { Account, AccessLevel, JobRole, Role } from './types'
+import { isSalesManager, salesNavigationLevel } from './salesNavigation'
 
 interface AuthState {
   current: Account | null
@@ -19,6 +20,7 @@ interface AuthState {
   addAccount: (input: authApi.CreateAccountInput) => Promise<void>
   setAccountRole: (id: number, role: Role) => Promise<void>
   setJobRole: (id: number, role: JobRole | null) => Promise<void>
+  setWorkPhone: (id: number, input: authApi.WorkPhoneInput) => Promise<void>
   resetPassword: (id: number) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
 }
@@ -72,6 +74,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const account = get().current
     if (!account) return 'none'
     if (account.role === 'admin') return 'full'
+    if (isSalesManager(account)) return salesNavigationLevel(account, section)
+    // Commercial users receive a server-filtered workspace without internal costs.
+    if (section === 'estimates') return account.module_access.costing && account.module_access.costing !== 'none' ? account.module_access.costing : account.module_access.clients ?? 'none'
+    if (section === 'suppliers') return account.module_access.warehouse ?? 'none'
     if (section === 'recipes') return account.module_access.production !== undefined && account.module_access.production !== 'none' ? account.module_access.production : account.module_access.warehouse ?? 'none'
     if (section === 'crm' || section === 'sales') return account.module_access.clients ?? 'none'
     if (section === 'purchasing') return account.module_access.accounting ?? 'none'
@@ -117,6 +123,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setJobRole: async (id, role) => {
     const updated = await authApi.updateJobRole(id, role)
     set((state) => ({ accounts: state.accounts.map((a) => a.id === id ? updated : a), current: state.current?.id === id ? updated : state.current }))
+  },
+
+  setWorkPhone: async (id, input) => {
+    const updated = await authApi.updateWorkPhone(id, input)
+    set((state) => ({ accounts: state.accounts.map((account) => account.id === id ? updated : account), current: state.current?.id === id ? updated : state.current }))
   },
 
   resetPassword: async (id) => {

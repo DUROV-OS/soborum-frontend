@@ -9,10 +9,12 @@ export interface TaskFilters {
   scope?: TaskScope
   assignee_id?: number
   reviewer_id?: number
+  responsible_id?: number
   block_id?: number
   link_type?: TaskLinkType
   /** `open` — всё, кроме done: тот же набор, что счётчик на Пульсе (0084-h). */
   status?: TaskStatus | 'open'
+  priority?: TaskPriority
   overdue?: boolean
   [key: string]: string | number | boolean | undefined
 }

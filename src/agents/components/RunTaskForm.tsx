@@ -13,7 +13,7 @@ const EXAMPLES = [
 
 function legalTone(verdict: LegalVerdict) {
   if (verdict === 'block') return 'danger' as const
-  if (verdict === 'allow') return 'success' as const
+  if (verdict === 'allow') return 'info' as const
   return 'warning' as const
 }
 
@@ -42,11 +42,11 @@ export function RunTaskForm() {
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="text-[18px] font-semibold tracking-tight text-ink">Прогнать запрос</h2>
         <p className="mt-1 text-[12px] text-muted">
-          Отладка фильтра, не смена компании. Цитаты — из checkout vault_backups. Claude у специалистов ещё нет.
+          Автоматическая проверка запроса по настроенным правилам. Результат не является заключением или согласованием специалиста.
         </p>
       </div>
       <form onSubmit={onSubmit} className="space-y-4 px-5 py-5 sm:px-6">
-        <Field label="Запрос" required hint="Минимум три символа. След пишется в /api/agents/runs.">
+        <Field label="Запрос" required hint="Минимум три символа. Результат сохраняется в истории запросов.">
           <Textarea
             value={text}
             onChange={(event) => setText(event.target.value)}
@@ -84,6 +84,7 @@ export function RunTaskForm() {
             )}
           </div>
           <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-ink">{lastRun.reply}</pre>
+          <p className="mt-3 text-xs text-muted">Это сохранённый ответ программных ролей. Участие и согласование сотрудника этой записью не подтверждаются.</p>
         </div>
       )}
     </section>

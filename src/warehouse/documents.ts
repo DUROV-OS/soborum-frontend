@@ -10,6 +10,11 @@ export interface StockDocumentLine {
   is_fractional: boolean
   expected_quantity: string | null
   quantity: string | null
+  count_id?: number
+  counted_by?: string
+  counted_at?: string
+  count_comment?: string
+  count_proof?: import("./controlApi").Proof | null
   delta?: string | null
   unit_price?: string
   source_balance_after?: string
@@ -65,12 +70,12 @@ export const updateStockDocument = (row: StockDocument, note: string, lines: Doc
     method: 'PATCH',
     body: { version: row.version, note, lines },
   })
-export const postStockDocument = (row: StockDocument, request_id: string) =>
+export const postStockDocument = (row: StockDocument, request_id: string, act_id?: number) =>
   apiRequest<StockDocument>({
     section: 'warehouse',
     path: `/documents/${row.id}/post`,
     method: 'POST',
-    body: { version: row.version, request_id },
+    body: { version: row.version, request_id, ...(row.kind==='inventory'?{act_id,confirmed:true}:{}) },
   })
 export const recountStockDocument = (row: StockDocument) =>
   apiRequest<StockDocument>({

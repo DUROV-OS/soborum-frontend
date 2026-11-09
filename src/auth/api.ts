@@ -29,6 +29,8 @@ export interface CreateAccountInput {
    * и так видит всё, поэтому форма в этом случае шлёт пустую матрицу. */
   role: Role
   module_access: Partial<Record<SectionId, AccessLevel>>
+  work_phone?: string | null
+  telephony_extension?: string | null
 }
 
 /** POST /api/auth/users */
@@ -83,4 +85,14 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 export function updateJobRole(id: number, job_role: JobRole | null): Promise<Account> {
   return apiRequest<Account>({ section: SECTION, path: `/users/${id}`, method: 'PATCH', body: { job_role } })
+}
+
+export interface WorkPhoneInput {
+  work_phone?: string | null
+  telephony_extension?: string | null
+}
+
+/** Employee contact settings. Saving them does not connect or verify a caller ID. */
+export function updateWorkPhone(id: number, input: WorkPhoneInput): Promise<Account> {
+  return apiRequest<Account>({ section: SECTION, path: `/users/${id}`, method: 'PATCH', body: input })
 }

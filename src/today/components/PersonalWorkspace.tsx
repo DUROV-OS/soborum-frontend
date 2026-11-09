@@ -41,7 +41,7 @@ export function PersonalWorkspace({ userId, manager, showTasks, refresh }: { use
     .filter((item) => item.task !== null).sort((a, b) => (a.task?.deadline ?? '9999').localeCompare(b.task?.deadline ?? '9999'))
   const retryButton = <button type="button" onClick={() => setRetry((value) => value + 1)} className="mt-2 text-[13px] font-medium text-brand">Повторить</button>
 
-  return <div className="grid gap-5 lg:grid-cols-2">
+  return <div className={`grid gap-5 ${manager && showTasks ? 'lg:grid-cols-2' : ''}`}>
     {showTasks && <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6" aria-labelledby="personal-tasks-title">
       <div className="flex items-start justify-between gap-3"><div>
         <h2 id="personal-tasks-title" className="text-[18px] font-semibold text-ink">Мои задачи</h2>

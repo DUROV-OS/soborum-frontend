@@ -2,7 +2,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { ArrowLeft, Check, Copy, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAccessLevel } from '@/app/AccessGate'
+import { accessLevelAtLeast } from '@/auth/types'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -21,6 +25,13 @@ import { AddContactModal } from '../components/AddContactModal'
 import { MaxAttachButton, MaxPendingFile } from '../components/MaxFilePicker'
 import { ForwardMessageModal, MaxMessageActions } from '../components/MaxMessageActions'
 import { useMaxEvents } from '../realtime'
+import { crmCardPath } from '../crmLinks'
+
+function maxFailure(error: unknown, sending = false) {
+  if (error instanceof ApiError && error.status === 403) return 'Недостаточно прав для этого действия в MAX.'
+  return sending ? 'Не удалось подтвердить отправку. Обновите переписку перед повтором: сообщение могло быть доставлено.'
+    : 'Подключение MAX недоступно. Руководителю нужно восстановить вход в рабочий аккаунт MAX.'
+}
 
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
@@ -36,8 +47,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Ответы и вложения',
     body: (
       <p>
-        В открытом чате можно написать сообщение — оно уйдёт от общего аккаунта организации. Фото
-        показываются сразу, файлы, видео и голосовые открываются по клику по одноразовой ссылке.
+        Менеджеры отвечают из карточки клиента: привяжите диалог и откройте карточку.
+        Там видны переписка, фото и файлы. Сообщения уходят от рабочего аккаунта организации.
       </p>
     ),
   },
@@ -45,9 +56,8 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Новый контакт',
     body: (
       <p>
-        Кнопка с человечком над списком — начать переписку с тем, кого ещё нет в чатах. Введите номер и
-        имя: найдём человека в MAX, добавим в контакты аккаунта и откроем диалог. В списке чатов он
-        появится после первого сообщения.
+        Для нового входящего выберите «Создать новый лид» или существующую карточку.
+        Чтобы написать первым, откройте карточку клиента и нажмите «Написать первым в MAX».
       </p>
     ),
   },
@@ -68,6 +78,7 @@ function relTime(ms: number | null): string {
 
 export function AllChatsPage() {
   const { chatId } = useParams()
+  const cardOnlyMessaging = useAuthStore(state => state.current?.job_role === 'manager')
   const navigate = useNavigate()
   const activeId = chatId != null ? Number(chatId) : null
   const onboarding = useSectionOnboarding('chats')
@@ -110,7 +121,7 @@ export function AllChatsPage() {
       setChats(res.chats)
       setChatsError(null)
     } catch (err) {
-      if (!silent) setChatsError(err instanceof ApiError ? err.message : 'Не удалось загрузить чаты')
+      setChatsError(maxFailure(err))
     } finally {
       if (!silent) setChatsLoading(false)
     }
@@ -154,7 +165,7 @@ export function AllChatsPage() {
         if (!cancelled) setHistory(res)
       })
       .catch((err) => {
-        if (!cancelled) setHistoryError(err instanceof ApiError ? err.message : 'Не удалось загрузить переписку')
+        if (!cancelled) setHistoryError(maxFailure(err))
       })
       .finally(() => {
         if (!cancelled) setHistoryLoading(false)
@@ -188,7 +199,7 @@ export function AllChatsPage() {
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
-    if (activeId == null || (!draft.trim() && !file) || sending) return
+    if (cardOnlyMessaging || activeId == null || (!draft.trim() && !file) || sending) return
     setSending(true)
     try {
       if (editing) await editMessage(activeId, editing.id, draft.trim())
@@ -203,7 +214,7 @@ export function AllChatsPage() {
       const [fresh] = await Promise.all([getChat(activeId, { limit: 80 }), loadChats()])
       setHistory(fresh)
     } catch (err) {
-      setSendError(err instanceof ApiError ? err.message : 'Не удалось отправить сообщение')
+      setSendError(maxFailure(err, true))
     } finally {
       setSending(false)
     }
@@ -258,7 +269,7 @@ export function AllChatsPage() {
             >
               <RefreshCw size={14} className={chatsLoading ? 'animate-spin' : ''} />
             </button>
-            <button
+            {!cardOnlyMessaging && <button
               type="button"
               onClick={() => setAddContactOpen(true)}
               aria-label="Новый контакт"
@@ -266,7 +277,7 @@ export function AllChatsPage() {
               className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border text-muted transition-colors hover:border-brand/40 hover:text-brand-dark"
             >
               <UserPlus size={14} />
-            </button>
+            </button>}
             <HelpButton onClick={onboarding.show} />
           </div>
           <div
@@ -304,6 +315,7 @@ export function AllChatsPage() {
                   <span className="truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
                   <span className="shrink-0 text-[10px] text-muted">{relTime(c.lastEventTime)}</span>
                 </div>
+                {c.phone && <span className="text-[12px] text-muted">{formatPhone(c.phone)}</span>}
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1 text-[12px] text-muted">
                     <ReadMark status={c.lastMessage?.readStatus} />
@@ -350,7 +362,10 @@ export function AllChatsPage() {
                 {history?.peer && <PeerPhone peer={history.peer} />}
               </div>
               <ChatClientSwitcher
-                chat={chats.find((c) => c.id === activeId)}
+                chat={chats.find((c) => c.id === activeId) ?? (history?.chatId === activeId ? {
+                  id: activeId, title: history.title, unread: 0, lastEventTime: null, lastMessage: null,
+                  linkedClientId: null, linkedClientName: null, linkedPartnerId: null, linkedPartnerName: null, phone: history.peer?.phone ?? null,
+                } : undefined)}
                 peer={history?.chatId === activeId ? history.peer : null}
                 onLinked={() => loadChats()}
               />
@@ -372,13 +387,13 @@ export function AllChatsPage() {
                     chatId={activeId}
                     isGroup={history.isGroup}
                     showAuthor={showAuthor}
-                    actions={<MaxMessageActions message={m} onForward={setForwarding} onEdit={startEdit} />}
+                    actions={cardOnlyMessaging ? undefined : <MaxMessageActions message={m} onForward={setForwarding} onEdit={startEdit} />}
                   />
                 )
               })}
             </div>
 
-            <form onSubmit={handleSend} className="border-t border-border p-3">
+            {cardOnlyMessaging ? <p className="border-t border-border p-3 text-sm text-muted">Отправка доступна из карточки клиента. Откройте связанную карточку или привяжите этот диалог к новому либо существующему лиду.</p> : <form onSubmit={handleSend} className="border-t border-border p-3">
               {sendError && <p className="mb-2 text-[12px] text-danger">{sendError}</p>}
               {notice && !sendError && <p className="mb-2 text-[12px] text-muted">{notice}</p>}
               {editing && (
@@ -425,12 +440,12 @@ export function AllChatsPage() {
                   {sending ? (editing ? 'Сохранение…' : 'Отправка…') : editing ? 'Сохранить' : 'Отправить'}
                 </Button>
               </div>
-            </form>
+            </form>}
           </>
         )}
       </div>
 
-      {activeId != null && (
+      {!cardOnlyMessaging && activeId != null && (
         <ForwardMessageModal
           fromChatId={activeId}
           message={forwarding}
@@ -440,7 +455,7 @@ export function AllChatsPage() {
       )}
 
       <AddContactModal
-        open={addContactOpen}
+        open={addContactOpen && !cardOnlyMessaging}
         onClose={() => setAddContactOpen(false)}
         onStarted={(res) => navigate(`/chats/${res.chatId}`)}
       />
@@ -505,31 +520,44 @@ function ChatClientSwitcher({
   onLinked: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [newLead, setNewLead] = useState(false)
+  const salesManager = useAuthStore(state => isSalesManager(state.current))
+  const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
+  useEffect(() => { setOpen(false) }, [chat?.id])
   if (!chat) return null
 
   const linkedClient = chat.linkedClientId != null
   const linkedPartner = chat.linkedPartnerId != null
-  const label = linkedClient
+  const linkedCrm = chat.linkedCrmId != null
+  const label = linkedCrm ? chat.linkedCrmName || 'Карточка CRM' : linkedClient
     ? chat.linkedClientName ?? 'Клиент'
     : linkedPartner
       ? `Партнёр ${chat.linkedPartnerName ?? ''}`.trim()
-      : 'Не привязан'
+      : 'Привязать к клиенту'
+  const destination = linkedCrm ? crmCardPath(chat.linkedCrmKind || 'contact', chat.linkedCrmId!)
+    : linkedPartner ? `/partners/${chat.linkedPartnerId}` : linkedClient && !salesManager ? `/clients/${chat.linkedClientId}` : null
 
   return (
     <>
-      <button
+      {destination ? <Link className="inline-flex max-w-[180px] items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-brand-dark" to={destination}><UserCheck size={13} className="shrink-0" /><span className="truncate">{label}</span></Link>
+      : linkedClient ? <span className="text-[12px] text-muted">Связан с карточкой клиента</span>
+      : canEdit && <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setNewLead(false); setOpen(true) }}
         className="inline-flex shrink-0 items-center gap-1 rounded-pill border border-border px-2.5 py-1 text-[12px] text-muted hover:border-brand/40 hover:text-brand-dark"
       >
-        {linkedClient || linkedPartner ? <UserCheck size={13} /> : <Link2 size={13} />}
+        <Link2 size={13} />
         {label}
-      </button>
+      </button>}
+      {!linkedCrm && !linkedClient && !linkedPartner && canEdit && peer && chat.id > 0 && <button type="button" className="text-[12px] text-brand underline" onClick={() => { setNewLead(true); setOpen(true) }}>Создать новый лид</button>}
+      {linkedCrm && canEdit && <button type="button" className="text-[12px] text-muted underline" onClick={() => { setNewLead(false); setOpen(true) }}>Изменить привязку</button>}
       <LinkClientModal
+        key={chat.id}
         chatId={chat.id}
         peer={peer}
         chatTitle={chat.title}
         open={open}
+        startNewLead={newLead}
         onClose={() => setOpen(false)}
         onLinked={onLinked}
       />

@@ -1,6 +1,11 @@
 import { apiRequest } from '@/shared/lib/httpClient'
 export type Kind = 'deal' | 'contact' | 'company' | 'task' | 'pipeline' | 'stage' | 'inquiry'
+export type SpamFilter = 'normal' | 'spam' | 'all'
 export type Entry = {
+  priority?: 'low' | 'medium' | 'high' | null
+  source_created_at?: string | null
+  source_created_at_kind?: 'amocrm' | 'website' | 'local' | 'unknown'
+  effective_owner_id?: number | null
   board_task_id?: number | null
   id: number
   kind: Kind
@@ -19,9 +24,12 @@ export type Catalog = {
 }
 export type History = {
   total: number
-  items: { id: string; created_at: string; text: string; source: string; details: Record<string, unknown> }[]
+  items: { id: string; created_at: string; text: string; source: string; details: Record<string, unknown>; source_record_id?: number }[]
 }
 export const catalog = () => apiRequest<Catalog>({ section: 'crm', path: '/catalog' })
+export type KanbanSummary = { columns: { pipeline_id: number; stage_id: number; count: number; amounts: Record<string, number>; unpriced_count: number }[]; unmapped_count: number }
+export const kanbanSummary = (query: Record<string, string | number | undefined>) =>
+  apiRequest<KanbanSummary>({ section: 'crm', path: '/kanban-summary', query })
 export const list = (kind: Kind, query: Record<string, string | number | undefined> = {}) =>
   apiRequest<{ total: number; items: Entry[] }>({
     section: 'crm',

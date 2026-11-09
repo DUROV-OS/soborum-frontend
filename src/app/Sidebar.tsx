@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager, salesHome } from '@/auth/salesNavigation'
 import { useFeedbackStore } from '@/feedback/store'
 import { awaitsReply } from '@/feedback/types'
 import { useNotificationsStore } from '@/notifications/store'
@@ -27,6 +28,8 @@ const MENU: SectionId[] = [
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
+  const current = useAuthStore((s) => s.current)
+  const salesManager = isSalesManager(current)
   const loadFeedback = useFeedbackStore((s) => s.load)
   // Новые заявки и те, где сотрудник ответил и ждёт ответа (0090).
   const newFeedbackCount = useFeedbackStore(
@@ -36,7 +39,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname, search } = useLocation()
-  const groups = visibleWorkflows(hasAccess)
+  const groups = salesManager ? [] : visibleWorkflows(hasAccess)
   const context = workflowContext(pathname, search, groups)
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
   useEffect(() => {
@@ -59,16 +62,27 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     loadMyFeedback().catch(() => {})
     const timer = window.setInterval(() => loadMyFeedback().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
-  }, [loadMyFeedback])
+  }, [loadMyFeedback, salesManager])
 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
-  // Публичный справочник поставщиков также входит в хаб.
-  const showWork = groups.length > 0
+  const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const items = MENU.flatMap((id) => {
+  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'tasks', 'chats', 'notifications', 'feedback_my'] : MENU
+  let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
   })
+  if (salesManager) {
+    items = items.map(item => item.id === 'estimates' ? { ...item, path: '/costing?tab=estimates' } : item)
+    const crm = SECTIONS.find(s => s.id === 'crm')!
+    const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
+    const estimates = SECTIONS.find(s => s.id === 'estimates')!
+    if (hasAccess('estimates')) items.splice(3, 0, { ...estimates, label: 'Каталог и цены', path: '/costing?tab=catalog' })
+    if (hasAccess('crm')) items.splice(4, 0,
+      { ...crm, label: 'Команда', path: '/team' },
+    )
+    items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
+  }
   const workActive = !!context || pathname === '/work'
   const workflowItems = (
     <>
@@ -99,10 +113,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </button>
             {opened && (
               <ul id={'workflow-' + group.id} className="ml-6 mt-1 space-y-0.5 border-l border-white/15 pl-2">
-                {group.entries.map((entry) => {
+                {group.entries.map((entry, index) => {
                   const active = context?.entry.id === entry.id
                   return (
                     <li key={entry.id}>
+                      {entry.category && group.entries[index - 1]?.category !== entry.category && <p className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-wider text-white/50">{entry.category}</p>}
                       <Link
                         to={entry.to}
                         onClick={onClose}
@@ -134,7 +149,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
     >
       <div className="flex h-24 shrink-0 items-center justify-between px-7">
-        <NavLink to="/today" onClick={onClose} className="text-[24px] font-semibold tracking-tight">
+        <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="text-[24px] font-semibold tracking-tight">
           Durov OS<span className="text-white/55">.</span>
         </NavLink>
         <button
@@ -151,16 +166,18 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           {items.map((section) => {
             const Icon = section.icon
             return (
-              <Fragment key={section.id}>
+              <Fragment key={section.path}>
                 <li
                   className={section.id === 'feedback_my' ? 'mt-3 border-t border-white/10 pt-3' : undefined}
                 >
                   <NavLink
                     to={section.path}
+                    aria-current={section.id === 'estimates' && (new URLSearchParams(search).get('tab') || 'estimates') !== new URLSearchParams(section.path.split('?')[1]).get('tab') ? false : 'page'}
+                    end={section.path === '/feedback'}
                     onClick={onClose}
                     className={({ isActive }) =>
                       `group flex min-h-[52px] items-center gap-3.5 rounded-xl px-4 py-3 text-[14px] transition-colors ${
-                        (section.id === 'work' ? workActive : isActive)
+                        (section.id === 'work' ? workActive : isActive && (section.id !== 'estimates' || (new URLSearchParams(search).get('tab') || 'estimates') === new URLSearchParams(section.path.split('?')[1]).get('tab')))
                           ? 'bg-white font-medium text-sidebar'
                           : 'text-white/75 hover:bg-sidebar-accent hover:text-white'
                       }`

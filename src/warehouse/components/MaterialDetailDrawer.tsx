@@ -11,6 +11,7 @@ import { Supplier } from '@/suppliers/types'
 import * as warehouseApi from '../api'
 import { useWarehouseStore } from '../store'
 import { Material, MOVEMENT_REASON_LABEL, StockMovement } from '../types'
+import { ContextPanel } from '@/costing/ContextPanel'
 
 export function MaterialDetailDrawer({ material, onClose,onReserves }: { material: Material | null; onClose: () => void; onReserves?:(create:boolean)=>void }) {
   const updateMaterial = useWarehouseStore((s) => s.updateMaterial)
@@ -82,6 +83,7 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
       }
     >
       <div className="flex flex-col gap-5">
+        <ContextPanel kind="product" id={material.id} />
         <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
           <Row label="На складе" value={`${material.quantity_in_stock} ${material.unit}`} />
           <Row label="В резерве" value={`${material.reserved_quantity??0} ${material.unit}`} />

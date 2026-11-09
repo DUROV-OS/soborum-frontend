@@ -9,6 +9,8 @@ import { NotificationSettingsTab } from '../components/NotificationSettingsTab'
 import { useNotificationsStore } from '../store'
 import { notificationSection, notificationTargetPath } from '../routing'
 import { Notification, NOTIFICATION_KIND_LABEL } from '../types'
+import { useAuthStore } from '@/auth/store'
+import { isSalesManager, salesRouteAllowed } from '@/auth/salesNavigation'
 
 function sectionLabel(objectType: string | null): string | null {
   if (!objectType) return null
@@ -58,6 +60,7 @@ function NotificationCard({ notification, onOpen }: { notification: Notification
  * «Настройки» — выключение раздела целиком или конкретного объекта.
  */
 export function NotificationsPage() {
+  const salesManager = useAuthStore(s => isSalesManager(s.current))
   const navigate = useNavigate()
   const notifications = useNotificationsStore((s) => s.notifications)
   const load = useNotificationsStore((s) => s.load)
@@ -87,14 +90,24 @@ export function NotificationsPage() {
   async function handleMarkAllRead() {
     setError(null)
     try {
-      await markAllRead()
+      if (salesManager) {
+        for (const item of visible.filter(n => !n.read_at)) await markRead(item.id)
+      } else await markAllRead()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отметить все прочитанными')
     }
   }
 
-  const unread = notifications.filter((n) => !n.read_at)
-  const read = notifications.filter((n) => n.read_at)
+  const visible = notifications.filter(n => {
+    if (!salesManager) return true
+    if (!['task_due', 'task_overdue', 'max_message', 'feedback_update'].includes(n.kind)) return false
+    const path = notificationTargetPath(n.object_type, n.object_id)
+    if (!path) return false
+    const [pathname, search = ''] = path.split('?')
+    return salesRouteAllowed(pathname, search)
+  })
+  const unread = visible.filter((n) => !n.read_at)
+  const read = visible.filter((n) => n.read_at)
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -102,7 +115,7 @@ export function NotificationsPage() {
         <div>
           <h1 className="text-[20px] font-medium text-ink">Уведомления</h1>
           <p className="mt-1 text-[13px] text-muted">
-            Личные уведомления по вашим клиентам, задачам, производству, монтажу и другим разделам.
+            {salesManager ? 'Личные уведомления по задачам, переписке и вашим заявкам.' : 'Личные уведомления по вашим клиентам, задачам, производству, монтажу и другим разделам.'}
           </p>
         </div>
         {tab === 'list' && unread.length > 0 && (
@@ -116,7 +129,7 @@ export function NotificationsPage() {
       <Tabs
         tabs={[
           { key: 'list', label: 'Все уведомления' },
-          { key: 'settings', label: 'Настройки' },
+          ...(!salesManager ? [{ key: 'settings' as const, label: 'Настройки' }] : []),
         ]}
         activeKey={tab}
         onChange={setTab}
@@ -127,7 +140,7 @@ export function NotificationsPage() {
 
         {tab === 'settings' ? (
           <NotificationSettingsTab />
-        ) : loaded && notifications.length === 0 ? (
+        ) : loaded && visible.length === 0 ? (
           <EmptyState icon={<Bell size={22} />} title="Уведомлений пока нет" />
         ) : (
           <div className="flex flex-col gap-6">

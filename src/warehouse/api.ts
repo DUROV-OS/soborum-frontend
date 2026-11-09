@@ -155,8 +155,8 @@ export function listPendingRequests(): Promise<PendingMaterialRequest[]> {
   return apiRequest({ section: SECTION, path: '/requests' })
 }
 
-export function approveRequest(requestId: number, quantity?: number): Promise<unknown> {
-  return apiRequest({ section: SECTION, path: `/requests/${requestId}/approve`, method: 'POST', body: quantity === undefined ? undefined : { quantity } })
+export function approveRequest(requestId: number, body: {quantity:number;request_id:string;source_hash:string;received_by:string}): Promise<unknown> {
+  return apiRequest({ section: SECTION, path: `/requests/${requestId}/approve`, method: 'POST', body })
 }
 
 /** POST /api/warehouse/requests/:id/reject */
@@ -231,6 +231,8 @@ export function techcardPreview(productionId: number): Promise<TechcardPreview> 
 }
 
 export interface TechcardIssueInput {
+  request_id: string
+  source_hash: string
   occurred_at?: string
   received_by: string
   note?: string

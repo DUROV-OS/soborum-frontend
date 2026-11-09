@@ -13,6 +13,7 @@ import { BasicDataPanel } from '../components/BasicDataPanel'
 import { LeadRequestPanel } from '../components/LeadRequestPanel'
 import { DocumentPanel } from '../components/DocumentPanel'
 import { MarginPreviewPanel } from '../components/MarginPreviewPanel'
+import { ContextPanel } from '@/costing/ContextPanel'
 import { ManagerPanel } from '../components/ManagerPanel'
 import { SourcePanel } from '../components/SourcePanel'
 import { TasksPanel } from '../components/TasksPanel'
@@ -125,6 +126,7 @@ export function ClientDetailPage() {
         <LeadRequestPanel client={client} />
 
         <BasicDataPanel client={client} />
+        <ContextPanel kind="client" id={client.id} />
 
         <TasksPanel client={client} />
 

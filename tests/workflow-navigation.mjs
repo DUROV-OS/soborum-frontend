@@ -73,6 +73,9 @@ try {
     sidebar = page.getByRole('complementary', { name: 'Главное меню' })
   for (const name of ['Продажи', 'Закупки', 'Склад', 'Товары', 'Производство', 'Деньги', 'CRM'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
+  await sidebar.getByRole('button', { name: 'Закупки', exact: true }).click()
+  await sidebar.locator('#workflow-purchasing').getByRole('link', { name: 'Поставщики', exact: true }).waitFor()
+  assert.equal(await sidebar.locator('#workflow-crm').getByRole('link', { name: 'Поставщики', exact: true }).count(), 0)
   await main.getByRole('link', { name: /Заказы покупателей/ }).click()
   await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).waitFor()
   await sidebar.getByRole('link', { name: 'Отгрузки', exact: true }).click()
@@ -129,9 +132,9 @@ try {
   )
   await sidebar.getByRole('button', { name: 'CRM', exact: true }).click()
   await sidebar.getByRole('link', { name: 'Контакты', exact: true }).click()
-  await page.getByRole('tab', { name: 'Контакты', exact: true }).waitFor()
+  await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).waitFor()
   assert.equal(
-    await page.getByRole('tab', { name: 'Контакты', exact: true }).getAttribute('aria-selected'),
+    await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).getAttribute('aria-selected'),
     'true',
   )
   assert.ok(requests.some((r) => r.startsWith('/api/warehouse/documents?') && r.includes('kind=inventory')))

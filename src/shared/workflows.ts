@@ -7,6 +7,7 @@ import {
   Package,
   Building2,
   ShoppingBag,
+  Calculator,
   type LucideIcon,
 } from 'lucide-react'
 import type { SectionId } from './sections'
@@ -21,12 +22,29 @@ export type WorkEntry = {
   public?: boolean
   readOnly?: boolean
   signal?: boolean
+  category?: string
 }
 export type WorkGroup = { id: string; label: string; note: string; icon: LucideIcon; entries: WorkEntry[] }
 
 // One process tree for the sidebar, work hub and the current section's sub-menu.
 // Route/query values are UI state; module grants and API scopes remain unchanged.
-export const WORKFLOWS: WorkGroup[] = [
+const WORKFLOW_DEFINITIONS: WorkGroup[] = [
+  {
+    id: 'costing', label: 'Сметы и цены', icon: Calculator,
+    note: 'Состав изделий, розничный прайс и версии клиентских предложений',
+    entries: [
+      { id: 'costing-estimates', label: 'Клиентские сметы', to: '/costing?tab=estimates', section: 'estimates', note: 'Снимки цен, варианты, скидки и предложения' },
+      { id: 'costing-materials', label: 'Материалы для смет', to: '/costing?tab=materials', section: 'costing', note: 'Единицы, цены и общая номенклатура склада' },
+      { id: 'costing-templates', label: 'Типовые сметы', to: '/costing?tab=template', section: 'costing', note: 'Изделия, геометрия, состав и расходы' },
+      { id: 'costing-prices', label: 'Розничные цены', to: '/costing?tab=prices', section: 'costing', note: 'Замороженные ставки и версии прайса' },
+      { id: 'costing-addons', label: 'Допы и замены', to: '/costing?tab=addon', section: 'costing', note: 'Опции, состав и вычет базовых материалов' },
+      { id: 'costing-packages', label: 'Пакеты опций', to: '/costing?tab=package', section: 'costing', note: 'Наборы допов и пакетные скидки' },
+      { id: 'costing-assistant', label: 'Проверка расчётов', to: '/costing?tab=assistant', section: 'costing', note: 'Цены, составы и отклонения от целевой маржи' },
+      { id: 'costing-journal', label: 'Журнал изменений', to: '/costing?tab=journal', section: 'costing', note: 'Автор и значения до и после правок' },
+      { id: 'costing-settings', label: 'Настройки расчётов', to: '/costing?tab=settings', section: 'costing', note: 'Проценты, округление и бренд' },
+      { id: 'costing-help', label: 'Руководство по сметам', to: '/costing?tab=help', section: 'estimates', note: 'Инструкции и пошаговое обучение' },
+    ],
+  },
   {
     id: 'sales',
     label: 'Продажи',
@@ -74,6 +92,13 @@ export const WORKFLOWS: WorkGroup[] = [
     note: 'Заказы поставщикам, счета, приёмки, оплата и возвраты',
     entries: [
       {
+        id: 'suppliers',
+        label: 'Поставщики',
+        to: '/suppliers',
+        section: 'suppliers',
+        note: 'Контакты поставщиков, прайс-листы и закупки',
+      },
+      {
         id: 'supplier-orders',
         label: 'Заказы поставщикам',
         to: '/purchasing?tab=orders',
@@ -111,6 +136,20 @@ export const WORKFLOWS: WorkGroup[] = [
     icon: Boxes,
     note: 'Наличие товара, резервы и движение между складами',
     entries: [
+      {
+        id: 'warehouse-queue',
+        label: 'Очередь выдачи',
+        to: '/warehouse?tab=queue',
+        section: 'warehouse',
+        note: 'Согласование норматива, комплектация и нехватка материалов',
+      },
+      {
+        id: 'production-returns',
+        label: 'Возвраты из производства',
+        to: '/warehouse?tab=returns',
+        section: 'warehouse',
+        note: 'Возврат по исходной выдаче с документом-основанием',
+      },
       {
         id: 'stock',
         label: 'Остатки',
@@ -230,6 +269,9 @@ export const WORKFLOWS: WorkGroup[] = [
         signal: true,
         note: 'Этапы, материалы, задачи и готовность домов',
       },
+      { id: 'house-techcards', label: 'Техкарты домов', to: '/production-library?tab=cards', section: 'production', note: 'Черновики по моделям, нормы материалов и источники' },
+      { id: 'house-projects', label: 'Проекты АР и КР', to: '/production-library?tab=projects', section: 'production', note: 'Рабочие чертежи и редакции по каждому дому' },
+      { id: 'production-standards', label: 'ГОСТы и СП', to: '/production-library?tab=standards', section: 'production', note: 'Нормативные документы и официальный источник' },
       {
         id: 'recipes',
         label: 'Техкарты и выпуск',
@@ -271,6 +313,13 @@ export const WORKFLOWS: WorkGroup[] = [
     icon: Wallet,
     note: 'Платежи, счета организаций и расчёты с контрагентами',
     entries: [
+      {
+        id: 'money-review',
+        label: 'Рабочий обзор',
+        to: '/accounting?tab=review',
+        section: 'accounting',
+        note: 'Документы, распределение по проектам и личная проверка бухгалтера',
+      },
       {
         id: 'money-register',
         label: 'Платежи',
@@ -353,14 +402,6 @@ export const WORKFLOWS: WorkGroup[] = [
         note: 'Путь клиента от обращения до принятого дома',
       },
       {
-        id: 'suppliers',
-        label: 'Поставщики',
-        to: '/suppliers',
-        section: 'suppliers',
-        public: true,
-        note: 'Контакты поставщиков, прайс-листы и закупки',
-      },
-      {
         id: 'partners',
         label: 'Партнёры',
         to: '/partners',
@@ -416,6 +457,31 @@ export const WORKFLOWS: WorkGroup[] = [
   },
 ]
 
+// Customer documents and internal reference data belong to separate levels of
+// the same departmental menu. They keep their existing routes and API grants.
+const groupById = Object.fromEntries(WORKFLOW_DEFINITIONS.map(group => [group.id, group]))
+const withCategory = (entries: WorkEntry[], category: string) => entries.map(entry => ({ ...entry, category }))
+export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
+  .filter(group => !['costing', 'crm', 'goods'].includes(group.id))
+  .map(group => {
+    if (group.id === 'sales') return { ...group, entries: [
+      { ...groupById.crm.entries[0], label: 'CRM', to: '/crm', note: 'Сделки, обращения, контакты и компании', category: 'Работа с клиентами' },
+      ...withCategory(groupById.company.entries.filter(entry => entry.id === 'chats'), 'Работа с клиентами'),
+      ...withCategory(groupById.crm.entries.filter(entry => ['clients', 'client-cycle', 'partners'].includes(entry.id)), 'Работа с клиентами'),
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-estimates'), 'Документы для клиентов'),
+      ...withCategory(group.entries, 'Документы для клиентов'),
+      { id: 'commercial-catalog', label: 'Каталог и цены', to: '/costing?tab=catalog', section: 'estimates' as SectionId, note: 'Утверждённый розничный прайс и варианты для клиента', category: 'Справочники продаж' },
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id !== 'costing-estimates' && entry.id !== 'costing-help'), 'Каталог и цены · внутренние справочники'),
+      ...withCategory(groupById.company.entries.filter(entry => entry.id === 'house-models'), 'Каталог и цены · внутренние справочники'),
+      ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-help'), 'Помощь'),
+    ] }
+    if (group.id === 'warehouse') return { ...group, entries: [...withCategory(group.entries, 'Складские операции'), ...withCategory(groupById.goods.entries, 'Справочники')] }
+    if (group.id === 'production') return { ...group, entries: group.entries.map(entry => ({ ...entry, category: ['house-techcards', 'house-projects', 'production-standards', 'recipes'].includes(entry.id) ? 'Внутренние справочники' : 'Рабочие документы' })).sort((a, b) => Number(a.category === 'Внутренние справочники') - Number(b.category === 'Внутренние справочники')) }
+    if (group.id === 'money') return { ...group, label: 'Бухгалтерия' }
+    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => !['house-models', 'chats'].includes(entry.id)) }
+    return group
+  })
+
 export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): WorkGroup[] {
   return WORKFLOWS.map((g) => ({
     ...g,
@@ -425,13 +491,18 @@ export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): Wo
 
 export function workflowContext(pathname: string, search: string, groups: WorkGroup[] = WORKFLOWS) {
   const query = new URLSearchParams(search)
+  if (pathname.startsWith('/costing/catalog/') || pathname.startsWith('/costing/models/')) {
+    pathname = '/costing'
+    query.set('tab', 'catalog')
+  }
   if (!query.has('tab')) {
     const defaults: Record<string, string> = {
       '/sales': query.has('shipment') ? 'shipments' : 'orders',
       '/purchasing': query.has('return') ? 'returns' : 'orders',
       '/warehouse': 'materials',
       '/crm': 'deal',
-      '/accounting': 'register',
+      '/accounting': 'review',
+      '/production-library': 'cards',
     }
     if (defaults[pathname]) query.set('tab', defaults[pathname])
   }

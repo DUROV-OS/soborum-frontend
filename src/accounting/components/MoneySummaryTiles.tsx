@@ -22,7 +22,7 @@ export function MoneySummaryTiles({
   const income = totals?.income ?? 0
   const expense = totals?.expense ?? 0
   const balance = totals?.balance ?? 0
-  const placeholder = loading && !totals ? '…' : null
+  const placeholder = !totals ? loading ? '…' : '—' : null
 
   return (
     <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">

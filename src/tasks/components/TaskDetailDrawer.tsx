@@ -24,6 +24,7 @@ import {
 } from '../types'
 import { stateTone } from './stateTone'
 import { MaxApprovalActions } from './MaxApprovalActions'
+import { CrmTaskClientBlock } from '@/crm/CrmTaskClientBlock'
 
 export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose: () => void }) {
   const setStatus = useTasksStore((s) => s.setStatus)
@@ -34,6 +35,8 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
   const currentUserId = useAuthStore((s) => s.current?.id ?? null)
   const navigate = useNavigate()
   const canEdit = accessLevelAtLeast(useAccessLevel('tasks'), 'edit')
+  const clientsAccess = useAccessLevel('clients')
+  const canViewCRM = accessLevelAtLeast(clientsAccess, 'view')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   // Общая форма отчёта: у исполнителя раскрывается по кнопке сдачи и без
@@ -145,7 +148,12 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
 
         <MaxApprovalActions task={task} onDone={onClose} />
-        {!!task.link_meta?.crm_task_id && <Button variant="secondary" size="sm" className="self-start" onClick={()=>{onClose();navigate(`/crm?entry=${task.link_meta?.crm_task_id}`)}}><ExternalLink size={14}/>Открыть задачу в продажах</Button>}
+        {!!task.link_meta?.crm_task_id && canViewCRM && <>
+          <CrmTaskClientBlock crmTaskId={Number(task.link_meta.crm_task_id)} boardTaskId={task.id}
+            canMessage={accessLevelAtLeast(clientsAccess, 'edit')}
+            onOpenCRM={entry => { onClose(); navigate(`/crm?entry=${entry.id}`) }} />
+          <Button variant="secondary" size="sm" className="self-start" onClick={()=>{onClose();navigate(`/crm?entry=${task.link_meta?.crm_task_id}`)}}><ExternalLink size={14}/>Открыть задачу в продажах</Button>
+        </>}
 
         {/* Задачу стадии клиента решают в его карточке — кнопкой перехода (0094). */}
         {task.link_type === 'client_stage' && task.link_id !== null && (
@@ -187,7 +195,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
         )}
 
         <Row label="Исполнители" value={task.assignees.map((a) => a.full_name).join(', ') || '—'} />
-        <Row label="Ответственный" value={task.responsible?.full_name ?? '—'} />
+        <Row label="Ответственный" value={task.responsible?.full_name ?? (task.assignees.length === 1 ? task.assignees[0].full_name : '—')} />
         <Row
           label="Проверяющие"
           value={

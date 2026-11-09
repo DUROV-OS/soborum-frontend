@@ -36,13 +36,23 @@ function staleStatusOf(error: unknown): TaskStatus | null {
   return typeof value === 'string' ? (value as TaskStatus) : null
 }
 
+let loadGeneration = 0
+
 export const useTasksStore = create<TasksState>((set, get) => ({
   tasks: [],
   loading: true,
 
   load: async (filters) => {
-    const tasks = await tasksApi.listTasks(filters)
-    set({ tasks, loading: false })
+    const generation = ++loadGeneration
+    set({ loading: true })
+    try {
+      const tasks = await tasksApi.listTasks(filters)
+      if (generation === loadGeneration) set({ tasks, loading: false })
+    } catch (error) {
+      if (generation !== loadGeneration) return
+      set({ loading: false })
+      throw error
+    }
   },
 
   create: async (input) => {

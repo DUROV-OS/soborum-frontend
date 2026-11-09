@@ -195,6 +195,15 @@ export async function downloadFile(section: string, path: string, filename: stri
   URL.revokeObjectURL(url)
 }
 
+/** Private media is fetched with auth; the token is never placed in a URL. */
+export async function fetchMedia(section: string, path: string, signal?: AbortSignal): Promise<Blob> {
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = 'Bearer ' + token
+  const response = await fetch(buildUrl(section, path), { headers, signal, cache: 'no-store' })
+  if (!response.ok) throw new ApiError(response.status, await extractErrorMessage(response))
+  return response.blob()
+}
+
 /**
  * Прикреплённые файлы (contract_file/house_project_file/raw_files/final_files/images) отдаются
  * не через /api/<section>, а через общий GET /files/:id на корне приложения — см. FileAssetOut.id.

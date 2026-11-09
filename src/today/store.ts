@@ -16,6 +16,7 @@ interface TodayState {
   load: (reload?: boolean) => Promise<void>
 }
 
+let requestSequence = 0
 export const useTodayStore = create<TodayState>((set) => ({
   data: null,
   loading: true,
@@ -24,19 +25,20 @@ export const useTodayStore = create<TodayState>((set) => ({
   aktualnoeLoading: true,
 
   load: async (reload = false) => {
-    set({ loading: true, error: null, data: null, aktualnoeLoading: true })
+    const request = ++requestSequence
+    set({ loading: true, error: null, data: null, aktualnoe: null, aktualnoeLoading: true })
 
     // Блок «Актуальное» грузится независимо: его сбой не должен ломать «Сегодня».
     todayApi
       .getAktualnoe(reload)
-      .then((aktualnoe) => set({ aktualnoe, aktualnoeLoading: false }))
-      .catch(() => set({ aktualnoe: null, aktualnoeLoading: false }))
+      .then((aktualnoe) => { if (request === requestSequence) set({ aktualnoe, aktualnoeLoading: false }) })
+      .catch(() => { if (request === requestSequence) set({ aktualnoe: null, aktualnoeLoading: false }) })
 
     try {
       const data = await todayApi.getToday(reload)
-      set({ data, loading: false })
+      if (request === requestSequence) set({ data, loading: false })
     } catch (error) {
-      set({ error: reasonOf(error), loading: false })
+      if (request === requestSequence) set({ error: reasonOf(error), loading: false })
     }
   },
 }))
