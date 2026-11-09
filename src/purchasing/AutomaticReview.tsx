@@ -15,6 +15,7 @@ export type Review = {
   trust: { id: number; verified: boolean }; price: { id: number; verified: boolean; request: PriceInput | null }
   approval_id: number | null; previous_approval_id: number | null; documents: Doc[]
   permissions: { accounting: boolean; director: boolean }; people: { accounting: string; director: string }; payment_blockers: string[]
+  budgets: { order_id: number; line_index: number; number?: string; estimate_id?: number; approved_materials?: string; committed?: string; remaining_material_reserve?: string; other_expense_reserve?: string; available?: string; forecast_margin_percent?: string | null; issues: string[]; commitments?: { order_id: number; line_index: number; amount: string }[] }[]
   lines: { index: number; title: string; material_id: number | null; unit: string; quantity: string; unit_price: string; delivered_unit_price: string | null
     previous: { order_id?: number; number?: string; receipt_id: number; delivered_unit_price?: string } | null
     targets: { order_id: number; number: string; quantity: string; estimate_id: number; recipe_id: number }[]
@@ -66,6 +67,21 @@ export function AutomaticReview({ orderId, orderVersion, canEdit }: { orderId: n
       </div>
       {form === 'trust' && <SupplierTrustForm review={review} done={reload} />}
       {form === 'price' && <PurchaseEvidenceForm review={review} done={reload} />}
+      <section className="space-y-3" aria-label="Бюджет закупок проекта">
+        <h4 className="font-semibold">Бюджет закупок проекта</h4>
+        <p className="text-sm text-muted">Все закреплённые закупки учитываются вместе, включая этот заказ. На оставшиеся материалы сохранён резерв по смете. Доставка входит в закупочную стоимость.</p>
+        {review.budgets.length === 0 && <p className="rounded-xl bg-surface p-3 text-sm text-warning">Закрепите закупку за согласованной продажей, чтобы проверить общий бюджет.</p>}
+        {review.budgets.map(b => <article key={`${b.order_id}-${b.line_index}`} className="rounded-xl border border-border bg-surface p-4">
+          <Link to={`/sales?order=${b.order_id}`} className="block min-h-11 py-2 font-medium text-brand-dark underline">Продажа {b.number || `№${b.order_id}`} · строка {b.line_index + 1}</Link>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            {([['Материалы по смете', b.approved_materials], ['Закупки с доставкой', b.committed], ['Резерв оставшихся материалов', b.remaining_material_reserve], ['Работы и остальные расходы', b.other_expense_reserve], ['Свободно в бюджете материалов', b.available]] as const).map(([label, value]) => <div key={label}><dt className="text-muted">{label}</dt><dd className="font-semibold">{amount(value, 'RUB')}</dd></div>)}
+            <div><dt className="text-muted">Прогнозная маржа · минимум 35%</dt><dd className="font-semibold">{b.forecast_margin_percent == null ? 'Нет подтверждения' : Number(b.forecast_margin_percent).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + '%'}</dd></div>
+          </dl>
+          {!!b.issues.length && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-warning">{b.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
+          {!!b.commitments?.length && <details className="mt-3"><summary className="min-h-11 cursor-pointer py-2 text-sm">Учтённые закупки ({b.commitments.length})</summary><ul className="space-y-1 text-sm">{b.commitments.map(c => <li key={`${c.order_id}-${c.line_index}`}><a href={`/purchasing?order=${c.order_id}`} className="block min-h-11 py-2 text-brand-dark underline">Заказ №{c.order_id} · строка {c.line_index + 1} · {amount(c.amount, 'RUB')}</a></li>)}</ul></details>}
+        </article>)}
+        <p className="text-xs text-muted">Это прогноз по смете и обязательствам, а не фактическая прибыль. Резерв цеха, штата, работ, рекламы и комиссий нельзя потратить на материалы. Снятие связи или архивирование согласованной закупки требует сверки обязательства.</p>
+      </section>
       {review.lines.map(line => <article key={line.index} className="rounded-xl border border-border bg-surface p-4">
         <p className="font-medium">{line.title}</p><p className="text-xs text-muted">{line.quantity} {line.unit} · строка {line.index + 1}</p>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm"><div><dt className="text-muted">Сейчас с доставкой / ед.</dt><dd className="font-semibold">{amount(line.delivered_unit_price, review.currency)}</dd></div><div><dt className="text-muted">Последняя закупка / ед.</dt><dd className="font-semibold">{amount(line.previous?.delivered_unit_price, review.currency)}</dd>
