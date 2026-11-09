@@ -50,7 +50,7 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
     <summary className="cursor-pointer text-base font-semibold">Звонки и автоматические заявки</summary>
     <div className="mt-4 space-y-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2">
-        <p>МегаФон: <strong>{status ? connectionLabels[status.megafon.state] : 'Загрузка…'}</strong></p>
+        <p>События и маршрутизация МегаФона: <strong>{status ? connectionLabels[status.megafon.state] : 'Загрузка…'}</strong></p>
       </div>
       {status && !status.megafon.configured && <p>На сервере нужно задать адрес ВАТС и ключ управления. Для входящих событий нужен отдельный ключ CRM. Ключи в этой форме не отображаются.</p>}
       <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={busy} onClick={() => void inspect()}>{busy ? 'Подождите…' : 'Проверить связь без звонка и сообщений'}</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => refresh(v => v + 1)}>Загрузить сохранённые настройки</Button></div>

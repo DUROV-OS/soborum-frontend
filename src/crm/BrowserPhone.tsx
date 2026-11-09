@@ -27,6 +27,7 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
   function release() {
     const current = resources.current
     resources.current = {}
+    if (current.id) void apiRequest({ section: 'crm', path: `/browser-phone/calls/${current.id}/cancel`, method: 'POST' }).catch(() => {})
     if (current.ping) window.clearInterval(current.ping)
     current.socket?.close()
     current.pc?.close()
@@ -39,9 +40,8 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     const current = resources.current
     generation.current++
     if (current.socket?.readyState === WebSocket.OPEN) current.socket.send(JSON.stringify({ type: 'hangup' }))
-    if (current.id) void apiRequest({ section: 'crm', path: `/browser-phone/calls/${current.id}/cancel`, method: 'POST' }).catch(() => {})
     release(); pending.current = null
-    setState(value => ({ ...value, phase: 'ended', muted: false, message: 'Запись и текстовый разбор появятся в истории карточки после обработки.' }))
+    setState(value => ({ ...value, phase: 'ended', muted: false, message: value.phase === 'active' ? 'Запись и текстовый разбор появятся в истории карточки после обработки.' : 'Вызов завершён. Если разговор не состоялся, записи не будет.' }))
   }
   useEffect(() => { setState(initial); pending.current = null; return () => { generation.current++; release() } }, [userId])
   useEffect(() => {
@@ -95,6 +95,7 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       resources.current.socket = socket
       setState(value => ({ ...value, phase: 'connecting' }))
       let terminal = false
+      let answered = false
       socket.onopen = () => {
         socket.send(JSON.stringify({ type: 'auth', token: getToken() }))
         resources.current.ping = window.setInterval(() => { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' })) }, 20000)
@@ -114,12 +115,13 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
             if (alive() && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'offer', sdp: pc.localDescription?.sdp }))
           } else if (signal.type === 'candidate' && signal.candidate && !signal.candidate.completed) await pc.addIceCandidate(signal.candidate)
           else if (['calling', 'ringing', 'progress', 'accepted'].includes(signal.type)) {
+            if (signal.type === 'accepted') answered = true
             if (signal.jsep && !pc.remoteDescription) await pc.setRemoteDescription(signal.jsep)
             setState(value => ({ ...value, phase: signal.type === 'accepted' ? 'active' : signal.type === 'calling' ? 'calling' : 'ringing' }))
           } else if (signal.type === 'ended' || signal.type === 'error') {
             terminal = true; pending.current = null; generation.current++
             setState(value => ({ ...value, phase: signal.type === 'error' ? 'error' : 'ended', muted: false,
-              message: signal.message || (signal.code && signal.code !== 200 ? `Вызов завершён оператором (${signal.code}).` : 'Запись и разбор появятся в истории карточки после обработки.') }))
+              message: signal.message || (signal.code && signal.code !== 200 ? `Вызов завершён оператором (${signal.code}).` : answered ? 'Запись и разбор появятся в истории карточки после обработки.' : 'Вызов завершён без разговора. Запись отсутствует.') }))
             release()
           }
         })().catch(() => {

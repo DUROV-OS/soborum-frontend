@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { useBrowserPhone } from './BrowserPhone'
 import { Archive, Building2, Check, Clock3, Download, FileText, Mail, MessageSquare, Pencil, Phone, Search, UserRound } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
@@ -136,6 +137,7 @@ function EventContent({ event, catalog, related }: { event: Event; catalog: Cata
 }
 
 export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpen, onEdit, onTask, onAccept, onChanged }: Props) {
+  const voice = useBrowserPhone()
   const [record, setRecord] = useState(entry)
   const [linked, setLinked] = useState<Entry | null>(null)
   const [related, setRelated] = useState<Entry[]>([])
@@ -297,7 +299,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
     }}><Input aria-label={`Результат задачи ${task.name}`} placeholder="Результат выполнения" required maxLength={5000} value={taskResults[task.id] || ''} onChange={event => setTaskResults(value => ({ ...value, [task.id]: event.target.value }))} /><Button size="sm" type="submit" variant="secondary" disabled={!actionable || !taskResults[task.id]?.trim()} className="shrink-0">Завершить</Button></form>}
   </div>
 
-  return <Drawer open onClose={onClose} title={record.id === entry.id ? record.name : entry.name} subtitle={<span className="break-all">{kindLabels[entry.kind]} · №{entry.id}{entry.source_id ? ` · Источник #${entry.source_id}` : ''}{record.archived ? ' · В архиве' : ''}</span>} width="max-w-[1280px] [&>div:first-child>div]:min-w-0 [&>div:first-child>button]:shrink-0 [&_h2]:break-words" bodyClassName="flex-1 min-h-0 overflow-hidden">
+  return <Drawer open modal={!voice || ['idle', 'ended', 'error'].includes(voice.state.phase)} onClose={onClose} title={record.id === entry.id ? record.name : entry.name} subtitle={<span className="break-all">{kindLabels[entry.kind]} · №{entry.id}{entry.source_id ? ` · Источник #${entry.source_id}` : ''}{record.archived ? ' · В архиве' : ''}</span>} width="max-w-[1280px] [&>div:first-child>div]:min-w-0 [&>div:first-child>button]:shrink-0 [&_h2]:break-words" bodyClassName="flex-1 min-h-0 overflow-hidden">
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 border-b border-border md:hidden" role="tablist" aria-label="Раздел карточки">{([['data', 'Данные'], ['history', 'История']] as const).map(([value, label]) => <button key={value} role="tab" aria-selected={mobileTab === value} className={`flex-1 border-b-2 px-4 py-3 text-sm ${mobileTab === value ? 'border-brand text-brand' : 'border-transparent text-muted'}`} onClick={() => setMobileTab(value)}>{label}</button>)}</div>
       {error && <div role="alert" className="max-h-32 shrink-0 overflow-y-auto border-b border-danger/20 bg-red-50 px-5 py-3 text-[13px] text-danger"><p className="whitespace-pre-wrap">{error}</p><button className="mt-1 underline" disabled={!!busy} onClick={() => setRevision(value => value + 1)}>Обновить карточку</button></div>}
