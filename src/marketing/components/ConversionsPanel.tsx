@@ -12,7 +12,7 @@ type Report = { total_requests:number; unique_contacts:number; qualified_unique_
   partial_today:boolean; issues:string[]; rows:Row[]; checked_at:string;
   delivery:{ automatic_enabled:boolean; exportable_now:number; target:string; note:string } }
 const labels:Record<Outcome,string> = { unreviewed:'Нужна оценка', qualified:'Целевой запрос', unqualified:'Не подходит', spam:'Спам', duplicate:'Дубликат' }
-const feedback:Record<string,string> = { awaiting_quality:'Ждёт оценки', excluded:'Не передаётся', ready_for_export:'Готово к выгрузке', missing_visit_id:'Нет связи с визитом' }
+const feedback:Record<string,string> = { awaiting_quality:'Ждёт оценки', excluded:'Не передаётся', ready_for_export:'Готово к выгрузке', missing_visit_id:'Нет связи с визитом', repeat_qualified_contact:'Повторный целевой контакт', outside_matching_window:'Вне срока сопоставления' }
 const box = 'rounded-md border border-border bg-surface p-4'
 const input = 'rounded border border-border bg-surface px-3 py-2 text-sm'
 function moscowToday() { return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow'}).format(new Date()) }
