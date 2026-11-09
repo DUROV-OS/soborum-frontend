@@ -375,7 +375,7 @@ export function PurchasingPage() {
                 { header: 'Цена', accessor: (r) => money(r.unit_price) },
               ]}
             />
-            <AutomaticReview orderId={selected.id} />
+            <AutomaticReview key={selected.id} orderId={selected.id} orderVersion={selected.version} canEdit={canEdit} />
             {selected.comment && <p className="whitespace-pre-wrap">{selected.comment}</p>}
             <h3 className="font-medium">Приёмки по заказу</h3>
             {orderReceipts.length ? (
