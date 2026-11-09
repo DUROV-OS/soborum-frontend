@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CheckCheck, FileText, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
@@ -16,8 +16,10 @@ const blankAllocation = (project: number | null): CostAllocation => ({ category:
 const blank = (project: number | null): CostDraft => ({ kind: 'document', organization_id: 0, issuer: '', number: '', document_date: '', line_ref: '', incurred_on: '', evidence: { file_id: 0, locator: '' }, gross_amount: '', excluded_tax: '', tax_basis: '', allocations: [blankAllocation(project)], receipt_id: null, receipt_line: null, movement_id: null, quantity: null, reason: '' })
 
 export function ActualCostsWorkspace() {
+  const [params] = useSearchParams()
   const [data, setData] = useState<CostOverview | null>(null), [options, setOptions] = useState<CostOptions | null>(null)
   const [project, setProject] = useState(''), [filter, setFilter] = useState('all')
+  useEffect(() => { const selected = params.get('project') || ''; setProject(/^\d+$/.test(selected) ? selected : '') }, [params])
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<CostRecord | 'new' | null>(null)
   const [closing, setClosing] = useState<ClosureProject | null>(null)

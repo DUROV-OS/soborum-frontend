@@ -57,8 +57,11 @@ try {
       path = url.pathname,
       method = request.method()
     const body = method === 'POST' || method === 'PATCH' ? request.postDataJSON() : null
+    // Existing sales actions must remain usable if the new derived route is down.
+    if (path.endsWith('/journey')) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Изолированная проверка недоступности маршрута' }) })
     let result = []
     if (path === '/api/auth/me') result = actor
+    else if (path === '/api/costing/context') result = { title: 'Заказ', estimates: [], templates: [], links: [], order_version: order?.version ?? 1, can_import_recipe: false, order_lines: null }
     else if (path === '/api/notifications/unread-count') result = { count: 0 }
     else if (path === '/api/sales/catalog') result = catalog
     else if (path === '/api/sales/orders' && method === 'POST') {

@@ -14,6 +14,7 @@ import { Chip } from '@/shared/ui/Chip'
 import { localInputToIso, localNowInput } from '@/warehouse/components/OperationLinesEditor'
 import type { Catalog, Order, Shipment, Line, SalesEvent } from './types'
 import { ContextPanel } from '@/costing/ContextPanel'
+import { OrderJourney } from './OrderJourney'
 
 const call = <T,>(path: string, method: 'GET' | 'POST' | 'PATCH' = 'GET', body?: unknown) =>
   apiRequest<T>({ section: 'sales', path, method, body })
@@ -31,6 +32,8 @@ const labels: Record<string, string> = {
   complete: 'Отгружен',
 }
 const eventLabels: Record<string, string> = {
+  supply_allocated: 'За заказом закреплена позиция закупки',
+  supply_released: 'Закрепление закупки снято с сохранением истории',
   costing_linked: 'За строкой заказа закреплена утверждённая смета',
   order_created: 'Заказ создан',
   order_edited: 'Заказ изменён',
@@ -338,10 +341,11 @@ export function SalesPage() {
           </Button>
         </div>
       </div>
-      <Drawer open={!!selected} title={selected ? 'Заказ № ' + selected.number : ''} onClose={close}>
+      <Drawer open={!!selected} title={selected ? 'Заказ № ' + selected.number : ''} onClose={close} width="max-w-3xl">
         {selected && (
           <div className="space-y-4 text-sm">
             <ContextPanel kind="order" id={selected.id} />
+            <OrderJourney orderId={selected.id} version={selected.version} onChanged={() => { void openOrder(selected); refresh() }} />
             <p className="font-medium">
               {selected.counterparty_name} · {selected.organization_name}
             </p>
