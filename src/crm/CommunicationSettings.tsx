@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BrowserPhoneSettings } from './BrowserPhoneSettings'
 import type { Account } from '@/auth/types'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
@@ -86,6 +87,7 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
         <label className="flex items-center gap-2"><input type="checkbox" checked={config.enabled} onChange={event => setConfig({ ...config, enabled: event.target.checked })} />Включить распределение через CRM</label>
         <Button disabled={busy} type="submit">Сохранить настройки связи</Button>
       </form>}
+      <BrowserPhoneSettings />
     </div>
   </details>
 }

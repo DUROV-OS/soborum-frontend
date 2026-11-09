@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Plus, Users, Archive, Pencil, Download, Columns3, List } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -56,6 +56,8 @@ const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'com
 }))
 
 export function CrmPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [catalog, setCatalog] = useState<Catalog>({ pipelines: [], stages: [], users: [], counts: {} })
   const [kind, setKind] = useQueryChoice<Kind>(
     'tab',
@@ -106,9 +108,11 @@ export function CrmPage() {
     return () => window.clearInterval(interval)
   }, [isBoard])
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('entry')
-    if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(open).catch(e=>setError(e.message))
-  }, [])
+    let live = true
+    const id = new URLSearchParams(location.search).get('entry')
+    if (id && /^\d+$/.test(id)) apiRequest<Entry>({section:'crm',path:`/entries/${id}`}).then(entry => { if (live) open(entry) }).catch(e=>{ if (live) setError(e.message) })
+    return () => { live = false }
+  }, [location.key])
   useEffect(() => {
     api
       .catalog()
@@ -166,6 +170,12 @@ export function CrmPage() {
     apiRequest<{ total: number; items: SourceFile[] }>({ section: 'crm', path: `/entries/${entry.id}/files` })
       .then(setAttached)
       .catch((e) => setError(e.message))
+  }
+  const closeCard = () => {
+    setSelected(null)
+    const params = new URLSearchParams(location.search)
+    params.delete('entry'); params.delete('channel')
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true })
   }
   const update = async (entry: Entry, fields: Parameters<typeof api.patch>[1]) => {
     setBusy(true)
@@ -421,13 +431,13 @@ export function CrmPage() {
       </>}
       {selected && ['deal', 'inquiry', 'contact', 'company'].includes(selected.kind) && <CrmRecordCard
         key={selected.id} entry={selected} catalog={catalog} canEdit={canEdit} canFull={canFull}
-        onClose={() => setSelected(null)} onOpen={open}
+        onClose={closeCard} onOpen={open}
         onEdit={entry => setEditing({ entry, kind: entry.kind })}
         onTask={related => setEditing({ kind: 'task', related })} onAccept={acceptInquiry}
         onChanged={entry => { setSelected(entry); setRevision(value => value + 1) }} />}
       <Drawer
         open={!!selected && !['deal', 'inquiry', 'contact', 'company'].includes(selected.kind)}
-        onClose={() => setSelected(null)}
+        onClose={closeCard}
         title={selected?.name ?? ''}
         subtitle={selected?.archived ? 'Архивная запись' : selectedStage?.name}
       >

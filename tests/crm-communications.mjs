@@ -48,6 +48,7 @@ async function setup({ level = 'edit', mobile = false, admin = false } = {}) {
       body = { total: related ? (state.linked ? 0 : 1) : (state.linked ? 1 : 0), items: related ? (state.linked ? [] : [call]) : (state.linked ? [{ ...call, deal_id: 11, deal_match_status: 'manual' }] : []) }
     } else if (path === '/api/crm/calls/1/link') { state.linked = true; body = { ...call, deal_id: 11 } }
     else if (path === '/api/crm/entries/11/chats') body = { items: [chat] }
+    else if (path === '/api/crm/entries/11/chat-phones') body = { items: [{ phone: '+79000000000', name: contact.name }] }
     else if (path === '/api/crm/entries/11/chats/123/messages') {
       if (req.method() === 'POST') {
         assert.equal(req.postDataJSON().text, 'Расчёт готов')
@@ -108,14 +109,9 @@ try {
       await t.page.screenshot({ path: artifacts + '/desktop.png' })
       await card.getByRole('button', { name: 'Действия с номером +79000000000', exact: true }).first().click()
       await t.page.getByRole('dialog', { name: 'Действия с номером', exact: true }).getByRole('button', { name: 'Позвонить', exact: true }).click()
-      const callDialog = t.page.getByRole('dialog', { name: 'Звонок из CRM', exact: true })
-      const dial = callDialog.getByRole('button', { name: 'Позвонить через МегаФон', exact: true })
-      await dial.waitFor()
+      await panel.getByRole('button', { name: 'Позвонить из CRM', exact: true }).waitFor()
       assert.equal(t.state.calls, 0)
-      await dial.evaluate(button => { button.click(); button.click() })
-      await callDialog.getByRole('status').filter({ hasText: 'Результат запроса неизвестен' }).waitFor()
-      assert.equal(t.state.calls, 1)
-      assert.equal(t.writes.filter(w => w.path === '/api/crm/calls/dial').length, 1)
+      assert.equal(t.writes.filter(w => w.path === '/api/crm/calls/dial').length, 0)
     } else {
       assert.equal(await panel.getByRole('button', { name: 'Отправить в MAX', exact: true }).count(), 0)
       assert.equal(t.writes.length, 0)

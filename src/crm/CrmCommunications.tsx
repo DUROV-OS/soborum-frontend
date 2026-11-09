@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ApiError, apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Select, Textarea } from '@/shared/ui/Field'
@@ -9,21 +10,25 @@ import { useMaxEvents } from '@/max/realtime'
 import type { MaxMessage } from '@/max/types'
 import { currentCrmLink, linkCrmFromMax, type CurrentCrmLink } from '@/max/crmLinks'
 import { PhoneCalls } from './PhoneCalls'
+import { BrowserCallPanel } from './BrowserPhone'
 
 type Chat = { key: string; chat_id: number; label: string; owner_id: number | null; can_unlink: boolean }
 const reason = (error: unknown) => error instanceof Error ? error.message : 'Не удалось связаться с MAX'
 
-export function CrmCommunications({ entityId, isDeal, canEdit, openMax = 0 }: { entityId: number; isDeal: boolean; canEdit: boolean; openMax?: number }) {
-  const [tab, setTab] = useState<'calls' | 'max'>('max')
+export function CrmCommunications({ entityId, isDeal, canEdit, openMax = 0, openCalls }: { entityId: number; isDeal: boolean; canEdit: boolean; openMax?: number; openCalls?: { revision: number; phone: string } }) {
+  const location = useLocation()
+  const [tab, setTab] = useState<'calls' | 'max'>(() => new URLSearchParams(window.location.search).get('channel') === 'calls' ? 'calls' : 'max')
   const panel = useRef<HTMLElement>(null)
+  useEffect(() => { const channel = new URLSearchParams(location.search).get('channel'); if (channel === 'calls' || channel === 'max') setTab(channel) }, [location.key])
   useEffect(() => { if (openMax) { setTab('max'); panel.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) } }, [openMax])
+  useEffect(() => { if (openCalls?.revision) { setTab('calls'); panel.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }) } }, [openCalls])
   return <section ref={panel} aria-label="Связь с клиентом" className="rounded-xl border border-border bg-surface p-3">
     <div className="flex flex-wrap items-center gap-2">
       <h4 className="mr-auto text-sm font-semibold">Связь с клиентом</h4>
       <Button size="sm" variant={tab === 'calls' ? 'primary' : 'secondary'} aria-pressed={tab === 'calls'} onClick={() => setTab('calls')}>Звонки</Button>
       <Button size="sm" variant={tab === 'max' ? 'primary' : 'secondary'} aria-pressed={tab === 'max'} onClick={() => setTab('max')}>MAX</Button>
     </div>
-    <div hidden={tab !== 'calls'}><PhoneCalls entityId={entityId} isDeal={isDeal} canEdit={canEdit} /></div>
+    <div hidden={tab !== 'calls'}><BrowserCallPanel entityId={entityId} canEdit={canEdit} initialPhone={openCalls?.phone} /><PhoneCalls entityId={entityId} isDeal={isDeal} canEdit={canEdit} /></div>
     <div hidden={tab !== 'max'}><MaxPanel entityId={entityId} canEdit={canEdit} active={tab === 'max'} /></div>
   </section>
 }
