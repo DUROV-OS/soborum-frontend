@@ -6,7 +6,7 @@ const base = process.env.SMOKE_BASE_URL ?? 'http://127.0.0.1:5181'
 const output = process.env.MAX_TEST_OUTPUT ?? '../max-ui-proof'
 await mkdir(output, { recursive: true })
 const browser = await chromium.launch({ headless: true })
-const user = { id: 1, full_name: 'Владелец', email: 'owner@example.test', role: 'admin', is_active: true, module_access: {} }
+const user = { id: 1, full_name: 'Владелец', email: 'owner@example.test', role: 'admin', job_role: 'director', is_active: true, module_access: {} }
 try {
   for (const width of [1366, 390]) {
     const context = await browser.newContext({ viewport: { width, height: 900 } })
@@ -80,4 +80,21 @@ try {
     await context.close()
     console.log(`MAX connection: ${width}px, owner confirmation, password cleared, no automatic sends: PASS`)
   }
+  const context = await browser.newContext()
+  await context.addInitScript(() => { localStorage.setItem('soborbum.auth.token', 'synthetic-token'); localStorage.setItem('soborbum.onboarding.admin', '1') })
+  const page = await context.newPage()
+  let maxRequests = 0
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.startsWith('/api/max/connection')) maxRequests++
+    const administrator = { ...user, job_role: 'manager' }
+    const body = path === '/api/auth/me' ? administrator : path === '/api/auth/users' ? [administrator] : []
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) })
+  })
+  await page.goto(base + '/admin')
+  await page.getByRole('heading', { name: 'Доступ', exact: true }).waitFor()
+  assert.equal(await page.getByRole('region', { name: 'Подключение MAX' }).count(), 0)
+  assert.equal(maxRequests, 0)
+  await context.close()
+  console.log('MAX connection: non-director administrator cannot see or load QR settings: PASS')
 } finally { await browser.close() }
