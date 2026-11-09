@@ -18,10 +18,12 @@ import { CalendarView } from '../components/CalendarView'
 import { CreateContentModal } from '../components/CreateContentModal'
 import { ContentDetailDrawer } from '../components/ContentDetailDrawer'
 import { TrendExplorer } from '../components/TrendExplorer'
+import { ConversionsPanel } from '../components/ConversionsPanel'
 
-type View = 'calendar' | 'stages' | 'trends'
+type View = 'conversions' | 'calendar' | 'stages' | 'trends'
 
 const VIEW_SUBTITLE: Record<View, string> = {
+  conversions: 'Обращения с сайта, качество и обратная связь по рекламе',
   calendar: 'Календарь выпуска контента',
   stages: 'Контент по стадиям подготовки',
   trends: 'Динамика популярности запросов, как в Google Trends',
@@ -79,7 +81,7 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 export function MarketingPage() {
   const items = useMarketingStore((s) => s.items)
   const load = useMarketingStore((s) => s.load)
-  const [view, setView] = useState<View>('calendar')
+  const [view, setView] = useState<View>('conversions')
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<ContentItem | null>(null)
   const [dateFilter, setDateFilter] = useState<DateFilter>(DEFAULT_DATE_FILTER)
@@ -95,7 +97,7 @@ export function MarketingPage() {
 
   return (
     <div>
-      <SectionAnalyticsCard section="marketing" />
+      {view !== 'conversions' && <SectionAnalyticsCard section="marketing" />}
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -104,7 +106,7 @@ export function MarketingPage() {
         </div>
         <div className="flex gap-2 self-start">
           <AskAiButton domain="marketing" />
-          {view !== 'trends' && canEdit && (
+          {(view === 'calendar' || view === 'stages') && canEdit && (
             <Button onClick={() => setCreating(true)}>
               <Plus size={16} />
               Новый контент
@@ -117,6 +119,7 @@ export function MarketingPage() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs
           tabs={[
+            { key: 'conversions', label: 'Конверсии' },
             { key: 'calendar', label: 'Календарь' },
             { key: 'stages', label: 'По стадиям' },
             { key: 'trends', label: 'Тренд' },
@@ -127,7 +130,7 @@ export function MarketingPage() {
         {view === 'stages' && <DateFilterSelect value={dateFilter} onChange={setDateFilter} />}
       </div>
 
-      {view === 'trends' ? (
+      {view === 'conversions' ? <ConversionsPanel /> : view === 'trends' ? (
         <TrendExplorer />
       ) : view === 'calendar' ? (
         <CalendarView items={items} onSelect={setSelected} />
@@ -155,7 +158,7 @@ export function MarketingPage() {
       <ContentDetailDrawer item={selected} onClose={() => setSelected(null)} />
 
       <OnboardingDialog
-        open={onboarding.open}
+        open={view !== 'conversions' && onboarding.open}
         onClose={onboarding.close}
         title="Раздел «Маркетинг»"
         pages={ONBOARDING_PAGES}
