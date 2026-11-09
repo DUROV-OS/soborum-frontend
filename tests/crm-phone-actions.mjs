@@ -30,6 +30,8 @@ async function setup({ phone = '8 (900) 111-22-33', level = 'full', mobile = fal
       else if (path === '/api/crm/entries') body = { total: url.searchParams.get('kind') === 'contact' ? 1 : 0, items: url.searchParams.get('kind') === 'contact' ? [contact] : [] }
       else if (/\/(history|files)$/.test(path)) body = { total: 0, items: [] }
       else if (path === '/api/notifications/unread-count') body = { unread_count: 0 }
+      else if (path === '/api/crm/calls') body = { total: 0, items: [] }
+      else if (path === '/api/crm/communications/status') body = { megafon: { configured: false, webhook_configured: false, state: 'not_configured', can_call: false, extension: '106', checked_at: null }, max: { configured: true, state: 'unchecked', checked_at: null } }
       else if (path === '/api/max/chats/777') body = { chatId: 777, title: 'Клиент Анна', viewerId: 'synthetic-work-user', isGroup: false, peer: null, count: 1, messages: [message('previous-1', 'Предыдущее сообщение клиента')] }
     } else {
       const input = request.postDataJSON(); writes.push({ method: request.method(), path, input })
@@ -82,11 +84,14 @@ try {
   const call = t.page.getByRole('dialog', { name: 'Звонок из CRM', exact: true })
   await call.getByText('+7 911 222-33-44', { exact: true }).waitFor()
   await call.getByText('106', { exact: true }).waitFor()
-  await call.getByRole('status').filter({ hasText: 'Звонок не выполнен' }).waitFor()
+  await call.getByRole('status').filter({ hasText: 'Звонки пока не подключены' }).waitFor()
   assert.equal(await call.locator('a[href^="tel:"]').count(), 0)
+  const statusReads = t.reads.slice(beforeReads.length)
+  assert.ok(statusReads.length > 0 && statusReads.every(path => path === '/api/crm/communications/status'))
+  beforeReads.push(...statusReads)
   assert.deepEqual(t.reads, beforeReads); assert.deepEqual(t.writes, []); assert.deepEqual(t.external, beforeExternal)
   await call.getByRole('button', { name: 'Назад к действиям', exact: true }).click()
-  report.checks.push('opening phone menu, copying normalized E.164, corporate Telegram pending status and call status cause no API request, message, personal Telegram navigation or telephone call; current employee work phone is shown')
+  report.checks.push('phone menu and copy have no side effects; call view only reads connection status, without calls/messages; current employee phone and PBX mapping shown')
 
   menu = t.page.getByRole('dialog', { name: 'Действия с номером', exact: true })
   await menu.getByRole('button', { name: 'Написать в MAX', exact: true }).click()

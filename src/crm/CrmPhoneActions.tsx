@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Copy, MessageCircle, Phone, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '@/auth/store'
+import { CrmCallAction } from './CrmCallAction'
 import { ApiError } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Textarea } from '@/shared/ui/Field'
@@ -31,7 +31,6 @@ function maxError(error: unknown, sending = false) {
 export function CrmPhoneActions({ phone, name, canMessage = true, className = '' }: {
   phone: string; name: string; canMessage?: boolean; className?: string
 }) {
-  const currentUser = useAuthStore(state => state.current)
   const normalized = crmPhoneNumber(phone)
   const [mode, setMode] = useState<'closed' | 'actions' | 'max' | 'call' | 'telegram'>('closed')
   const [recipientName, setRecipientName] = useState(name.slice(0, 64))
@@ -158,12 +157,7 @@ export function CrmPhoneActions({ phone, name, canMessage = true, className = ''
           <p>Отправитель: <strong>общий корпоративный аккаунт Telegram</strong>.</p>
           <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3">Корпоративный Telegram пока не подключён к CRM. Руководителю нужно указать рабочий аккаунт и завершить его подключение. Сообщение не отправлено.</p>
         </div>}
-        {mode === 'call' && <div className="space-y-3 text-sm">
-          <p>Сотрудник: <strong>{currentUser?.full_name || 'Не определён'}</strong></p>
-          <p>Рабочий номер: <strong>{currentUser?.work_phone || 'Не указан в личной карточке'}</strong></p>
-          <p>Внутренний номер ВАТС: <strong>{currentUser?.telephony_extension || 'Не назначен'}</strong></p>
-          <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3">Звонки через CRM пока не подключены. Требуется настроить ВАТС и проверить связь с рабочим номером сотрудника. Звонок не выполнен.</p>
-        </div>}
+        {mode === 'call' && normalized && <CrmCallAction phone={normalized} onBusy={setBusy} />}
         {mode !== 'actions' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => { generation.current++; setMode('actions'); setError(''); setNotice('') }}>Назад к действиям</Button>}
       </div>
     </Modal>

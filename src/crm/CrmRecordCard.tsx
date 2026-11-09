@@ -13,6 +13,7 @@ import { ContextPanel } from '@/costing/ContextPanel'
 import { asObject, CrmSalesDetails } from './CrmSalesFields'
 import { CrmImportReview } from './CrmImportReview'
 import { CrmAgencyLogo } from './CrmAgencyLogo'
+import { CrmCommunications } from './CrmCommunications'
 
 type Props = {
   entry: Entry
@@ -345,6 +346,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
             <div className="flex flex-wrap gap-1" role="group" aria-label="Фильтр истории">{(Object.keys(eventLabels) as EventKind[]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-3 py-1.5 text-[12px] ${filter === value ? 'bg-brand text-white' : 'text-muted hover:bg-surface-muted'}`}>{eventLabels[value]}</button>)}</div>
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
+            {['deal', 'inquiry', 'contact', 'company'].includes(record.kind) && <CrmCommunications key={record.id} entityId={record.id} isDeal={record.kind === 'deal'} canEdit={canEdit && !record.archived} />}
             <section aria-label="Задачи по карточке" className="space-y-2"><h4 className="text-[12px] font-semibold uppercase tracking-wide text-muted">Следующий шаг{openTasks.length ? ` · ${openTasks.length}` : ''}</h4>{openTasks.length ? openTasks.map(taskCard) : <div className="rounded-lg border border-dashed border-border bg-surface p-3 text-[13px] text-muted">{loading ? 'Загрузка задач…' : 'Открытых задач нет'}</div>}{completedTasks.length > 0 && <details><summary className="cursor-pointer py-2 text-[12px] text-muted">Выполненные задачи · {completedTasks.length}</summary><div className="space-y-2">{completedTasks.map(taskCard)}</div></details>}</section>
             <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted"><span>События · {visibleEvents.length}{search || filter !== 'all' ? ` из ${events.length} загруженных` : ''}</span>{remainingHistory.length > 0 && <span>Загружена часть истории · фильтр по загруженным событиям</span>}</div>
             {visibleEvents.length ? <ol className="space-y-3">{visibleEvents.map(event => {
