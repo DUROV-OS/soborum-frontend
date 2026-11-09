@@ -445,6 +445,7 @@ export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
   .map(group => {
     if (group.id === 'sales') return { ...group, entries: [
       { ...groupById.crm.entries[0], label: 'CRM', to: '/crm', note: 'Сделки, обращения, контакты и компании', category: 'Работа с клиентами' },
+      ...withCategory(groupById.company.entries.filter(entry => entry.id === 'chats'), 'Работа с клиентами'),
       ...withCategory(groupById.crm.entries.filter(entry => ['clients', 'client-cycle', 'partners'].includes(entry.id)), 'Работа с клиентами'),
       ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-estimates'), 'Документы для клиентов'),
       ...withCategory(group.entries, 'Документы для клиентов'),
@@ -456,7 +457,7 @@ export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
     if (group.id === 'warehouse') return { ...group, entries: [...withCategory(group.entries, 'Складские операции'), ...withCategory(groupById.goods.entries, 'Справочники')] }
     if (group.id === 'production') return { ...group, entries: group.entries.map(entry => ({ ...entry, category: ['house-techcards', 'house-projects', 'production-standards', 'recipes'].includes(entry.id) ? 'Внутренние справочники' : 'Рабочие документы' })).sort((a, b) => Number(a.category === 'Внутренние справочники') - Number(b.category === 'Внутренние справочники')) }
     if (group.id === 'money') return { ...group, label: 'Бухгалтерия' }
-    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => entry.id !== 'house-models') }
+    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => !['house-models', 'chats'].includes(entry.id)) }
     return group
   })
 
