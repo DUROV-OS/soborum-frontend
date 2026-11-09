@@ -55,9 +55,13 @@ export interface AktualnoeItem {
   /** короткое (2–3 слова) название текущей стадии клиента */
   stage: string
   /** 0–100: насколько выполнена текущая стадия (ставит ИИ) */
-  percent: number
+  percent: number | null
   /** фраза из 2–3 слов о том, что сейчас происходит */
   phrase: string
+  last_activity?: string | null
+  recent_events?: number
+  sources?: { entity: string; record_id: number; field: string; label: string; at: string }[]
+  source_hash?: string | null
 }
 
 export interface AktualnoeResponse {
@@ -66,4 +70,5 @@ export interface AktualnoeResponse {
   ai_configured: boolean
   /** true — подборка собрана без ИИ (топ по свежести, проценты по стадии) */
   degraded: boolean
+  source?: 'database'
 }

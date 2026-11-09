@@ -1,48 +1,15 @@
 import { ArrowRight } from 'lucide-react'
 import { AktualnoeItem } from '../types'
 
-/**
- * Цвет прогресс-бара плавно едет от красного к жёлтому и зелёному по значению
- * percent: hue 0° (красный) → ~130° (зелёный), жёлтый проходит около середины.
- */
-function barColor(percent: number): string {
-  const p = Math.max(0, Math.min(100, percent)) / 100
-  const hue = Math.round(p * 130)
-  return `hsl(${hue} 78% 44%)`
-}
-
-interface Props {
-  item: AktualnoeItem
-  onClick?: () => void
-}
-
-export function AktualnoeCard({ item, onClick }: Props) {
-  const percent = Math.max(0, Math.min(100, Math.round(item.percent)))
-  const color = barColor(percent)
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full flex-col gap-3 rounded-xl border border-border bg-bg px-4 py-3.5 text-left transition-colors hover:border-brand/40 hover:bg-surface-muted/60"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <span className="block truncate text-[14px] font-medium text-ink">{item.client_name}</span>
-          <span className="mt-0.5 block truncate text-[12px] text-muted">{item.stage}</span>
-        </div>
-        <ArrowRight size={16} className="mt-0.5 shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-brand" />
-      </div>
-
-      <div>
-        <div className="mb-1 flex items-baseline justify-between gap-2">
-          <span className="truncate text-[12px] text-ink">{item.phrase || 'В работе'}</span>
-          <span className="shrink-0 text-[12px] font-semibold tabular text-muted">{percent}%</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-pill bg-surface-muted" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-pill transition-[width,background-color] duration-500" style={{ width: `${percent}%`, backgroundColor: color }} />
-        </div>
-      </div>
+export function AktualnoeCard({ item, onClick }: { item: AktualnoeItem; onClick?: () => void }) {
+  const evidenced = Boolean(item.source_hash && item.sources?.length)
+  return <article className="rounded-xl border border-border bg-bg p-4">
+    <button type="button" onClick={onClick} className="flex w-full items-start justify-between gap-3 text-left">
+      <span className="min-w-0"><span className="block break-words text-sm font-semibold">{item.client_name}</span><span className="mt-1 block text-xs text-muted">{item.stage}</span></span>
+      <ArrowRight size={16} className="shrink-0 text-brand" />
     </button>
-  )
+    <p className="mt-3 text-xs text-muted">Процент готовности не рассчитан: стадия и активность не подтверждают объём выполненных работ.</p>
+    {evidenced ? <><p className="mt-3 text-sm">{item.phrase} · {item.last_activity ? new Date(item.last_activity).toLocaleString('ru-RU') : 'дата не указана'}</p><p className="mt-1 text-xs text-muted">Заметок и изменений задач за 21 день: {item.recent_events ?? '—'}</p>
+      <details className="mt-3 text-xs"><summary className="cursor-pointer font-medium text-brand">Записи-основания</summary><ul className="mt-2 space-y-2">{item.sources!.map(s => <li key={s.entity + s.record_id + s.field}>{s.label} · запись №{s.record_id}<span className="block text-muted">{new Date(s.at).toLocaleString('ru-RU')}</span></li>)}</ul><p className="mt-3 text-muted">Отметки в карточке не заменяют проверку документов.</p><code className="mt-2 block break-all text-muted">{item.source_hash}</code></details></> : <p className="mt-3 text-xs text-muted">Основания этой записи не зафиксированы. Обновите данные.</p>}
+  </article>
 }

@@ -3,12 +3,9 @@ import { StatWidget } from '@/shared/ui/StatWidget'
 import { Chip } from '@/shared/ui/Chip'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { LoadingState } from '@/shared/ui/LoadingState'
-import { GOLD, LEGAL_GOLD } from '../data'
 import { useAgentsStore } from '../store'
 import { DayPoint, LegalMix, LegalVerdict, TraceRow } from '../types'
 
-const GOLD_HAVE = GOLD.reduce((sum, row) => sum + row.gold, 0)
-const GOLD_NEED = GOLD.length * 50
 
 export function AdminAgentsPanel() {
   const stats = useAgentsStore((s) => s.stats)
@@ -47,13 +44,6 @@ export function AdminAgentsPanel() {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatWidget label="Gold-примеров" value={GOLD_HAVE} hint={`из ${GOLD_NEED} до приёмки обучения`} tone="brand" />
-        <StatWidget
-          label="Legal gold"
-          value={`${LEGAL_GOLD.have}/${LEGAL_GOLD.target}`}
-          hint="Только юрист или владелец. Это разметка, не следы API"
-          tone="warning"
-        />
         <StatWidget label="Смен" value={stats?.shifts ?? 0} hint="Тики компании, не чат" tone="brand" />
         <StatWidget
           label="Очередь человеку"
@@ -62,7 +52,7 @@ export function AdminAgentsPanel() {
           tone="warning"
         />
         <StatWidget label="Блоков в следах" value={totals.blocked} hint="Живые вердикты legal gate" tone="danger" />
-        <StatWidget label="Выпусков без риска" value={totals.released} hint={`из ${totals.runs} живых прогонов`} />
+        <StatWidget label="Пропущено фильтром" value={totals.released} hint={`Из ${totals.runs} запросов. Это не подтверждение отсутствия рисков`} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -71,13 +61,12 @@ export function AdminAgentsPanel() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <GoldBars />
+        <QualityStatus />
         <TraceList traces={traces} routingHint={routingHint} />
       </div>
 
       <p className="text-[12px] text-muted">
-        Смены и очередь — с /api/agents/shifts. Следы разовых запросов — /api/agents/runs. Gold — контракт разметки,
-        не «обучен».
+        Показатели рассчитаны по сохранённым запускам. Они показывают работу программы и не заменяют оценку качества выводов.
       </p>
     </div>
   )
@@ -151,10 +140,10 @@ function LegalMixCard({ mix, total }: { mix: LegalMix; total: number }) {
     <section className="rounded-2xl border border-border bg-surface">
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <h2 className="text-[18px] font-semibold tracking-tight text-ink">Legal gate</h2>
-        <p className="mt-1 text-[12px] text-muted">Живые вердикты. Block нельзя ослабить моделью.</p>
+        <p className="mt-1 text-xs text-muted">Результаты автоматического фильтра. Это не заключения юриста. Блокировку нельзя ослабить моделью.</p>
       </div>
       <div className="flex items-center gap-6 px-5 py-5 sm:px-6">
-        <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-label="Доли вердиктов юриста">
+        <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-label="Результаты автоматического фильтра">
           <circle cx="70" cy="70" r={r} fill="none" stroke="rgb(225 232 232)" strokeWidth="16" />
           {total > 0 &&
             slices
@@ -199,33 +188,12 @@ function LegalMixCard({ mix, total }: { mix: LegalMix; total: number }) {
   )
 }
 
-function GoldBars() {
-  return (
-    <section className="rounded-2xl border border-border bg-surface">
-      <div className="border-b border-border px-5 py-4 sm:px-6">
-        <h2 className="text-[18px] font-semibold tracking-tight text-ink">Разметка до «обучен»</h2>
-        <p className="mt-1 text-[12px] text-muted">Цель — 50 gold на роль. Координатор ещё без отдельных примеров.</p>
-      </div>
-      <ul className="divide-y divide-border">
-        {GOLD.map((row) => {
-          const pct = Math.min(100, Math.round((row.gold / row.target) * 100))
-          return (
-            <li key={row.id} className="px-5 py-3 sm:px-6">
-              <div className="mb-1.5 flex items-center justify-between text-[13px]">
-                <span className="text-ink">{row.title}</span>
-                <span className="tabular text-muted">
-                  {row.gold}/{row.target}
-                </span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-pill bg-surface-muted">
-                <div className="h-full rounded-pill bg-brand" style={{ width: `${pct}%` }} />
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
+function QualityStatus() {
+  return <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
+    <h2 className="text-lg font-semibold">Качество и проверка ИИ</h2>
+    <p className="mt-3 text-sm text-muted">Подтверждённый реестр эталонных примеров и результаты оценки качества пока не подключены. Процент обучения и точность не определены.</p>
+    <p className="mt-2 text-sm text-muted">Для приёмки нужны исходные примеры, проверяющий специалист и сохранённые результаты испытаний модели.</p>
+  </section>
 }
 
 function TraceList({ traces, routingHint }: { traces: TraceRow[]; routingHint: string }) {
@@ -261,14 +229,14 @@ function TraceList({ traces, routingHint }: { traces: TraceRow[]; routingHint: s
 
 function legalChipTone(legal: LegalVerdict) {
   if (legal === 'block') return 'danger' as const
-  if (legal === 'allow') return 'success' as const
+  if (legal === 'allow') return 'info' as const
   return 'warning' as const
 }
 
 function legalChipLabel(legal: LegalVerdict) {
   if (legal === 'escalate_human') return 'человек'
   if (legal === 'allow_with_conditions') return 'с оговорками'
-  return legal
+  return legal === 'allow' ? 'фильтр пропустил' : 'блок'
 }
 
 function Legend({ swatch, label }: { swatch: string; label: string }) {

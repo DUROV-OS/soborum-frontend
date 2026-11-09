@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react'
+import { AnalysisEvidence } from '@/ai/components/AnalysisEvidence'
 import { AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -164,7 +165,7 @@ function AttentionSection({
           {readinessClean ? (
             <>
               <CheckCircle2 size={16} className="shrink-0 text-success" />
-              Всё чисто — сигналов внимания по этому дому нет.
+              По проверенным условиям сигналов внимания по дому нет.
             </>
           ) : (
             'Сигналов внимания нет, но оценка готовности материалов не подтверждена.'
@@ -205,11 +206,8 @@ function AktualnoeSection({ aktualnoe }: { aktualnoe: ProductionHomeData['aktual
         <div>
           <div className="mb-1 flex items-baseline justify-between gap-2">
             <span className="text-[13px] text-ink">{aktualnoe.phrase || aktualnoe.stage}</span>
-            <span className="shrink-0 text-[12px] font-semibold tabular text-muted">{aktualnoe.percent}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-pill bg-surface-muted" role="progressbar" aria-valuenow={aktualnoe.percent} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full rounded-pill bg-brand transition-[width] duration-500" style={{ width: `${aktualnoe.percent}%` }} />
-          </div>
+          <p className="mt-2 text-xs text-muted">Процент готовности не рассчитан. Стадия цикла не подтверждает объём выполненных работ.</p>
           {aktualnoe.phrase && <p className="mt-2 text-[12px] text-muted">{aktualnoe.stage}</p>}
         </div>
       )}
@@ -223,17 +221,19 @@ function DeadlinesSection({ deadlines }: { deadlines: ProductionHomeData['deadli
   return (
     <section className="flex flex-col rounded-md border border-border bg-surface p-5" aria-labelledby="production-deadlines-title">
       <div className="mb-3 flex items-center gap-2">
-        <Clock size={16} className={onSchedule ? 'text-success' : 'text-warning'} />
+        <Clock size={16} className={onSchedule ? 'text-muted' : 'text-warning'} />
         <h2 id="production-deadlines-title" className="text-[15px] font-medium text-ink">
           Сроки
         </h2>
       </div>
       <p className="text-[14px] font-medium text-ink">{deadlines.title}</p>
+      {deadlines.input_changed && <p role="alert" className="mt-2 text-xs text-warning">Исходные данные изменились во время анализа. Обновите карточку; этот вывод относится к предыдущему срезу.</p>}
       <p className="mt-1 text-[13px] leading-relaxed text-muted">{deadlines.description}</p>
       {deadlines.impact && <p className="mt-2 text-[12px] leading-relaxed text-ink">{deadlines.impact}</p>}
       {deadlines.generated_at && (
-        <p className="mt-3 text-[11px] text-muted">данные на {format(new Date(deadlines.generated_at), 'HH:mm')}</p>
+        <p className="mt-3 text-xs text-muted">{deadlines.source === 'ai' ? 'Черновик ИИ · сотрудником не согласован' : 'Автоматический анализ записей'} · {format(new Date(deadlines.data_as_of ?? deadlines.generated_at), 'dd.MM.yyyy HH:mm')}</p>
       )}
+      <AnalysisEvidence snapshot={deadlines.input_snapshot} sourceHash={deadlines.source_hash} version={deadlines.analysis_version} />
     </section>
   )
 }

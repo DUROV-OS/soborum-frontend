@@ -39,24 +39,24 @@ function liveStance(agentId: AgentId, charts: ShiftChart[]) {
     .join(' ')
 }
 
-function readableStance(item: ShiftItem, charts: ShiftChart[]) {
-  const live = liveStance(item.agent_id, chartsFor(item.agent_id, charts))
-  if (live) return live
+function readableStance(item: ShiftItem) {
   if (!/По запросу|Опираюсь на:|Не моё:/.test(item.stance)) return twoSentences(item.stance)
   const note = citationTitle(item.citations[0] ?? '')
   if (!note) return 'Живого факта нет — сделки и остатки не выдумываю.'
   return `В пакете: «${note}».`
 }
 
-function cardNotes(item: ShiftItem, charts: ShiftChart[]) {
+function cardNotes(item: ShiftItem) {
   // Графики смены строит бэкенд из собственной базы DurovOS (connectors.live_charts),
   // а не из amoCRM/МойСклад — не подписываем чужой источник.
-  if (chartsFor(item.agent_id, charts).length) return ['база DurovOS']
   return item.citations.map(citationTitle).filter(Boolean).slice(0, 2)
 }
 
 function readableSummary(shift: AgentShift) {
   const pending = shift.approvals.filter((item) => item.status === 'pending').length
+  if (shift.items.some(item => item.reviews.some(review => review.status !== 'not_checked' && !isChecked(review)))) {
+    return `В смене есть старые проверки без зафиксированных оснований. Ожидают вашего решения: ${pending}. Согласования специалиста эти записи не подтверждают.`
+  }
   if (/Смена:|escalate_human|Движок:|шаблон \+ vault|сверилась с базой/.test(shift.summary)) {
     // Сводка старого формата: статусов проверок в ней нет — благополучия не додумываем.
     return pending
@@ -74,12 +74,13 @@ function pluralQuestions(n: number) {
 }
 
 function isChecked(review: ShiftReview) {
-  return review.status === 'checked_ok' || review.status === 'checked_escalate'
+  return review.method === 'rules' && Boolean(review.input_hash && review.rules_version) && (review.status === 'checked_ok' || review.status === 'checked_escalate')
 }
 
 // Текст проверки показываем как есть; без статуса (запись до 0084-e) и при
 // not_checked — «Не проверено», а не «стоп-фактора не нашёл».
 function readableReview(review: ShiftReview) {
+  if (review.reviewer === 'lawyer' && !isChecked(review) && review.status !== 'not_checked') return 'Основания старой автоматической проверки не зафиксированы. Согласования специалиста нет.'
   if (!isChecked(review)) {
     return review.status === 'not_checked' && review.text ? review.text : 'Не проверено.'
   }
@@ -93,8 +94,10 @@ function formatWhen(iso: string) {
 }
 
 function nextCheckLabel(shift: AgentShift) {
+  if (!shift.autorun) return 'Автоматический запуск выключен.'
   const next = shift.next_tick_at ? new Date(shift.next_tick_at) : null
-  if (!next || Number.isNaN(next.getTime())) return 'Следующая сверка сама, примерно через час.'
+  if (!next || Number.isNaN(next.getTime())) return 'Время следующей сверки не определено.'
+  if (next.getTime() <= Date.now()) return 'Плановое время следующей сверки прошло; выполнение ещё не подтверждено.'
   const minutes = Math.max(1, Math.round((next.getTime() - Date.now()) / 60000))
   if (minutes >= 60) return `Следующая сверка сама, примерно через ${Math.round(minutes / 60)} ч.`
   return `Следующая сверка сама, примерно через ${minutes} мин.`
@@ -122,7 +125,7 @@ export function ShiftBoard() {
           <div>
             <h2 className="text-[18px] font-semibold tracking-tight text-ink">Команда работает сама</h2>
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-ink">
-              Сверка сама раз в час. Вас зовут только из‑за денег, договора или кадра.
+              Здесь работают программные роли. Их выводы и проверки не являются согласованием сотрудника.
             </p>
           </div>
           {isAdmin && (
@@ -133,7 +136,7 @@ export function ShiftBoard() {
         </div>
         {shift && (
           <p className="mt-3 text-[12px] text-muted">
-            Последняя сверка {formatWhen(shift.created_at)}. {nextCheckLabel(shift)}
+            Смена сформирована {formatWhen(shift.created_at)}. {nextCheckLabel(shift)}
           </p>
         )}
       </section>
@@ -146,7 +149,7 @@ export function ShiftBoard() {
           title="Первая сверка ещё идёт"
           description={
             isAdmin
-              ? 'Можно подождать час или нажать «Начать смену».'
+              ? 'Сохранённой смены пока нет. Нажмите «Начать смену», чтобы выполнить проверку.'
               : 'Как только команда допишет, здесь появится очередь и карточки.'
           }
         />
@@ -155,6 +158,7 @@ export function ShiftBoard() {
       {shift && (
         <>
           <p className="text-[13px] leading-relaxed text-ink">{readableSummary(shift)}</p>
+          <p className="text-xs text-muted">Согласования людей хранятся отдельно. Графики показывают текущий срез {shift.charts_as_of ? formatWhen(shift.charts_as_of) : '(время не зафиксировано)'}; они не заменяют основания сохранённой смены.</p>
           <ApprovalQueue shift={shift} canDecide={isAdmin} />
           <section>
             <h2 className="mb-3 text-[18px] font-semibold tracking-tight text-ink">Что каждый посмотрел</h2>
@@ -304,23 +308,23 @@ function MiniChart({ chart }: { chart: ShiftChart }) {
 function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) {
   const disagreements = item.reviews.filter((review) => review.escalate)
   const checked = item.reviews.some(isChecked)
-  const notes = cardNotes(item, charts)
+  const notes = cardNotes(item)
   const mine = chartsFor(item.agent_id, charts)
   // Позицию написал Claude без живого факта из базы — это не данные системы.
-  const withoutFacts = item.stance_source === 'llm_without_facts' && !liveStance(item.agent_id, mine)
+  const withoutFacts = item.stance_source !== 'live'
   return (
     <article className="rounded-2xl border border-border bg-surface">
       <div className="border-b border-border px-5 py-3 sm:px-6">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[16px] font-semibold text-ink">{titleOf(item.agent_id)}</h3>
-          <Chip tone={disagreements.length ? 'warning' : checked ? 'success' : 'neutral'}>
-            {disagreements.length ? 'спросил вас' : checked ? 'держит сам' : 'не проверено'}
+          <Chip tone={disagreements.length ? 'warning' : checked ? 'info' : 'neutral'}>
+            {disagreements.length ? 'требует решения' : checked ? 'проверено по правилам' : 'не проверено'}
           </Chip>
         </div>
         <p className="mt-1 text-[12px] text-muted">{AGENT_WATCHES[item.agent_id]}</p>
       </div>
       <div className="space-y-3 px-5 py-4 text-[13px] leading-relaxed text-ink sm:px-6">
-        <p>{readableStance(item, charts)}</p>
+        <p className="text-xs font-medium text-muted">Сохранённый вывод смены</p><p>{readableStance(item)}</p>
         {withoutFacts && (
           <p>
             <Chip tone="warning">без данных из системы</Chip>
@@ -328,22 +332,25 @@ function ShiftCard({ item, charts }: { item: ShiftItem; charts: ShiftChart[] }) 
         )}
         {mine.length > 0 && (
           <div className="space-y-2">
+            <p className="text-xs font-medium text-muted">Текущие показатели базы</p>
+            {liveStance(item.agent_id, mine) && <p>{liveStance(item.agent_id, mine)}</p>}
             {mine.map((chart) => (
               <MiniChart key={chart.id} chart={chart} />
             ))}
           </div>
         )}
-        {notes.length > 0 && <p className="text-[12px] text-muted">Из базы: {notes.join(', ')}</p>}
+        {notes.length > 0 && <p className="text-xs text-muted">Указанные источники смены: {notes.join(', ')}. Ссылка в тексте сама по себе не подтверждает вывод.</p>}
         {item.reviews.length > 0 && (
           <ul className="space-y-2 border-t border-border pt-3">
             {item.reviews.map((review, index) => (
               <li key={`${review.reviewer}-${index}`} className="text-[12px] leading-relaxed">
                 <span className={review.escalate ? 'font-medium text-warning' : 'text-muted'}>
                   {titleOf(review.reviewer as AgentId)}
-                  {review.escalate ? ' не согласен' : isChecked(review) ? ' проверил' : ''}
+                  {isChecked(review) ? ' · автоматические правила' : ' · проверка не подтверждена'}
                   {': '}
                 </span>
                 <span className="text-ink">{readableReview(review)}</span>
+                {isChecked(review) && <details className="mt-2"><summary className="cursor-pointer text-brand">Основания автоматической проверки</summary><p className="mt-2 whitespace-pre-wrap break-words">{review.input_text}</p><p className="mt-2 text-muted">Совпавшие правила: {review.matched_rules?.join(', ') || 'совпадений нет'}. Согласования человека нет.</p><code className="mt-1 block break-all text-muted">{review.rules_version}<br />{review.input_hash}</code></details>}
               </li>
             ))}
           </ul>

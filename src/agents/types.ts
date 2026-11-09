@@ -109,6 +109,12 @@ export interface ShiftReview {
   escalate: boolean
   kind: string
   status?: ShiftReviewStatus | null
+  method?: 'rules' | 'unavailable' | 'legacy'
+  human_approved?: false
+  input_hash?: string | null
+  input_text?: string | null
+  rules_version?: string | null
+  matched_rules?: string[]
 }
 
 // Откуда позиция роли: живой срез базы, Claude без фактов из системы или ничего.
@@ -169,4 +175,6 @@ export interface AgentShift {
   autorun?: boolean
   interval_seconds?: number
   next_tick_at?: string | null
+  charts_as_of?: string | null
+  charts_source_hash?: string | null
 }

@@ -151,6 +151,17 @@ export interface SectionAnalyticsOut {
   source?: 'ai' | 'rules'
   /** Модель дала статус лучше фактов — сервер поднял его до пола, вот почему. */
   status_floor_reason?: string | null
+  data_as_of?: string | null
+  checked_at?: string | null
+  snapshot?: Record<string, unknown>
+  source_hash?: string | null
+  analysis_version?: string | null
+  model?: string | null
+  citations?: string[]
+  cached?: boolean
+  input_changed?: boolean
+  human_approved?: false
+  rule_findings?: string[]
 }
 
 /** GET /api/ai/tasks/priorities — 2-3 открытые задачи сотрудника, к которым ИИ советует присмотреться в первую очередь. */

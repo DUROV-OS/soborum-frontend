@@ -130,8 +130,8 @@ function TodayContent({ userId }: { userId: number }) {
                   ))}
                 </div>
               )}
-              {aktualnoe?.degraded && aktualnoeItems.length > 0 && (
-                <p className="mt-3 text-[11px] text-muted">Подобрано по свежести работы — Марина ещё не подключена.</p>
+              {aktualnoeItems.length > 0 && (
+                <p className="mt-3 text-xs text-muted">Источник — записи Durov OS. {aktualnoe?.generated_at && `Срез на ${new Date(aktualnoe.generated_at).toLocaleString('ru-RU')}.`} Это активность, а не оценка готовности дома.</p>
               )}
             </section>
           )}
