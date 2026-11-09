@@ -86,6 +86,7 @@ export function AccessMatrixPage() {
   const workers = accounts.filter((a) => a.role === 'worker')
   const admins = accounts.filter((a) => a.role === 'admin')
   const currentId = useAuthStore((s) => s.current?.id ?? null)
+  const isDirector = useAuthStore((s) => s.current?.role === 'admin' && s.current?.job_role === 'director')
 
   async function setRole(account: Account, role: Role, confirmText: string) {
     if (!window.confirm(confirmText)) return
@@ -198,7 +199,7 @@ export function AccessMatrixPage() {
       {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}
       {notice && <p className="mb-4 rounded-md bg-success-bg p-2.5 text-[13px] text-success">{notice}</p>}
 
-      <MaxConnectionSettings />
+      {isDirector && <MaxConnectionSettings />}
 
       <section className="mb-5 rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-[16px] font-semibold text-ink">Должности и рабочие экраны</h2>

@@ -133,8 +133,8 @@ export function MaxConnectionSettings() {
       {connection?.account_name && <p className="mt-3 text-[13px] text-ink">{connection.account_name}</p>}
       <p className="mt-3 max-w-2xl text-[13px] text-muted">
         {connection?.persistent_session && connection.automatic_reconnect
-          ? 'Связь восстанавливается автоматически после обрыва и перезапуска. Если MAX отзовёт доступ, администратору понадобится снова подтвердить вход с телефона.'
-          : 'Подключение и повторный вход выполняет администратор. Состояние связи видно здесь.'}
+          ? 'Связь восстанавливается автоматически после обрыва и перезапуска. Если MAX отзовёт доступ, руководителю понадобится снова подтвердить вход с телефона.'
+        : 'Подключение и повторный вход выполняет руководитель. Состояние связи видно здесь.'}
       </p>
       {error && <p role="alert" className="mt-3 text-[13px] text-danger">{error}</p>}
       {!active && <div className="mt-4 flex flex-wrap gap-2">
