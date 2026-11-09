@@ -41,7 +41,10 @@ async function scenario({ mobile = false, linked = false } = {}) {
     else if (path === '/api/max/chats') body = { count: 1, chats: [{ id: 123, title: 'Анна MAX', unread: 1, lastEventTime: 1794220000000, lastMessage: message('1', 'Пришлите расчёт'), phone: '+79000000000', linkedCrmId: state.linked ? 11 : null, linkedCrmKind: 'deal', linkedCrmName: deal.name }] }
     else if (path === '/api/max/chats/123') body = history()
     else if (path === '/api/crm/catalog') body = { pipelines: [entry(1, 'pipeline', 'Продажи')], stages: [entry(2, 'stage', 'Новые заявки', { pipeline_id: 1, outcome: 'open' })], users: [{ id: 6, name: 'Менеджер' }], counts: {} }
-    else if (path === '/api/crm/entries') body = { total: 1, items: url.searchParams.get('kind') === 'contact' ? [contact] : url.searchParams.get('kind') === 'deal' ? [deal] : [] }
+    else if (path === '/api/crm/entries') {
+      const items = url.searchParams.get('kind') === 'contact' ? [contact] : url.searchParams.get('kind') === 'deal' ? [deal] : []
+      body = { total: items.length, items }
+    }
     else if (path === '/api/crm/entries/11') body = deal
     else if (path === '/api/crm/entries/12') body = contact
     else if (path === '/api/crm/chat-links/unlinked/123') body = { name: 'Анна', phone: '+79000000000', suggested: { id: 11, kind: 'deal', name: deal.name } }
