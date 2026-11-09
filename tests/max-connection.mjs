@@ -73,9 +73,21 @@ try {
     await panel.getByRole('button', { name: 'Повторный вход по QR' }).click()
     await panel.getByRole('img', { name: 'QR-код входа в рабочий аккаунт MAX' }).waitFor()
     attempt = { ...attempt, phase: 'expired', qr_image: null }
+    await panel.getByText('Обновляем QR-код автоматически…', { exact: true }).waitFor()
+    await panel.getByRole('img', { name: 'QR-код входа в рабочий аккаунт MAX' }).waitFor()
+    assert.equal(starts, 3)
+    attempt = { ...attempt, phase: 'verifying', qr_image: null }
+    await panel.getByText('Вход подтверждён на телефоне. Проверяем аккаунт…', { exact: true }).waitFor()
+    attempt = { ...attempt, phase: 'expired', qr_image: null }
     await panel.getByText('Срок QR-кода истёк. Получите новый код.', { exact: true }).waitFor()
-    assert.equal(await panel.getByRole('img', { name: 'QR-код входа в рабочий аккаунт MAX' }).count(), 0)
-    assert.equal(starts, 2)
+    await page.waitForTimeout(2200)
+    assert.equal(starts, 3) // Phone approval stops renewal even if the later step expires.
+    await panel.getByRole('button', { name: 'Повторный вход по QR' }).click()
+    await panel.getByRole('img', { name: 'QR-код входа в рабочий аккаунт MAX' }).waitFor()
+    await panel.getByRole('button', { name: 'Отменить подключение', exact: true }).click()
+    await panel.getByText('Подключение отменено', { exact: true }).waitFor()
+    await page.waitForTimeout(2200)
+    assert.equal(starts, 4)
     assert.deepEqual(sends, [])
     await context.close()
     console.log(`MAX connection: ${width}px, owner confirmation, password cleared, no automatic sends: PASS`)

@@ -30,6 +30,7 @@ const stateText: Record<string, string> = {
 }
 const phaseText: Record<string, string> = {
   starting: 'Получаем QR-код…', waiting: 'Ожидаем подтверждения на телефоне',
+  verifying: 'Вход подтверждён на телефоне. Проверяем аккаунт…',
   checking_password: 'Проверяем пароль…', connecting: 'Сохраняем подключение…',
   complete: 'Рабочий аккаунт подключён', cancelled: 'Подключение отменено',
   expired: 'Срок QR-кода истёк. Получите новый код.',
@@ -46,6 +47,7 @@ export function MaxConnectionSettings() {
   const [attempt, setAttempt] = useState<Attempt | null>(null)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [autoRenew, setAutoRenew] = useState(false)
   const locked = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(Date.now())
@@ -77,12 +79,14 @@ export function MaxConnectionSettings() {
         const result = await request<Attempt>(`/qr/${attemptId}`)
         if (stopped) return
         setAttempt(result)
+        if (!['starting', 'waiting', 'expired'].includes(result.phase)) setAutoRenew(false)
         if (result.phase === 'complete') setConnection(await request<Connection>())
         if (terminal.has(result.phase)) return
       } catch (e) {
         if (stopped) return
         setError(e instanceof Error ? e.message : 'Не удалось обновить подключение')
         if (e instanceof ApiError && e.status === 404) {
+          setAutoRenew(false)
           setAttempt(null)
           return
         }
@@ -110,6 +114,7 @@ export function MaxConnectionSettings() {
     finally { locked.current = false; setBusy(false) }
   }
   function start() {
+    setAutoRenew(true)
     void action(async () => {
       const id = crypto.randomUUID()
       // Keep the request ID on timeout so polling can recover an accepted start.
@@ -117,6 +122,20 @@ export function MaxConnectionSettings() {
       setAttempt(await request<Attempt>('/qr', 'POST', { request_id: id }))
     })
   }
+  useEffect(() => {
+    if (!autoRenew || busy || attempt?.phase !== 'expired') return
+    const renew = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine && !locked.current) start()
+    }
+    const timer = setTimeout(renew, 1000)
+    document.addEventListener('visibilitychange', renew)
+    window.addEventListener('online', renew)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', renew)
+      window.removeEventListener('online', renew)
+    }
+  }, [autoRenew, busy, attempt?.id, attempt?.phase])
   const qrVisible = attempt?.phase === 'waiting' && attempt.expires_at * 1000 > now
   return (
     <section aria-label="Подключение MAX" className="mb-5 rounded-2xl border border-border bg-surface p-5">
@@ -146,13 +165,14 @@ export function MaxConnectionSettings() {
         </Button>
       </div>}
       {attempt && <div className="mt-4 rounded-xl border border-border p-4">
-        {phaseText[attempt.phase] && <p aria-live="polite" className="text-[13px] font-medium text-ink">{phaseText[attempt.phase]}</p>}
+        {phaseText[attempt.phase] && <p aria-live="polite" className="text-[13px] font-medium text-ink">{attempt.phase === 'expired' && autoRenew ? 'Обновляем QR-код автоматически…' : phaseText[attempt.phase]}</p>}
         {attempt.error && <p className="mt-2 text-[13px] text-danger">{attempt.error}</p>}
         {qrVisible && attempt.qr_image && <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
           <img src={attempt.qr_image} alt="QR-код входа в рабочий аккаунт MAX" width={240} height={240} className="h-auto w-full max-w-[240px] shrink-0 rounded-lg bg-white" />
           <div className="max-w-sm text-[13px] text-ink">
             <p>В MAX на телефоне откройте «Профиль» → «Устройства» → вход по QR-коду. Отсканируйте код и подтвердите вход.</p>
             <p className="mt-2 text-muted">Используйте рабочий аккаунт компании. Код действует ещё {Math.max(0, Math.ceil((attempt.expires_at * 1000 - now) / 1000))} сек.</p>
+            <p className="mt-2 text-muted">Когда срок истечёт, код обновится автоматически. После подтверждения на телефоне обновление остановится.</p>
           </div>
         </div>}
         {attempt.phase === 'waiting' && !qrVisible && <p className="mt-2 text-[13px] text-muted">Срок кода истёк. Дожидаемся обновления состояния…</p>}
@@ -176,10 +196,13 @@ export function MaxConnectionSettings() {
             setConnection(await request<Connection>())
           })}>Подключить этот рабочий аккаунт</Button>
         </div>}
-        {active && <Button size="sm" variant="ghost" className="mt-3" disabled={busy || attempt.phase === 'connecting'} onClick={() => void action(async () => {
-          setAttempt(await request<Attempt>(`/qr/${attempt.id}`, 'DELETE'))
-          setPassword('')
-        })}>Отменить подключение</Button>}
+        {(active || autoRenew) && <Button size="sm" variant="ghost" className="mt-3" disabled={busy || attempt.phase === 'connecting'} onClick={() => {
+          setAutoRenew(false)
+          void action(async () => {
+            setAttempt(await request<Attempt>(`/qr/${attempt.id}`, 'DELETE'))
+            setPassword('')
+          })
+        }}>Отменить подключение</Button>}
       </div>}
     </section>
   )
