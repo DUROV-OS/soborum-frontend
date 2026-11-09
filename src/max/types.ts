@@ -84,7 +84,7 @@ export interface MaxChatSummary {
   linkedPartnerId: number | null
   linkedPartnerName: string | null
   linkedCrmId?: number | null
-  linkedCrmKind?: 'contact' | 'company' | null
+  linkedCrmKind?: 'contact' | 'company' | 'deal' | 'inquiry' | null
   linkedCrmName?: string | null
   /** Номер собеседника личного диалога (`+79001234567`) — только если он есть
    * в контактах аккаунта MAX; у групп и остальных диалогов null (0099). */

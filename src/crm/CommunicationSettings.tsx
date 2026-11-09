@@ -4,14 +4,16 @@ import { apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { connectionStatus, connectionLabels, type ConnectionStatus, type ConnectionState } from './communications'
+import { catalog, type Catalog } from './api'
 
 type Member = { user_id: number; pbx_user: string; enabled: boolean }
-type Routing = { version: number; enabled: boolean; main_phone: string; wait_seconds: number; pbx_setup_confirmed: boolean; members: Member[]; fallback?: string }
+type Routing = { version: number; enabled: boolean; main_phone: string; wait_seconds: number; pbx_setup_confirmed: boolean; auto_create_leads: boolean; max_incoming_enabled: boolean; lead_stage_id: number | null; members: Member[]; fallback?: string }
 type Check = { checked_at: string; megafon: { state: ConnectionState; accounts?: { name: string; extension: string }[] }; max: { state: ConnectionState } }
 
 export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
   const [config, setConfig] = useState<Routing | null>(null)
   const [status, setStatus] = useState<ConnectionStatus | null>(null)
+  const [crm, setCrm] = useState<Catalog | null>(null)
   const [check, setCheck] = useState<Check | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -19,8 +21,8 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
   const [revision, refresh] = useState(0)
   useEffect(() => {
     let current = true
-    Promise.all([apiRequest<Routing>({ section: 'crm', path: '/telephony/routing' }), connectionStatus()]).then(([value, state]) => {
-      if (current) { setConfig(value); setStatus(state); setError('') }
+    Promise.all([apiRequest<Routing>({ section: 'crm', path: '/telephony/routing' }), connectionStatus(), catalog()]).then(([value, state, data]) => {
+      if (current) { setConfig(value); setStatus(state); setCrm(data); setError('') }
     }).catch(e => { if (current) setError(e.message) })
     return () => { current = false }
   }, [revision])
@@ -31,7 +33,7 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
     try {
       const { fallback: _fallback, ...body } = config
       const saved = await apiRequest<Routing>({ section: 'crm', path: '/telephony/routing', method: 'PUT', body })
-      setConfig(saved); setNotice(saved.enabled ? 'Правила CRM включены. Фактическое поступление и переадресацию звонка нужно проверить в ВАТС.' : 'Настройки сохранены. Распределение через CRM выключено.')
+      setConfig(saved); setNotice(`Настройки сохранены. Заявки по звонкам ${saved.auto_create_leads ? 'включены' : 'выключены'}, уведомления MAX ${saved.max_incoming_enabled ? 'включены' : 'выключены'}. Распределение через CRM ${saved.enabled ? 'включено' : 'выключено'}.`)
     } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось сохранить') }
     finally { setBusy(false) }
   }
@@ -44,7 +46,7 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
     finally { setBusy(false) }
   }
   return <details className="mb-5 rounded-2xl border border-border bg-surface p-5">
-    <summary className="cursor-pointer text-base font-semibold">МегаФон: звонки и распределение</summary>
+    <summary className="cursor-pointer text-base font-semibold">Звонки и автоматические заявки</summary>
     <div className="mt-4 space-y-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2">
         <p>МегаФон: <strong>{status ? connectionLabels[status.megafon.state] : 'Загрузка…'}</strong></p>
@@ -57,8 +59,18 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
       {notice && <p role="status" className="text-brand">{notice}</p>}
       {config && <form className="space-y-4" onSubmit={event => { event.preventDefault(); void save() }}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Общий входящий номер"><Input value={config.main_phone} onChange={event => setConfig({ ...config, main_phone: event.target.value, pbx_setup_confirmed: false, enabled: false })} /></Field>
+          <Field label="Общий входящий номер"><Input value={config.main_phone} onChange={event => setConfig({ ...config, main_phone: event.target.value, pbx_setup_confirmed: false, enabled: false, auto_create_leads: false })} /></Field>
           <Field label="Ожидание менеджера, секунд"><Input type="number" min={10} max={120} value={config.wait_seconds} onChange={event => setConfig({ ...config, wait_seconds: Number(event.target.value), pbx_setup_confirmed: false, enabled: false })} /></Field>
+        </div>
+        <div className="space-y-3 rounded-lg border border-border p-3">
+          <Field label="Этап для новых заявок"><Select aria-label="Этап для новых заявок" value={config.lead_stage_id ?? ''} onChange={event => setConfig({ ...config, lead_stage_id: event.target.value ? Number(event.target.value) : null, auto_create_leads: false, max_incoming_enabled: false })}>
+            <option value="">Выберите этап «Новые заявки»</option>
+            {crm?.stages.filter(stage => !stage.archived && (stage.data.outcome ?? 'open') === 'open' && crm.pipelines.some(pipeline => pipeline.id === stage.data.pipeline_id && !pipeline.archived && pipeline.data.purpose !== 'agency')).map(stage => <option key={stage.id} value={stage.id}>{crm.pipelines.find(pipeline => pipeline.id === stage.data.pipeline_id)?.name} → {stage.name}</option>)}
+          </Select></Field>
+          <label className="flex items-start gap-2"><input type="checkbox" checked={config.auto_create_leads} onChange={event => setConfig({ ...config, auto_create_leads: event.target.checked })} />Создавать заявку при входящем звонке на общий номер</label>
+          <label className="flex items-start gap-2"><input type="checkbox" checked={config.max_incoming_enabled} onChange={event => setConfig({ ...config, max_incoming_enabled: event.target.checked })} />Уведомлять о новых клиентах в непривязанных диалогах MAX</label>
+          <p className="text-xs text-muted">Новый непривязанный диалог создаёт уведомление: менеджер выбирает новый лид или существующую карточку. Связанные диалоги дополняют историю клиента. Старая переписка, групповые чаты и исходящие сообщения новые заявки не создают.</p>
+          <p className="text-xs text-muted">Новый клиент появляется сразу на выбранном этапе, в том числе после пропущенного звонка. Повторные звонки дополняют историю без новых карточек. Ответственный сохраняется. Если оператор не передал входящий номер компании, заявка автоматически не создаётся.</p>
         </div>
         <p>Новые номера распределяются по очереди. Повторный звонок направляется ответственному. При отсутствии ответа — другому менеджеру, с сохранением ответственного.</p>
         {config.members.map((member, index) => <div key={index} className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3">

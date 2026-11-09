@@ -8,6 +8,7 @@ import { Field, Input, Textarea } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
 import * as maxApi from '@/max/api'
 import type { MaxMessage } from '@/max/types'
+import { useAuthStore } from '@/auth/store'
 
 export function crmPhoneNumber(raw: string): string | null {
   const compact = raw.trim().replace(/[\s().-]/g, '')
@@ -28,9 +29,10 @@ function maxError(error: unknown, sending = false) {
 }
 
 /** Opening the menu never calls, creates a contact or sends a message. */
-export function CrmPhoneActions({ phone, name, canMessage = true, className = '' }: {
-  phone: string; name: string; canMessage?: boolean; className?: string
+export function CrmPhoneActions({ phone, name, canMessage = true, className = '', onMax }: {
+  phone: string; name: string; canMessage?: boolean; className?: string; onMax?: () => void
 }) {
+  const manager = useAuthStore(state => state.current?.job_role === 'manager')
   const normalized = crmPhoneNumber(phone)
   const [mode, setMode] = useState<'closed' | 'actions' | 'max' | 'call' | 'telegram'>('closed')
   const [recipientName, setRecipientName] = useState(name.slice(0, 64))
@@ -129,11 +131,14 @@ export function CrmPhoneActions({ phone, name, canMessage = true, className = ''
           {!normalized && <p className="text-sm text-muted">Для связи нужен один номер с кодом страны. Исправьте телефон в карточке.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button variant="secondary" onClick={() => void copy()}><Copy size={16} />Копировать номер</Button>
-            <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { setMode('max'); setError(''); setNotice('') }}><MessageCircle size={16} />Написать в MAX</Button>
+            {(onMax || !manager) && <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => {
+              if (onMax) { close(); onMax() } else { setMode('max'); setError(''); setNotice('') }
+            }}><MessageCircle size={16} />Написать в MAX</Button>}
             <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { setMode('telegram'); setError(''); setNotice('') }}><MessageCircle size={16} />Написать в Telegram</Button>
             <Button variant="secondary" disabled={!normalized || !canMessage} onClick={() => { setMode('call'); setError(''); setNotice('') }}><Phone size={16} />Позвонить</Button>
           </div>
           <p className="text-xs text-muted">Для Telegram используется общий корпоративный аккаунт.</p>
+          {manager && !onMax && <p className="text-xs text-muted">Чтобы написать в MAX, откройте карточку клиента → «Связь с клиентом» → MAX.</p>}
         </>}
         {mode === 'max' && <>
           <p className="text-xs text-muted">Сообщения отправляются из рабочего аккаунта MAX, подключённого к Durov OS.</p>

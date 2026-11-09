@@ -9,19 +9,22 @@ import type { Partner } from '@/partners/types'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
-import { chatLinkError, crmCardPath, linkCrmFromMax } from '../crmLinks'
+import { chatLinkError, crmCardPath, currentCrmLink, linkCrmFromMax, pendingMaxLink, type PendingMaxLink, type CurrentCrmLink } from '../crmLinks'
+import { useAuthStore } from '@/auth/store'
 import type { MaxDialogPeer } from '../types'
 
-type Choice = { id: number; name: string; phone: string }
-type Kind = 'contact' | 'company' | 'partner'
+type Choice = { id: number; name: string; phone: string; kind?: Kind }
+type Kind = 'contact' | 'company' | 'deal' | 'inquiry' | 'partner'
 
 /** Sales cards only. Opening this modal never requests the ERP clients API. */
-export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLinked }: {
+export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLinked, startNewLead = false }: {
   chatId: number; peer: MaxDialogPeer | null; chatTitle: string | null
   open: boolean; onClose: () => void; onLinked: () => void
+  startNewLead?: boolean
 }) {
   const navigate = useNavigate()
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
+  const manager = useAuthStore(state => state.current?.job_role === 'manager')
   const [kind, setKind] = useState<Kind>('contact')
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
@@ -30,9 +33,11 @@ export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLink
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [creating, setCreating] = useState<'contact' | 'company' | null>(null)
+  const [creating, setCreating] = useState<'contact' | 'company' | 'deal' | null>(null)
+  const [pending, setPending] = useState<PendingMaxLink | null>(null)
   const [creatingPartner, setCreatingPartner] = useState(false)
   const [pendingPartner, setPendingPartner] = useState<Partner | null>(null)
+  const [moving, setMoving] = useState<{ choice: Choice; current: CurrentCrmLink } | null>(null)
   const [uncertainPartner, setUncertainPartner] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -40,7 +45,17 @@ export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLink
   const mutation = useRef(false)
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
-  useEffect(() => { if (!open) { setOffset(0); setChoices([]) } }, [open])
+  useEffect(() => { if (!open) { setOffset(0); setChoices([]); setMoving(null) } }, [open])
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    setCreating(startNewLead ? 'deal' : null); setName(peer?.name || chatTitle || ''); setPhone(peer?.phone || ''); setEmail('')
+    setPending(null)
+    pendingMaxLink(chatId).then(result => {
+      if (live) { setPending(result); if (result) { setName(value => value || result.name); setPhone(value => value || result.phone) } }
+    }).catch(() => { if (live) setPending(null) })
+    return () => { live = false }
+  }, [open, chatId, startNewLead])
   useEffect(() => {
     if (!open || !canEdit || creating || creatingPartner || pendingPartner) return
     let cancelled = false
@@ -62,20 +77,25 @@ export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLink
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, [open, canEdit, kind, query, offset, creating, creatingPartner, pendingPartner])
 
-  function beginCreate(next: 'contact' | 'company') {
-    setOffset(0); setCreating(next); setName(peer?.name || chatTitle || ''); setPhone(peer?.phone || ''); setEmail(''); setError('')
+  function beginCreate(next: 'contact' | 'company' | 'deal') {
+    setOffset(0); setCreating(next); setName(peer?.name || pending?.name || chatTitle || ''); setPhone(peer?.phone || pending?.phone || ''); setEmail(''); setError('')
   }
   function close() { if (!mutation.current) onClose() }
-  async function bindExisting(choice: Choice) {
+  async function bindExisting(choice: Choice, confirmed?: CurrentCrmLink) {
     if (mutation.current || !canEdit) return
     mutation.current = true; setBusy(true); setError('')
     try {
-      if (kind === 'partner') {
+      if ((choice.kind ?? kind) === 'partner') {
         await partnersApi.createChatLink(choice.id, chatId, 'MAX')
         if (!mounted.current) return
         onLinked(); onClose(); navigate(`/partners/${choice.id}`)
       } else {
-        const link = await linkCrmFromMax({ max_chat_id: chatId, entity_id: choice.id })
+        if (!confirmed) {
+          const current = await currentCrmLink(chatId)
+          if (current && current.entity_id !== choice.id) { setMoving({ choice, current }); return }
+        }
+        const link = await linkCrmFromMax({ max_chat_id: chatId, entity_id: choice.id,
+          ...(confirmed ? { move_from_id: confirmed.entity_id, move_from_version: confirmed.entity_version } : {}) })
         if (!mounted.current) return
         onLinked(); onClose(); navigate(crmCardPath(link.entity_kind, link.entity_id))
       }
@@ -108,26 +128,32 @@ export function LinkClientModal({ chatId, peer, chatTitle, open, onClose, onLink
 
   if (!canEdit) return null
   return <>
-    <Modal open={open && !creatingPartner} onClose={close} title={creating ? (creating === 'company' ? 'Новая компания из чата' : 'Новый клиент из чата') : 'Привязать чат'} width="max-w-xl">
+    <Modal open={open && !creatingPartner} onClose={close} title={creating ? (creating === 'deal' ? 'Новый лид из MAX' : creating === 'company' ? 'Новая компания из чата' : 'Новый клиент из чата') : 'Привязать диалог к клиенту'} width="max-w-xl">
       <div className="space-y-3">
         {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
-        {pendingPartner ? <>
+        {moving ? <>
+          <p className="text-sm">Перенести диалог из карточки <strong>{moving.current.entity_name}</strong> в <strong>{moving.choice.name}</strong>?</p>
+          <p className="text-xs text-muted">Переписка сохранится, ответственный в выбранной карточке останется прежним.{moving.current.automatic_lead && ' Если автоматическая заявка ещё не обрабатывалась, она будет убрана в архив как дубль.'}</p>
+          <div className="flex gap-2"><Button variant="secondary" disabled={busy} onClick={() => setMoving(null)}>Назад</Button><Button disabled={busy} onClick={() => void bindExisting(moving.choice, moving.current)}>Перенести переписку</Button></div>
+        </> : pendingPartner ? <>
           <p className="text-[13px]">Партнёр «{pendingPartner.name}» создан. Осталось связать с ним этот чат.</p>
           <Button onClick={() => bindCreatedPartner(pendingPartner)} disabled={busy}>Повторить привязку</Button>
         </> : creating ? <>
+          {creating === 'deal' && <p className="text-xs text-muted">Создадим заявку на этапе «Новые заявки» и сохраним в ней этот диалог.</p>}
           <Field label={creating === 'company' ? 'Название компании' : 'Имя клиента'}><Input autoFocus value={name} maxLength={1000} onChange={event => setName(event.target.value)} disabled={busy} /></Field>
           <Field label="Телефон"><Input value={phone} maxLength={100} onChange={event => setPhone(event.target.value)} disabled={busy} /></Field>
           <Field label="Email"><Input value={email} maxLength={255} onChange={event => setEmail(event.target.value)} disabled={busy} /></Field>
           <p className="text-[12px] text-muted">Карточка появится в CRM вместе со связью с этим чатом. Сообщение отправлено не будет.</p>
           <div className="flex justify-end gap-2"><Button variant="ghost" disabled={busy} onClick={() => { setCreating(null); setError('') }}>Назад</Button><Button disabled={busy || !name.trim()} onClick={createCard}>{busy ? 'Сохранение…' : 'Создать и привязать'}</Button></div>
         </> : <>
-          <Field label="Раздел"><Select value={kind} disabled={busy} onChange={event => { setKind(event.target.value as Kind); setOffset(0); setChoices([]) }}><option value="contact">Контакты CRM</option><option value="company">Компании CRM</option><option value="partner">Партнёры</option></Select></Field>
+          {pending?.suggested && <div className="rounded-lg border border-brand/30 p-3 text-sm"><p>По номеру найдена карточка: <strong>{pending.suggested.name}</strong></p><Button size="sm" disabled={busy} onClick={() => void bindExisting({ id: pending.suggested!.id, name: pending.suggested!.name, phone: pending.phone, kind: pending.suggested!.kind as Kind })}>Привязать к найденной карточке</Button></div>}
+          <Field label="Раздел"><Select value={kind} disabled={busy} onChange={event => { setKind(event.target.value as Kind); setOffset(0); setChoices([]) }}><option value="contact">Контакты CRM</option><option value="deal">Заявки CRM</option><option value="inquiry">Входящие обращения</option><option value="company">Компании CRM</option>{!manager && <option value="partner">Партнёры</option>}</Select></Field>
           <Input placeholder="Поиск по имени, телефону, email…" value={query} disabled={busy} onChange={event => { setQuery(event.target.value); setOffset(0) }} />
           {uncertainPartner && <p role="alert" className="text-[13px] text-danger">Не удалось подтвердить создание партнёра. Проверьте найденные карточки: партнёр мог уже сохраниться. Выберите существующего партнёра для привязки.</p>}
           {peer && chatId !== 0 && !uncertainPartner && <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('contact')}>Новый клиент из этого чата</Button>
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('company')}>Новая компания</Button>
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => { setCreatingPartner(true); setError('') }}>Новый партнёр</Button>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('deal')}>Создать новый лид</Button>
+            {!manager && <><Button size="sm" variant="secondary" disabled={busy} onClick={() => beginCreate('company')}>Новая компания</Button>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => { setCreatingPartner(true); setError('') }}>Новый партнёр</Button></>}
           </div>}
           <div className="max-h-[45vh] space-y-1 overflow-y-auto">
             {choices.map(choice => <button type="button" disabled={busy || loading} key={choice.id} className="block w-full rounded border border-border p-3 text-left text-[13px] disabled:opacity-50" onClick={() => bindExisting(choice)}><span className="block font-medium">{choice.name}</span>{choice.phone && <span className="block text-[12px] text-muted">{choice.phone}</span>}</button>)}

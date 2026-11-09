@@ -25,6 +25,7 @@ const DETAIL_ROUTE: Partial<Record<SectionId, (id: number) => string>> = {
  * переход ведёт на раздел.
  */
 const OBJECT_TYPE_SECTION: Record<string, SectionId> = {
+  max_unlinked_chat: 'chats',
   client: 'clients',
   installation: 'installation',
   task: 'tasks',
