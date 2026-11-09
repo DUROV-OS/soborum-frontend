@@ -1,3 +1,4 @@
+import { WarehouseQueue, WarehouseReturns } from '../WarehouseControl'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -27,7 +28,7 @@ import { ManualIssueModal } from '../components/ManualIssueModal'
 import { StockDocumentsPanel } from '../components/StockDocumentsPanel'
 import { ReservationsPanel } from '../ReservationsPanel'
 
-type Tab = 'materials' | 'requests' | 'history' | 'documents' | 'reservations'
+type Tab = 'queue' | 'returns' | 'materials' | 'requests' | 'history' | 'documents' | 'reservations'
 
 type SortKey = 'name' | 'stock_desc' | 'stock_asc' | 'threshold_desc'
 
@@ -88,7 +89,7 @@ export function WarehousePage() {
   const load = useWarehouseStore((s) => s.load)
   const [params, setParams] = useSearchParams()
   const [tab, setTab] = useQueryChoice<Tab>(
-    'tab', ['materials', 'requests', 'history', 'documents', 'reservations'], 'materials',
+    'tab', ['queue', 'materials', 'requests', 'returns', 'history', 'documents', 'reservations'], 'queue',
   )
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
@@ -194,6 +195,8 @@ export function WarehousePage() {
       <div className="mb-4">
         <Tabs
           tabs={[
+            { key: 'queue', label: 'Очередь выдачи' },
+            { key: 'returns', label: 'Возвраты' },
             { key: 'materials', label: 'Материалы' },
             { key: 'requests', label: 'Заявки на проверку' },
             { key: 'history', label: 'Журнал операций' },
@@ -281,6 +284,8 @@ export function WarehousePage() {
       {tab === 'requests' && <RequestApprovalQueue />}
       {tab === 'history' && <JournalPanel />}
       {tab === 'documents' && <StockDocumentsPanel />}
+      {tab === 'queue' && <WarehouseQueue onIssue={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} onRequests={()=>setTab('requests')} onCount={()=>setTab('documents')} />}
+      {tab === 'returns' && <WarehouseReturns />}
       {tab === 'reservations' && <ReservationsPanel materialId={Number(params.get('material'))||undefined} createMaterialId={Number(params.get('reserve'))||undefined} onCreateHandled={()=>{const query=new URLSearchParams(params);query.delete('reserve');setParams(query,{replace:true})}} onIssueHouse={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} />}
 
       <CreateMaterialModal open={creatingMaterial} onClose={() => setCreatingMaterial(false)} />

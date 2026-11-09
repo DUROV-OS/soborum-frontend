@@ -17,7 +17,7 @@ interface WarehouseState {
   writeOffMaterial: (id: number, quantity: number, reason: string) => Promise<ActionResult>
   createSupply: (supplierName: string | undefined, lines: warehouseApi.SupplyLineInput[]) => Promise<ActionResult>
   importSupply: (file: File) => Promise<ActionResult>
-  approveRequest: (requestId: number) => Promise<ActionResult>
+  approveRequest: (requestId: number, body: Parameters<typeof warehouseApi.approveRequest>[1]) => Promise<ActionResult>
   rejectRequest: (requestId: number) => Promise<ActionResult>
   /** Счётчик проведённых документов (0088) — журнал перечитывается при его смене. */
   operationsVersion: number
@@ -97,9 +97,9 @@ export const useWarehouseStore = create<WarehouseState>((set, get) => ({
     }
   },
 
-  approveRequest: async (requestId) => {
+  approveRequest: async (requestId, body) => {
     try {
-      await warehouseApi.approveRequest(requestId)
+      await warehouseApi.approveRequest(requestId, body)
       await get().load()
       set({ operationsVersion: get().operationsVersion + 1 })
       return { ok: true }

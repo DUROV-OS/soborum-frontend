@@ -1,3 +1,4 @@
+import { WarehouseHandoff } from '@/warehouse/WarehouseControl'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
@@ -85,6 +86,7 @@ export function ProductionDetailShell() {
       </div>
       {deleteError && <p className="mb-3 text-[12px] text-danger">{deleteError}</p>}
 
+      <WarehouseHandoff productionId={productionId} />
       <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist">
         {TABS.map((tab) => (
           <NavLink

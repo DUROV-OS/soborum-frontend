@@ -137,6 +137,20 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     note: 'Наличие товара, резервы и движение между складами',
     entries: [
       {
+        id: 'warehouse-queue',
+        label: 'Очередь выдачи',
+        to: '/warehouse?tab=queue',
+        section: 'warehouse',
+        note: 'Согласование норматива, комплектация и нехватка материалов',
+      },
+      {
+        id: 'production-returns',
+        label: 'Возвраты из производства',
+        to: '/warehouse?tab=returns',
+        section: 'warehouse',
+        note: 'Возврат по исходной выдаче с документом-основанием',
+      },
+      {
         id: 'stock',
         label: 'Остатки',
         to: '/warehouse?tab=materials',

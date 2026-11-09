@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { getControl, Control } from '../controlApi'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
@@ -23,6 +24,8 @@ function lineState(line: TechcardPreviewLine, raw: string) {
  * с остатком на складе после отпуска. Пока есть нехватка — провести нельзя. */
 export function TechcardIssueModal({ open, onClose, initialProductionId }: { open: boolean; onClose: () => void; initialProductionId?:number }) {
   const issueByTechcard = useWarehouseStore((s) => s.issueByTechcard)
+  const [control,setControl] = useState<Control|null>(null)
+  const attempt=useRef<{json:string;key:string}|null>(null)
   const [houses, setHouses] = useState<TechcardHouse[] | null>(null)
   const [preview, setPreview] = useState<TechcardPreview | null>(null)
   const [qty, setQty] = useState<Record<number, string>>({})
@@ -38,6 +41,8 @@ export function TechcardIssueModal({ open, onClose, initialProductionId }: { ope
     if (!open) return
     setHouses(null)
     setPreview(null)
+    setControl(null)
+    attempt.current=null
     setReceivedBy('')
     setNote('')
     setOccurredAt(localNowInput())
@@ -57,7 +62,9 @@ export function TechcardIssueModal({ open, onClose, initialProductionId }: { ope
     setLoading(true)
     setError(null)
     try {
-      const data = await warehouseApi.techcardPreview(productionId)
+      const [data,approval] = await Promise.all([warehouseApi.techcardPreview(productionId),getControl(productionId)])
+      setControl(approval)
+      attempt.current=null
       setPreview(data)
       setQty(Object.fromEntries(data.lines.map((l) => [l.warehouse_material_id, formatQty(Math.max(0, Math.min(l.to_issue, l.available_quantity??l.in_stock)))])))
     } catch (e) {
@@ -75,13 +82,14 @@ export function TechcardIssueModal({ open, onClose, initialProductionId }: { ope
   const shortageCount = [...states.values()].filter((s) => s.shortage).length
   const hasErrors = [...states.values()].some((s) => s.error)
   const totalLines = issuable.filter((l) => (states.get(l.warehouse_material_id)?.qty ?? 0) > 0)
-  const ready = !!preview && receivedBy.trim().length > 0 && shortageCount === 0 && !hasErrors && totalLines.length > 0
+  const ready = !!preview && !!control?.approved && receivedBy.trim().length > 0 && shortageCount === 0 && !hasErrors && totalLines.length > 0
 
   async function submit() {
     if (!preview || !ready) return
     setSaving(true)
     setError(null)
-    const result = await issueByTechcard(preview.production_id, {
+    const body = {
+      source_hash:control!.source_hash,
       occurred_at: localInputToIso(occurredAt),
       received_by: receivedBy.trim(),
       note: note.trim() || undefined,
@@ -89,7 +97,10 @@ export function TechcardIssueModal({ open, onClose, initialProductionId }: { ope
         warehouse_material_id: l.warehouse_material_id,
         quantity: states.get(l.warehouse_material_id)!.qty,
       })),
-    })
+    }
+    const json=JSON.stringify(body)
+    if(attempt.current?.json!==json)attempt.current={json,key:crypto.randomUUID()}
+    const result = await issueByTechcard(preview.production_id, {...body,request_id:attempt.current!.key})
     setSaving(false)
     if (result.ok) onClose()
     else setError(result.reason ?? 'Не удалось провести отпуск')
@@ -150,6 +161,7 @@ export function TechcardIssueModal({ open, onClose, initialProductionId }: { ope
 
         {preview && (
           <>
+            {control && <p role="status" className={`rounded-lg p-3 text-sm ${control.approved?"bg-success-bg text-success":"bg-warning-bg text-warning"}`}>{control.approved?`Норматив подтвердил ${control.responsible?.name}`:control.reason}</p>}
             <button
               type="button"
               onClick={() => setPreview(null)}
