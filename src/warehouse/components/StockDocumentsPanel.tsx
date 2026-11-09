@@ -1,3 +1,5 @@
+import { InventoryCreate } from '../InventoryCreate'
+import { InventorySession } from '../InventorySession'
 import { InventoryEvidence } from '../InventoryEvidence'
 import { useCallback, useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -130,7 +132,7 @@ export function StockDocumentsPanel() {
               </div>
             ),
           },
-          { header: 'Позиций', accessor: (r) => r.lines.length, align: 'right' },
+          { header: 'Позиций', accessor: (r) => r.kind==='inventory'&&r.status==='draft'?`${r.lines.filter(l=>l.count_id).length} / ${r.lines.length}`:r.lines.length, align: 'right' },
           {
             header: 'Статус',
             accessor: (r) => (
@@ -158,7 +160,8 @@ export function StockDocumentsPanel() {
           </Button>
         </div>
       </div>
-      {creating && (
+      {creating==='inventory'&&<InventoryCreate onClose={()=>setCreating(null)} onSaved={row=>{setCreating(null);setSelected(row);void load()}}/>}
+      {creating==='transfer' && (
         <CreateDocument
           kind={creating}
           onClose={() => setCreating(null)}
@@ -169,7 +172,8 @@ export function StockDocumentsPanel() {
           }}
         />
       )}
-      {selected && (
+      {selected?.kind==='inventory'&&<InventorySession key={selected.id} initial={selected} canEdit={canEdit} canFull={canFull} onClose={()=>setSelected(null)} onChanged={()=>void load()}/>}
+      {selected?.kind==='transfer' && (
         <DocumentDetail
           key={selected.id}
           initial={selected}

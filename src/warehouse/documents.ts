@@ -10,6 +10,11 @@ export interface StockDocumentLine {
   is_fractional: boolean
   expected_quantity: string | null
   quantity: string | null
+  count_id?: number
+  counted_by?: string
+  counted_at?: string
+  count_comment?: string
+  count_proof?: import("./controlApi").Proof | null
   delta?: string | null
   unit_price?: string
   source_balance_after?: string
