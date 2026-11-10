@@ -21,7 +21,7 @@ interface ConsultState {
   error: string | null
   optimisticMessage: string | null
   draft: string
-  hydrate: () => void
+  hydrate: () => Promise<void>
   setDraft: (text: string) => void
   send: (message: string) => Promise<void>
   resolveAction: (id: number, decision: 'approve' | 'reject') => Promise<void>
@@ -56,7 +56,9 @@ function loadPersist(): PersistShape {
 }
 
 function savePersist(chatId: number | null, messages: MessageOut[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ chatId, messages }))
+  // Only the identifier is a local preference. Messages are loaded after server authorization.
+  void messages
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ chatId }))
 }
 
 function bubble(role: 'user' | 'assistant', text: string, id: number): MessageOut {
@@ -80,9 +82,17 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
   optimisticMessage: null,
   draft: '',
 
-  hydrate: () => {
+  hydrate: async () => {
     const saved = loadPersist()
-    set({ chatId: saved.chatId, messages: saved.messages })
+    set({ chatId: null, messages: [], pendingActions: [], error: null })
+    localStorage.removeItem(STORAGE_KEY)
+    if (!saved.chatId) return
+    try {
+      const chat = await aiApi.getChat(saved.chatId)
+      const pendingActions = await aiApi.listPendingActions(chat.id)
+      set({ chatId: chat.id, messages: chat.messages, pendingActions })
+      savePersist(chat.id, chat.messages)
+    } catch (error) { set({ error: reasonOf(error) }) }
   },
 
   setDraft: (text) => set({ draft: text }),
@@ -104,17 +114,13 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
 
     const clearStream = () => set({ streamBubbles: [], streamStatus: null })
 
-    const finalize = (nextChatId: number | null, pending: PendingActionOut[]) => {
+    const finalize = async (nextChatId: number | null, pending: PendingActionOut[]) => {
       // Во время стрима пузыри показываются по одному; в ленту кладём одно
       // ассистентское сообщение (так работает озвучка «Голосом: …»).
-      const joined = get().streamBubbles.map((b) => b.text.trim()).filter(Boolean).join('\n\n')
-      const base = get().messages.filter((item) => item.id !== userBubble.id)
-      const nextMessages = [
-        ...base,
-        userBubble,
-        ...(joined ? [bubble('assistant', joined, Date.now() + 1)] : []),
-      ]
       const resolvedChatId = nextChatId ?? get().chatId
+      if (!resolvedChatId) throw new Error('Не получена ссылка на сохранённый ответ. Обновите чат.')
+      const canonical = await aiApi.getChat(resolvedChatId)
+      const nextMessages = canonical.messages
       set({
         chatId: resolvedChatId,
         messages: nextMessages,
@@ -162,12 +168,8 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
       // Стрим не поднялся — блокирующий запрос как раньше.
       try {
         const response = await aiApi.askConsult({ chat_id: chatId, message: text })
-        const assistantId = response.pending_actions[0]?.message_id ?? Date.now() + 1
-        const nextMessages = [
-          ...get().messages.filter((item) => item.id !== userBubble.id),
-          userBubble,
-          ...(response.reply ? [bubble('assistant', response.reply, assistantId)] : []),
-        ]
+        const canonical = await aiApi.getChat(response.chat_id)
+        const nextMessages = canonical.messages
         set({
           chatId: response.chat_id,
           messages: nextMessages,
@@ -188,14 +190,15 @@ export const useConsultStore = create<ConsultState>((set, get) => ({
       clearStream()
       return
     }
-    finalize(doneChatId, pendingFromStream)
+    try { await finalize(doneChatId, pendingFromStream) }
+    catch (error) { set({ sending: false, error: reasonOf(error), optimisticMessage: null }); clearStream() }
   },
 
   resolveAction: async (id, decision) => {
     try {
       const response = await aiApi.resolveConsultAction(id, decision)
-      const extra = response.reply ? [bubble('assistant', response.reply, Date.now())] : []
-      const messages = [...get().messages, ...extra]
+      const canonical = await aiApi.getChat(response.chat_id)
+      const messages = canonical.messages
       set({
         chatId: response.chat_id,
         messages,

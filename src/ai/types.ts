@@ -82,6 +82,32 @@ export interface MessageOut {
   created_at: string
 }
 
+export interface AnswerSource {
+  id: string
+  message_id: number
+  tool: string
+  label: string
+  module: string
+  read_at: string
+  input_hash: string
+  result_hash: string
+}
+
+export interface AnswerEvidenceData extends MessageContentBlock {
+  version: string
+  generated_at: string
+  provider: string
+  model: string
+  answer_hash: string
+  sources: AnswerSource[]
+  citations: string[]
+  unknown_citations: string[]
+  failed_reads: number
+  external_results: boolean
+  prior_history_present: boolean
+  stop_reason: string
+}
+
 export interface ChatDetailOut extends ChatOut {
   messages: MessageOut[]
 }
@@ -168,9 +194,23 @@ export interface SectionAnalyticsOut {
 export interface PriorityTaskOut {
   task: Task
   reason: string
+  source_snapshot?: Record<string, unknown>
 }
 
-export interface TaskPrioritiesOut {
+export interface TaskSelectionEvidence {
+  source?: 'ai' | 'rules'
+  checked_at?: string | null
+  source_hash?: string | null
+  analysis_version?: string | null
+  model?: string | null
+  cached?: boolean
+  input_changed?: boolean
+  fallback_reason?: string | null
+  candidate_count?: number
+  considered_count?: number
+}
+
+export interface TaskPrioritiesOut extends TaskSelectionEvidence {
   generated_at: string
   priorities: PriorityTaskOut[]
 }
@@ -181,9 +221,10 @@ export interface TaskPrioritiesOut {
 export interface DailyPlanItemOut {
   task: Task
   reason: string
+  source_snapshot?: Record<string, unknown>
 }
 
-export interface DailyPlanOut {
+export interface DailyPlanOut extends TaskSelectionEvidence {
   generated_at: string
   plan: DailyPlanItemOut[]
 }

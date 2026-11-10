@@ -1,4 +1,9 @@
 const labels: Record<string, string> = {
+  id: 'Номер записи', description: 'Описание', status: 'Статус', priority: 'Приоритет', deadline: 'Срок',
+  is_overdue: 'Срок прошёл', your_role: 'Ваша роль', blocked: 'Есть незавершённые зависимости',
+  blocks_open_tasks: 'Зависимых открытых задач', assignee: 'Исполнитель', reviewer: 'Проверяющий',
+  assignees: 'Исполнители', reviewers: 'Проверяющие', full_name: 'Имя', high: 'Высокий', medium: 'Обычный', low: 'Низкий',
+  not_ready: 'Ожидает подготовки', in_review: 'На проверке', link_type: 'Тип связи', link_id: 'Связанная запись',
   total_clients: 'Клиентов', stage_counts: 'По стадиям', status_counts: 'По статусам',
   awaiting_payment_confirmation: 'Ожидают отметки оплаты', balance_pending: 'Остаток оплаты в срок', balance_overdue: 'Просрочен остаток оплаты', balance_no_due_date: 'Срок оплаты не указан',
   new_leads_last_7_days: 'Новые лиды за 7 дней', leads_stuck_over_14_days: 'Лиды без движения более 14 дней',
@@ -21,13 +26,13 @@ const labels: Record<string, string> = {
 }
 export const evidenceLabel = (key: string) => labels[key] ?? key.replace(/_/g, ' ')
 
-function Value({ value }: { value: unknown }) {
+export function EvidenceValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <>Нет данных</>
   if (typeof value === 'boolean') return <>{value ? 'Да' : 'Нет'}</>
   if (typeof value === 'number') return <>{value.toLocaleString('ru-RU', { maximumFractionDigits: 8 })}</>
   if (typeof value === 'string') return <>{labels[value] ?? value}</>
-  if (Array.isArray(value)) return value.length ? <ul className="space-y-2">{value.map((item, i) => <li className="border-l border-border pl-2" key={i}><Value value={item} /></li>)}</ul> : <>Записей нет</>
-  return <dl className="space-y-2">{Object.entries(value as Record<string, unknown>).map(([key, item]) => <div key={key} className="flex flex-wrap gap-x-3 gap-y-1"><dt className="text-muted">{evidenceLabel(key)}:</dt><dd className="min-w-0 break-words"><Value value={item} /></dd></div>)}</dl>
+  if (Array.isArray(value)) return value.length ? <ul className="space-y-2">{value.map((item, i) => <li className="border-l border-border pl-2" key={i}><EvidenceValue value={item} /></li>)}</ul> : <>Записей нет</>
+  return <dl className="space-y-2">{Object.entries(value as Record<string, unknown>).map(([key, item]) => <div key={key} className="flex flex-wrap gap-x-3 gap-y-1"><dt className="text-muted">{evidenceLabel(key)}:</dt><dd className="min-w-0 break-words"><EvidenceValue value={item} /></dd></div>)}</dl>
 }
 
 export function AnalysisEvidence({ snapshot, sourceHash, version, citations = [] }: { snapshot?: Record<string, unknown>; sourceHash?: string | null; version?: string | null; citations?: string[] }) {
@@ -35,7 +40,7 @@ export function AnalysisEvidence({ snapshot, sourceHash, version, citations = []
   return <details className="mt-3 rounded-xl border border-border p-3 text-xs"><summary className="cursor-pointer font-medium text-brand">Исходные данные и основания</summary>
     <p className="mt-3 text-muted">Источник — база Durov OS. Это показатели из записей системы; их наличие не подтверждает подлинность первичных документов.</p>
     {citations.length > 0 && <p className="mt-2">Ссылки в выводе ИИ: {citations.map(evidenceLabel).join(', ')}.</p>}
-    <div className="mt-3"><Value value={snapshot} /></div>
+    <div className="mt-3"><EvidenceValue value={snapshot} /></div>
     <p className="mt-3 border-t border-border pt-3 text-muted">Версия расчёта: <span className="break-all">{version ?? 'не указана'}</span></p><p className="mt-1 text-muted">Контрольная сумма исходных данных:</p><code className="mt-1 block break-all text-muted">{sourceHash}</code>
   </details>
 }

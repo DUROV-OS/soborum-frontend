@@ -1,3 +1,5 @@
+import { TaskPlanEvidence } from '@/ai/components/TaskPlanEvidence'
+import { DailyPlanOut } from '@/ai/types'
 import { useEffect, useState } from 'react'
 import { AlertCircle, CalendarCheck, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -10,6 +12,7 @@ export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => voi
   const canShow = hasAccess('ai')
 
   const [plan, setPlan] = useState<DailyPlanItemOut[] | null>(null)
+  const [report, setReport] = useState<DailyPlanOut | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,7 +22,10 @@ export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => voi
     try {
       const res = await getDailyPlan(reload)
       setPlan(res.plan)
+      setReport(res)
     } catch (e) {
+      setReport(null)
+      setPlan(null)
       setError(e instanceof Error ? e.message : 'Не удалось загрузить план на день')
     } finally {
       setLoading(false)
@@ -52,6 +58,7 @@ export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => voi
       </div>
 
       <div className="mt-2">
+        {!loading && !error && report && <TaskPlanEvidence report={report} items={report.plan} />}
         {loading && !plan && <p className="text-[13px] text-muted">Собираем план на сегодня…</p>}
         {!loading && error && (
           <p className="flex items-center gap-1.5 text-[13px] text-danger">
@@ -77,7 +84,7 @@ export function DailyPlanPanel({ onOpenTask }: { onOpenTask: (task: Task) => voi
                   <div className="mt-1 text-[12px] text-muted">{reason}</div>
                   {task.deadline && (
                     <div className="mt-1.5 text-[11px] text-muted">
-                      {new Date(task.deadline).toLocaleDateString('ru-RU')}
+                      {new Date(task.deadline).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}
                     </div>
                   )}
                 </div>
