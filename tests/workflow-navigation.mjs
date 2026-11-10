@@ -71,7 +71,7 @@ try {
   await page.goto(base + '/work', { waitUntil: 'networkidle' })
   const main = page.getByRole('main'),
     sidebar = page.getByRole('complementary', { name: 'Главное меню' })
-  for (const name of ['Продажи', 'Закупки', 'Склад', 'Товары', 'Производство', 'Деньги', 'CRM'])
+  for (const name of ['Продажи', 'Закупки', 'Склад', 'Производство', 'Бухгалтерия'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
   await sidebar.getByRole('button', { name: 'Закупки', exact: true }).click()
   await sidebar.locator('#workflow-purchasing').getByRole('link', { name: 'Поставщики', exact: true }).waitFor()
@@ -130,8 +130,8 @@ try {
         r.includes('archive=archived'),
     ),
   )
-  await sidebar.getByRole('button', { name: 'CRM', exact: true }).click()
-  await sidebar.getByRole('link', { name: 'Контакты', exact: true }).click()
+  await sidebar.getByRole('link', { name: 'CRM', exact: true }).click()
+  await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).click()
   await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).waitFor()
   assert.equal(
     await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).getAttribute('aria-selected'),
@@ -140,7 +140,8 @@ try {
   assert.ok(requests.some((r) => r.startsWith('/api/warehouse/documents?') && r.includes('kind=inventory')))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
-  await sidebar.getByRole('link', { name: 'Компании', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Главное меню' }).getByRole('link', { name: 'CRM', exact: true }).click()
+  await page.getByRole('tab', { name: 'Компании', exact: true }).click()
   assert.equal(
     await page.getByRole('tab', { name: 'Компании', exact: true }).getAttribute('aria-selected'),
     'true',
@@ -150,7 +151,7 @@ try {
   // New session: navigation must not expose finance or sales pages to warehouse-only staff.
   actor = { ...actor, role: 'worker', module_access: { warehouse: 'view' } }
   await page.goto(base + '/work', { waitUntil: 'networkidle' })
-  assert.equal(await main.getByRole('heading', { name: 'Деньги', exact: true }).count(), 0)
+  assert.equal(await main.getByRole('heading', { name: 'Бухгалтерия', exact: true }).count(), 0)
   assert.equal(await main.getByRole('link', { name: /Заказы покупателей/ }).count(), 0)
   assert.equal(await main.getByRole('link', { name: /Счета покупателям/ }).count(), 0)
   await main.getByRole('link', { name: /Номенклатура/ }).click()

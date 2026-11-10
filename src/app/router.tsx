@@ -1,56 +1,60 @@
+import { lazy } from 'react'
+import { RouteBoundary } from './RouteBoundary'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { isSalesManager, salesHome, salesRouteAllowed } from '@/auth/salesNavigation'
-import { LoginPage } from '@/auth/pages/LoginPage'
-import { AccessMatrixPage } from '@/auth/pages/AccessMatrixPage'
 import { useAuthStore } from '@/auth/store'
-import { ClientDetailPage } from '@/clients/pages/ClientDetailPage'
-import { FeedbackAdminPage } from '@/feedback/pages/FeedbackAdminPage'
-import { FeedbackPage } from '@/feedback/pages/FeedbackPage'
-import { MyFeedbackPage } from '@/feedback/pages/MyFeedbackPage'
-import { NotificationsPage } from '@/notifications/pages/NotificationsPage'
-import { ClientsBoardPage } from '@/clients/pages/ClientsBoardPage'
-import { PartnerDetailPage } from '@/partners/pages/PartnerDetailPage'
-import { PartnersPage } from '@/partners/pages/PartnersPage'
-import { TasksPage } from '@/tasks/pages/TasksPage'
-import { BlockDetailPage } from '@/production/pages/BlockDetailPage'
-import { ProductionOverviewPage } from '@/production/pages/ProductionOverviewPage'
-import { ProductionLibraryPage } from '@/production/pages/ProductionLibraryPage'
-import { StageTemplateReviewPage } from '@/production/pages/StageTemplateReviewPage'
-import { ProductionDetailShell } from '@/production/pages/ProductionDetailShell'
-import { ProductionBlocksTab } from '@/production/components/ProductionBlocksTab'
-import { ProductionHomeTab } from '@/production/pages/ProductionHomeTab'
-import { SectionStub } from '@/production/components/SectionStub'
-import { MontageDetailPage } from '@/montage/pages/MontageDetailPage'
-import { MontageOverviewPage } from '@/montage/pages/MontageOverviewPage'
-import { MarketingPage } from '@/marketing/pages/MarketingPage'
-import { HouseModelsListPage } from '@/house_models/pages/HouseModelsListPage'
-import { HouseModelDetailPage } from '@/house_models/pages/HouseModelDetailPage'
-import { CycleDetailPage } from '@/cycles/pages/CycleDetailPage'
-import { CyclesListPage } from '@/cycles/pages/CyclesListPage'
-import { WarehousePage } from '@/warehouse/pages/WarehousePage'
-import { MoyskladPage } from '@/moysklad/MoyskladPage'
-import { CrmPage } from '@/crm/CrmPage'
-import { RecipesPage } from '@/moysklad/RecipesPage'
-import { PurchasingPage } from '@/purchasing/PurchasingPage'
-import { SalesPage } from '@/sales/SalesPage'
-import { CostingPage } from '@/costing/CostingPage'
-import { ApprovalsPage } from '@/costing/ApprovalsPage'
-import { CatalogDetailPage } from '@/costing/CatalogDetailPage'
-import { AiChatPage } from '@/ai/pages/AiChatPage'
-import { MeetingsPage } from '@/meeting/pages/MeetingsPage'
-import { BoardPage } from '@/board/pages/BoardPage'
-import { AgentProposalsPage } from '@/agents/pages/AgentProposalsPage'
-import { AgentsPage } from '@/agents/pages/AgentsPage'
-import { AllChatsPage } from '@/max/pages/AllChatsPage'
-import { WorkPage } from '@/work/pages/WorkPage'
-import { AccountingPage } from '@/accounting/pages/AccountingPage'
-import { SuppliersPage } from '@/suppliers/pages/SuppliersPage'
-import { TodayPage } from '@/today/pages/TodayPage'
-import { IntegrityPage } from '@/integrity/IntegrityPage'
-import { SalesWorkspace, SalesTeam } from '@/work/pages/SalesWorkspace'
 import { SECTIONS } from '@/shared/sections'
 import { AccessGate } from './AccessGate'
-import { AppShell } from './AppShell'
+
+const LoginPage = lazy(() => import('@/auth/pages/LoginPage').then(module => ({ default: module.LoginPage })))
+const AccessMatrixPage = lazy(() => import('@/auth/pages/AccessMatrixPage').then(module => ({ default: module.AccessMatrixPage })))
+const ClientDetailPage = lazy(() => import('@/clients/pages/ClientDetailPage').then(module => ({ default: module.ClientDetailPage })))
+const FeedbackAdminPage = lazy(() => import('@/feedback/pages/FeedbackAdminPage').then(module => ({ default: module.FeedbackAdminPage })))
+const FeedbackPage = lazy(() => import('@/feedback/pages/FeedbackPage').then(module => ({ default: module.FeedbackPage })))
+const MyFeedbackPage = lazy(() => import('@/feedback/pages/MyFeedbackPage').then(module => ({ default: module.MyFeedbackPage })))
+const NotificationsPage = lazy(() => import('@/notifications/pages/NotificationsPage').then(module => ({ default: module.NotificationsPage })))
+const ClientsBoardPage = lazy(() => import('@/clients/pages/ClientsBoardPage').then(module => ({ default: module.ClientsBoardPage })))
+const PartnerDetailPage = lazy(() => import('@/partners/pages/PartnerDetailPage').then(module => ({ default: module.PartnerDetailPage })))
+const PartnersPage = lazy(() => import('@/partners/pages/PartnersPage').then(module => ({ default: module.PartnersPage })))
+const TasksPage = lazy(() => import('@/tasks/pages/TasksPage').then(module => ({ default: module.TasksPage })))
+const BlockDetailPage = lazy(() => import('@/production/pages/BlockDetailPage').then(module => ({ default: module.BlockDetailPage })))
+const ProductionOverviewPage = lazy(() => import('@/production/pages/ProductionOverviewPage').then(module => ({ default: module.ProductionOverviewPage })))
+const ProductionLibraryPage = lazy(() => import('@/production/pages/ProductionLibraryPage').then(module => ({ default: module.ProductionLibraryPage })))
+const StageTemplateReviewPage = lazy(() => import('@/production/pages/StageTemplateReviewPage').then(module => ({ default: module.StageTemplateReviewPage })))
+const ProductionDetailShell = lazy(() => import('@/production/pages/ProductionDetailShell').then(module => ({ default: module.ProductionDetailShell })))
+const ProductionBlocksTab = lazy(() => import('@/production/components/ProductionBlocksTab').then(module => ({ default: module.ProductionBlocksTab })))
+const ProductionHomeTab = lazy(() => import('@/production/pages/ProductionHomeTab').then(module => ({ default: module.ProductionHomeTab })))
+const SectionStub = lazy(() => import('@/production/components/SectionStub').then(module => ({ default: module.SectionStub })))
+const MontageDetailPage = lazy(() => import('@/montage/pages/MontageDetailPage').then(module => ({ default: module.MontageDetailPage })))
+const MontageOverviewPage = lazy(() => import('@/montage/pages/MontageOverviewPage').then(module => ({ default: module.MontageOverviewPage })))
+const MarketingPage = lazy(() => import('@/marketing/pages/MarketingPage').then(module => ({ default: module.MarketingPage })))
+const HouseModelsListPage = lazy(() => import('@/house_models/pages/HouseModelsListPage').then(module => ({ default: module.HouseModelsListPage })))
+const HouseModelDetailPage = lazy(() => import('@/house_models/pages/HouseModelDetailPage').then(module => ({ default: module.HouseModelDetailPage })))
+const CycleDetailPage = lazy(() => import('@/cycles/pages/CycleDetailPage').then(module => ({ default: module.CycleDetailPage })))
+const CyclesListPage = lazy(() => import('@/cycles/pages/CyclesListPage').then(module => ({ default: module.CyclesListPage })))
+const WarehousePage = lazy(() => import('@/warehouse/pages/WarehousePage').then(module => ({ default: module.WarehousePage })))
+const MoyskladPage = lazy(() => import('@/moysklad/MoyskladPage').then(module => ({ default: module.MoyskladPage })))
+const CrmPage = lazy(() => import('@/crm/CrmPage').then(module => ({ default: module.CrmPage })))
+const RecipesPage = lazy(() => import('@/moysklad/RecipesPage').then(module => ({ default: module.RecipesPage })))
+const PurchasingPage = lazy(() => import('@/purchasing/PurchasingPage').then(module => ({ default: module.PurchasingPage })))
+const SalesPage = lazy(() => import('@/sales/SalesPage').then(module => ({ default: module.SalesPage })))
+const CostingPage = lazy(() => import('@/costing/CostingPage').then(module => ({ default: module.CostingPage })))
+const ApprovalsPage = lazy(() => import('@/costing/ApprovalsPage').then(module => ({ default: module.ApprovalsPage })))
+const CatalogDetailPage = lazy(() => import('@/costing/CatalogDetailPage').then(module => ({ default: module.CatalogDetailPage })))
+const AiChatPage = lazy(() => import('@/ai/pages/AiChatPage').then(module => ({ default: module.AiChatPage })))
+const MeetingsPage = lazy(() => import('@/meeting/pages/MeetingsPage').then(module => ({ default: module.MeetingsPage })))
+const BoardPage = lazy(() => import('@/board/pages/BoardPage').then(module => ({ default: module.BoardPage })))
+const AgentProposalsPage = lazy(() => import('@/agents/pages/AgentProposalsPage').then(module => ({ default: module.AgentProposalsPage })))
+const AgentsPage = lazy(() => import('@/agents/pages/AgentsPage').then(module => ({ default: module.AgentsPage })))
+const AllChatsPage = lazy(() => import('@/max/pages/AllChatsPage').then(module => ({ default: module.AllChatsPage })))
+const WorkPage = lazy(() => import('@/work/pages/WorkPage').then(module => ({ default: module.WorkPage })))
+const AccountingPage = lazy(() => import('@/accounting/pages/AccountingPage').then(module => ({ default: module.AccountingPage })))
+const SuppliersPage = lazy(() => import('@/suppliers/pages/SuppliersPage').then(module => ({ default: module.SuppliersPage })))
+const TodayPage = lazy(() => import('@/today/pages/TodayPage').then(module => ({ default: module.TodayPage })))
+const IntegrityPage = lazy(() => import('@/integrity/IntegrityPage').then(module => ({ default: module.IntegrityPage })))
+const SalesWorkspace = lazy(() => import('@/work/pages/SalesWorkspace').then(module => ({ default: module.SalesWorkspace })))
+const SalesTeam = lazy(() => import('@/work/pages/SalesWorkspace').then(module => ({ default: module.SalesTeam })))
+const AppShell = lazy(() => import('./AppShell').then(module => ({ default: module.AppShell })))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const current = useAuthStore((s) => s.current)
@@ -72,11 +76,11 @@ export function AppRouter() {
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<RouteBoundary><LoginPage /></RouteBoundary>} />
       <Route
         element={
           <RequireAuth>
-            <AppShell />
+            <RouteBoundary><AppShell /></RouteBoundary>
           </RequireAuth>
         }
       >

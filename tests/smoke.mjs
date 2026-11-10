@@ -207,7 +207,7 @@ try {
   await owner.page.goto(baseURL + '/agents')
   await owner.page.getByRole('heading', { name: 'Агенты.' }).waitFor()
   await owner.page.getByRole('tab', { name: 'Панель' }).click()
-  await owner.page.getByRole('heading', { name: 'Разметка до «обучен»' }).waitFor()
+  await owner.page.getByText('Процент обучения и точность не определены.', { exact: false }).waitFor()
   checks.push('Admin opens Agents map and the telemetry panel')
 
   await owner.page.goto(baseURL + '/tasks')
@@ -305,8 +305,8 @@ try {
   await mobile.page.screenshot({ path: path.join(artifactDir, 'durov-os-today-mobile.png'), fullPage: true })
   await mobile.page.getByRole('button', { name: 'Открыть меню' }).click()
   await mobile.page.getByRole('button', { name: 'Закрыть меню' }).click()
-  await mobile.page.waitForFunction(() => document.querySelector('aside').getBoundingClientRect().right <= 0)
-  assert((await mobile.page.getByRole('complementary', { name: 'Главное меню' }).boundingBox()).x < 0)
+  await mobile.page.getByRole('dialog', { name: 'Главное меню' }).waitFor({ state: 'hidden' })
+  assert.equal(await mobile.page.locator('#main-navigation').evaluate(el => el.inert), true)
   checks.push('390px layout has no horizontal overflow and mobile navigation opens/closes')
 
   await mobile.page.goto(baseURL + '/clients')
