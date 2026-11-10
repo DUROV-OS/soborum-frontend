@@ -21,7 +21,8 @@
     "test:navigation-loading": "node tests/navigation-loading.mjs",
     "test:workflow-navigation": "node tests/workflow-navigation.mjs",
     "test:crm-work-native": "node tests/crm-work-native.mjs",
-    "test:assistant-provenance-native": "node tests/assistant-provenance-native.mjs"
+    "test:assistant-provenance-native": "node tests/assistant-provenance-native.mjs",
+    "test:marketing-economics-native": "node tests/marketing-economics-native.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
