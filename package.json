@@ -17,7 +17,9 @@
     "test:margin-preview": "node tests/margin-preview.mjs",
     "test:costing": "node tests/costing.mjs",
     "test:costing-integration": "node tests/costing-integration.mjs",
-    "test:costing-experience": "node tests/costing-experience.mjs"
+    "test:costing-experience": "node tests/costing-experience.mjs",
+    "test:navigation-loading": "node tests/navigation-loading.mjs",
+    "test:workflow-navigation": "node tests/workflow-navigation.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

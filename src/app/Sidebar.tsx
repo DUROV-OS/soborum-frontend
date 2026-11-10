@@ -1,3 +1,5 @@
+import { useDialogFocus } from '@/shared/hooks/useDialogFocus'
+import { useMobileNavigation } from './useMobileNavigation'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
@@ -26,6 +28,11 @@ const MENU: SectionId[] = [
 ]
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const mobile = useMobileNavigation()
+  const navigationRef = useDialogFocus(mobile && open, onClose)
+  useEffect(() => {
+    if (navigationRef.current) navigationRef.current.inert = mobile && !open
+  }, [mobile, open, navigationRef])
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
   const current = useAuthStore((s) => s.current)
@@ -144,9 +151,15 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   )
 
   return (
-    <aside
+    <div
+      ref={navigationRef}
+      id="main-navigation"
+      role={mobile ? "dialog" : "complementary"}
+      aria-modal={mobile && open ? true : undefined}
+      aria-hidden={mobile && !open ? true : undefined}
+      tabIndex={-1}
       aria-label="Главное меню"
-      className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+      className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 motion-reduce:transition-none lg:static lg:z-auto lg:translate-x-0 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}
     >
       <div className="flex h-24 shrink-0 items-center justify-between px-7">
         <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="text-[24px] font-semibold tracking-tight">
@@ -156,7 +169,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           type="button"
           onClick={onClose}
           aria-label="Закрыть меню"
-          className="rounded-lg p-2 text-white/60 lg:hidden"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-white/60 lg:hidden"
         >
           <X size={18} />
         </button>
@@ -224,6 +237,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           Люди, процессы и решения — в одном рабочем пространстве.
         </p>
       </div>
-    </aside>
+    </div>
   )
 }

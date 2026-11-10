@@ -9,7 +9,7 @@ import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 
-export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
+export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; menuOpen: boolean }) {
   const location = useLocation()
   const section = SECTIONS.find((s) => location.pathname.startsWith(s.path))
   const hasAccess = useAuthStore((s) => s.hasAccess)
@@ -23,7 +23,9 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
           type="button"
           onClick={onMenuClick}
           aria-label="Открыть меню"
-          className="-ml-1 shrink-0 rounded-sm p-1.5 text-ink hover:bg-surface-muted lg:hidden"
+          aria-controls="main-navigation"
+          aria-expanded={menuOpen}
+          className="-ml-1 flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-ink hover:bg-surface-muted lg:hidden"
         >
           <Menu size={20} />
         </button>

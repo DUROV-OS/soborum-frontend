@@ -84,6 +84,13 @@ try {
     await dock.getByRole('button', { name: 'Включить микрофон', exact: true }).waitFor()
     await t.card.getByRole('button', { name: 'Закрыть', exact: true }).click()
     await dock.getByText('Разговор', { exact: true }).waitFor()
+    // A lazy screen transition must not remount the global phone provider.
+    if (mobile) await t.page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
+    await t.page.getByRole(mobile ? 'dialog' : 'complementary', { name: 'Главное меню' }).getByRole('link', { name: 'Мои заявки', exact: true }).click()
+    await t.page.getByRole('heading', { name: 'Мои заявки', exact: true }).waitFor()
+    await dock.getByText('Разговор', { exact: true }).waitFor()
+    assert.equal(t.writes.filter(item => item.path.endsWith('/cancel')).length, 0)
+    assert.equal(await t.page.evaluate(() => window.voiceTest.offers), 1)
     await dock.getByRole('link', { name: 'Карточка и запись', exact: true }).click()
     await t.card.waitFor()
     await dock.getByRole('button', { name: 'Завершить', exact: true }).click()

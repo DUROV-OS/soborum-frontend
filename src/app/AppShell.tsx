@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { NotificationToasts } from '@/notifications/components/NotificationToasts'
 import { useNotificationPolling } from '@/notifications/hooks/useNotificationPolling'
 import { MeetingPanel } from '@/meeting/components/MeetingPanel'
 import { logClientEvent } from '@/shared/lib/clientLog'
+import { RouteBoundary } from './RouteBoundary'
+import { useMobileNavigation } from './useMobileNavigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { WorkflowBar } from './WorkflowBar'
@@ -14,6 +16,16 @@ import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  const mobile = useMobileNavigation()
+  const contentRef = useRef<HTMLDivElement>(null)
+  const mainRef = useRef<HTMLElement>(null)
+
+  useLayoutEffect(() => {
+    if (contentRef.current) contentRef.current.inert = mobile && sidebarOpen
+    if (!mobile) setSidebarOpen(false)
+  }, [mobile, sidebarOpen])
+
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }) }, [location.pathname])
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   useNotificationPolling(!salesManager)
 
@@ -33,11 +45,11 @@ export function AppShell() {
           aria-hidden
         />
       )}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="mobile-safe-content flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
+      <div ref={contentRef} className="flex min-w-0 flex-1 flex-col">
+        <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)} />
+        <main ref={mainRef} id="main-content" className="mobile-safe-content flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
           <WorkflowBar />
-          <Outlet />
+          <RouteBoundary><Outlet /></RouteBoundary>
         </main>
       </div>
       {!salesManager && <MeetingPanel />}
