@@ -62,7 +62,7 @@ async function setup({ mobile = false, level = 'full', selected = 101, malformed
       else if (/\/files$/.test(path)) { const list = +path.split('/')[4] === 100 ? [{ id: 501, name: 'Планировка.pdf', size: 1234 }, { id: 502, name: 'Смета.pdf', size: 4567 }] : [], offset = +(url.searchParams.get('offset') || 0); body = { total: list.length, items: list.slice(offset, offset + 1) } }
       else if (path === '/api/crm/entries') {
         const p = url.searchParams, kind = p.get('kind'), offset = +(p.get('offset') || 0), limit = +(p.get('limit') || 50)
-        const items = kind === 'task' ? allTasks : [...records.values()].filter(item => item.kind === kind && !item.archived && (!p.get('stage_id') || item.data.stage_id === +p.get('stage_id')) && (kind !== 'deal' || !item.data.is_unsorted))
+        const items = kind === 'task' ? allTasks.filter(task => !p.has('entity_id') || Number(task.data.entity_id) === Number(p.get('entity_id'))) : [...records.values()].filter(item => item.kind === kind && !item.archived && (!p.get('stage_id') || item.data.stage_id === +p.get('stage_id')) && (kind !== 'deal' || !item.data.is_unsorted))
         body = { total: items.length, items: items.slice(offset, offset + limit) }
       } else if (path === '/api/notifications/unread-count') body = { unread_count: 0 }
       else if (path === '/api/crm/attention') body = { total: 0, items: [], counts: {}, settings: { response_hours: 24, idle_days: 3 } }
@@ -89,12 +89,13 @@ try {
   await dialog.getByRole('button', { name: 'Ирина Тестовая', exact: true }).waitFor()
   await dialog.getByRole('button', { name: 'Тестовая компания', exact: true }).waitFor()
   await dialog.getByText('Площадь дома', { exact: true }).waitFor()
-  await dialog.getByText('Связаться с Ириной', { exact: true }).waitFor()
-  assert.ok(t.reads.includes('/api/crm/entries?kind=task&archive=active&limit=100&offset=100'))
+  await dialog.getByRole('region', { name: 'Ближайшее действие' }).getByRole('button', { name: 'Связаться с Ириной', exact: true }).waitFor()
+  assert.ok(t.reads.some(path => path.includes('kind=task') && path.includes('entity_id=100')))
+  assert.ok(!t.reads.some(path => path.includes('kind=task') && !path.includes('entity_id=')))
   assert.equal(t.writes.length, 0)
   assert.equal(await dialog.getByLabel('Этап сделки').count(), 0)
   assert.ok(await dialog.getByRole('button', { name: 'Взять в работу', exact: true }).isEnabled())
-  report.checks.push('inquiry preserves identity; linked hidden deal history, contacts, company, custom fields, files and page-2 task are loaded without accepting')
+  report.checks.push('inquiry preserves identity; linked hidden deal history, contacts, company, custom fields, files and related tasks are loaded without accepting')
   await dialog.getByRole('button', { name: 'Загрузить ещё файлы', exact: true }).click()
   await dialog.getByRole('button', { name: /Смета.pdf/ }).waitFor()
   await dialog.getByRole('button', { name: /Загрузить ещё события/ }).click()

@@ -19,7 +19,8 @@
     "test:costing-integration": "node tests/costing-integration.mjs",
     "test:costing-experience": "node tests/costing-experience.mjs",
     "test:navigation-loading": "node tests/navigation-loading.mjs",
-    "test:workflow-navigation": "node tests/workflow-navigation.mjs"
+    "test:workflow-navigation": "node tests/workflow-navigation.mjs",
+    "test:crm-work-native": "node tests/crm-work-native.mjs"
   },
   "dependencies": {
     "date-fns": "^3.6.0",
