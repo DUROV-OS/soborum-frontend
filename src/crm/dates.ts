@@ -1,5 +1,11 @@
 import type { Entry } from './api'
 
+/** Legacy timezone-free CRM deadlines are UTC, as in the backend. */
+export function crmTimestamp(value: unknown): number {
+  if (typeof value !== 'string' || !value.trim()) return NaN
+  return Date.parse(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value) ? value.replace(' ', 'T') + 'Z' : value)
+}
+
 export function crmDateQuery(dateFrom = '', dateTo = '', dateUnknown = false): Record<string, string | undefined> {
   return { date_from: dateFrom || undefined, date_to: dateTo || undefined, date_unknown: dateUnknown ? 'true' : undefined }
 }

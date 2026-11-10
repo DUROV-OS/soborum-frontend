@@ -72,6 +72,7 @@ async function setup({ level = 'full', failContact = false, delayed = false, mob
         if (entryId === 201 && state.failContact) { state.failContact = false; status = 503; body = { detail: 'Попробуйте ещё раз' } }
         else { body = entries.get(entryId) || tasks.find(task => task.id === entryId); if (!body) { status = 404; body = { detail: 'Нет карточки' } } }
       } else if (/\/(history|files)$/.test(path)) body = { total: 0, items: [] }
+      else if (path === '/api/costing/context') body = { estimates: [], templates: [], links: [], order_lines: null, can_import_recipe: false }
       else if (path === '/api/notifications/unread-count') body = { unread_count: 0 }
     }
     if (counted) state.active--
@@ -140,7 +141,7 @@ try {
   assert.ok(t.reads.every(path => !/^\/api\/clients(?:\/|\?|$)/.test(path)))
   assert.deepEqual(t.errors, [])
   await t.context.close()
-  report.checks.push('client opens the CRM card; existing task editor remains available; no ERP clients or costs endpoint is used')
+  report.checks.push('client opens the CRM card; existing task editor remains available; no ERP clients endpoint is used')
 
   const retry = await setup({ failContact: true })
   await row(retry.page, 1).getByRole('button', { name: 'Повторить загрузку', exact: true }).waitFor()

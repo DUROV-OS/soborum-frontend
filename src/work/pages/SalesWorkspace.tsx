@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Briefcase, Users, MessagesSquare, ClipboardList, Bell } from 'lucide-react'
 import { catalog } from '@/crm/api'
+import { MyWorkQueue } from '@/crm/MyWorkQueue'
 
 const links = [
   { title: 'Сделки', note: 'Все сделки, этапы и следующие шаги', to: '/crm?tab=deal', icon: Briefcase },
@@ -17,11 +18,12 @@ const links = [
 /** Sales landing deliberately does not load the owner dashboard or ERP clients. */
 export function SalesWorkspace({ view = 'today' }: { view?: 'today' | 'work' | 'sales' }) {
   const title = view === 'today' ? 'Главное на сегодня' : view === 'work' ? 'Работа' : 'Продажи'
-  const today = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+  const today = new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'long', day: 'numeric', month: 'long' })
   return <div className="mx-auto max-w-[1440px] space-y-7 pb-6">
     <div><p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Рабочий обзор</p>
       <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-ink sm:text-[34px]">{title}<span className="text-brand">.</span></h1>
       <p className="mt-2 text-[13px] text-muted">{view === 'today' ? today : 'Рабочие инструменты отдела продаж'}</p></div>
+    {view === 'today' && <MyWorkQueue />}
     <section aria-label="Отдел продаж" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {links.map(({ title, note, to, icon: Icon }) => <Link key={to} to={to} className="rounded-2xl border border-border bg-surface p-5 shadow-card hover:border-brand/40">
         <div className="flex items-center gap-3"><Icon size={21} className="text-brand" /><h2 className="flex-1 text-[17px] font-medium text-ink">{title}</h2><ArrowUpRight size={16} className="text-muted" /></div>

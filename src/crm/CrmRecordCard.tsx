@@ -8,7 +8,7 @@ import { Field, Input, Select, Textarea } from '@/shared/ui/Field'
 import * as api from './api'
 import type { Catalog, Entry, History } from './api'
 import { CrmPhoneActions } from './CrmPhoneActions'
-import { crmSourceDateLabel } from './dates'
+import { crmSourceDateLabel, crmTimestamp } from './dates'
 import { ContextPanel } from '@/costing/ContextPanel'
 import { asObject, CrmSalesDetails } from './CrmSalesFields'
 import { CrmImportReview } from './CrmImportReview'
@@ -32,6 +32,7 @@ type Page<T> = { items: T[]; total: number; offset: number }
 type Event = History['items'][number]
 type EventKind = 'all' | 'notes' | 'calls' | 'mail' | 'changes'
 const eventLabels: Record<EventKind, string> = { all: 'Все', notes: 'Заметки', calls: 'Звонки', mail: 'Письма', changes: 'Изменения' }
+const actionLabels: Record<string, string> = { created: 'Создание карточки', updated: 'Изменение карточки', note: 'Заметка', task_board_changed: 'Изменение задачи', owner_assigned: 'Назначение ответственного' }
 const kindLabels: Record<Entry['kind'], string> = { deal: 'Сделка', inquiry: 'Новая заявка', contact: 'Контакт', company: 'Компания', task: 'Задача', pipeline: 'Воронка', stage: 'Этап' }
 const fieldLabels: Record<string, string> = {
   name: 'Название', archived: 'Архив', pipeline_id: 'Воронка', stage_id: 'Этап', amount: 'Бюджет', currency: 'Валюта',
@@ -57,13 +58,15 @@ const text = (value: unknown): string => {
 const plain = (value: unknown) => text(value).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/?[a-z][^>]*>/gi, '')
 const date = (value: unknown) => {
   if (!value) return 'Срок не указан'
-  const parsed = new Date(String(value))
-  return Number.isNaN(parsed.getTime()) ? text(value) : parsed.toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })
+  const parsed = new Date(crmTimestamp(value))
+  return Number.isNaN(parsed.getTime()) ? text(value) : parsed.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', dateStyle: 'medium', timeStyle: 'short' }) + ' МСК'
 }
 const getEntry = (entryId: number) => apiRequest<Entry>({ section: 'crm', path: `/entries/${entryId}` })
 const getFiles = (entryId: number, offset = 0) => apiRequest<{ total: number; items: SourceFile[] }>({ section: 'crm', path: `/entries/${entryId}/files`, query: { offset } })
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Не удалось выполнить действие. Повторите попытку.'
 const eventKind = (event: Event): EventKind => {
+  if (event.action === 'note') return 'notes'
+  if (event.action && ['created', 'updated', 'task_board_changed', 'owner_assigned'].includes(event.action)) return 'changes'
   const type = String(event.details.note_type || '')
   if (type.startsWith('call_')) return 'calls'
   if (type.includes('mail')) return 'mail'
@@ -144,6 +147,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
   const [histories, setHistories] = useState<Record<number, Page<Event>>>({})
   const [files, setFiles] = useState<Record<number, Page<SourceFile>>>({})
   const [tasks, setTasks] = useState<Entry[]>([])
+  const [tasksReady, setTasksReady] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
@@ -163,14 +167,14 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
   const generation = useRef(0)
 
   useEffect(() => {
-    setRecord(entry); setLinked(null); setRelated([]); setHistories({}); setFiles({}); setTasks([])
+    setRecord(entry); setLinked(null); setRelated([]); setHistories({}); setFiles({}); setTasks([]); setTasksReady(false)
     setNote(''); setTaskResults({}); setMobileTab(['max', 'calls'].includes(new URLSearchParams(window.location.search).get('channel') || '') ? 'history' : 'data'); setFilter('all'); setSearch(''); setBusy('')
   }, [entry.id])
 
   useEffect(() => {
     const ticket = ++generation.current
     const current = () => generation.current === ticket
-    setLoading(true); setError(''); setHistories({}); setFiles({}); setTasks([]); setRelated([])
+    setLoading(true); setError(''); setHistories({}); setFiles({}); setTasks([]); setTasksReady(false); setRelated([])
     void (async () => {
       const problems: string[] = []
       const fresh = await getEntry(entry.id)
@@ -211,17 +215,19 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
       }))
       const taskWork = (async () => {
         const matches: Entry[] = fresh.kind === 'task' ? [fresh] : []
-        let offset = 0
-        let total = Infinity
-        while (offset < total && current()) {
-          const result = await api.list('task', { archive: 'active', limit: 100, offset })
-          matches.push(...result.items.filter(task => sourceIds.has(Number(task.data.entity_id))))
-          total = result.total
-          if (!result.items.length && offset < total) throw new Error('Список задач загружен не полностью. Обновите карточку.')
-          if (!result.items.length) break
-          offset += result.items.length
-        }
-        if (current()) setTasks(dedupe(matches, item => item.id))
+        await Promise.all([...sourceIds].map(async entityId => {
+          let offset = 0
+          let total = Infinity
+          while (offset < total && current()) {
+            const result = await api.list('task', { archive: 'active', entity_id: entityId, limit: 100, offset })
+            matches.push(...result.items.filter(task => Number(task.data.entity_id) === entityId))
+            total = result.total
+            if (!result.items.length && offset < total) throw new Error('Список задач загружен не полностью. Обновите карточку.')
+            if (!result.items.length) break
+            offset += result.items.length
+          }
+        }))
+        if (current()) { setTasks(dedupe(matches, item => item.id)); setTasksReady(true) }
       })().catch(error => { problems.push(`Задачи: ${errorMessage(error)}`) })
       await Promise.all([relatedWork, historyWork, fileWork, taskWork])
       if (current() && problems.length) setError(problems.join('\n'))
@@ -236,9 +242,15 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
   const attachments = dedupe(Object.values(files).flatMap(page => page.items), item => item.id)
   const remainingHistory = Object.entries(histories).filter(([, page]) => page.offset < page.total)
   const remainingFiles = Object.entries(files).filter(([, page]) => page.offset < page.total)
-  const openTasks = tasks.filter(task => !task.data.completed).sort((a, b) => String(a.data.due_at || '9999').localeCompare(String(b.data.due_at || '9999')))
+  const openTasks = tasks.filter(task => !task.data.completed).sort((a, b) => {
+    const left = crmTimestamp(a.data.due_at), right = crmTimestamp(b.data.due_at)
+    return (Number.isFinite(left) ? left : Infinity) - (Number.isFinite(right) ? right : Infinity) || a.id - b.id
+  })
   const completedTasks = tasks.filter(task => task.data.completed)
   const selectedStage = catalog.stages.find(item => item.id === id(commercial?.data.stage_id))
+  const nextTask = openTasks[0]
+  const nextOverdue = !!nextTask && crmTimestamp(nextTask.data.due_at) < Date.now()
+  const finished = record.archived || ['won', 'lost'].includes(String(selectedStage?.data.outcome))
   const owner = commercial?.data.responsible_user_id ?? record.data.responsible_user_id
   const inquiryContactCovered = record.kind === 'inquiry' && related.some(item => item.kind === 'contact' &&
     ['contact_name', 'phone', 'email'].some(key => Boolean(record.data[key])) &&
@@ -289,7 +301,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
   }
   const taskCard = (task: Entry) => <div key={task.id} className={`rounded-lg border p-3 ${task.data.completed ? 'border-border bg-surface' : 'border-amber-200 bg-amber-50/60'}`}>
     <div className="flex items-start justify-between gap-3"><button className="min-w-0 break-words text-left text-[13px] font-medium hover:text-brand" onClick={() => onOpen(task)}>{task.name}</button>{task.data.completed ? <Check size={16} className="shrink-0 text-green-700" /> : <Clock3 size={16} className="shrink-0 text-amber-700" />}</div>
-    <div className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-muted"><span className={!task.data.completed && task.data.due_at && Date.parse(String(task.data.due_at)) < Date.now() ? 'text-danger' : ''}>{date(task.data.due_at)}</span><span>{readableField('responsible_user_id', task.data.responsible_user_id, catalog, related)}</span><span>{text(task.data.task_type)}</span></div>
+    <div className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-muted"><span className={!task.data.completed && task.data.due_at && crmTimestamp(task.data.due_at) < Date.now() ? 'text-danger' : ''}>{date(task.data.due_at)}</span><span>{readableField('responsible_user_id', task.data.responsible_user_id, catalog, related)}</span><span>{text(task.data.task_type)}</span></div>
     {task.data.description != null && task.data.description !== '' && <p className="mt-2 whitespace-pre-wrap break-words text-[13px]">{text(task.data.description)}</p>}
     {Boolean(task.data.completed) && task.data.result != null && <p className="mt-2 whitespace-pre-wrap break-words text-[13px]"><span className="text-muted">Результат: </span>{text(task.data.result)}</p>}
     {canEdit && !task.archived && !task.data.completed && <form className="mt-3 flex flex-col gap-2 sm:flex-row" onSubmit={event => {
@@ -304,6 +316,10 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
       <div className="flex shrink-0 border-b border-border md:hidden" role="tablist" aria-label="Раздел карточки">{([['data', 'Данные'], ['history', 'История']] as const).map(([value, label]) => <button key={value} role="tab" aria-selected={mobileTab === value} className={`flex-1 border-b-2 px-4 py-3 text-sm ${mobileTab === value ? 'border-brand text-brand' : 'border-transparent text-muted'}`} onClick={() => setMobileTab(value)}>{label}</button>)}</div>
       {error && <div role="alert" className="max-h-32 shrink-0 overflow-y-auto border-b border-danger/20 bg-red-50 px-5 py-3 text-[13px] text-danger"><p className="whitespace-pre-wrap">{error}</p><button className="mt-1 underline" disabled={!!busy} onClick={() => setRevision(value => value + 1)}>Обновить карточку</button></div>}
       {loading && <div role="status" className="shrink-0 border-b border-border px-5 py-2 text-[12px] text-muted">Загрузка карточки и истории…</div>}
+      {['deal', 'inquiry', 'contact', 'company'].includes(record.kind) && <section aria-label="Ближайшее действие" className={`shrink-0 border-b border-border px-4 py-3 sm:px-5 ${nextOverdue ? 'bg-red-50' : 'bg-surface-muted'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Ближайшее действие</h3>{canEdit && !finished && tasksReady && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onTask(record)}>Назначить действие</Button>}</div>
+        {!tasksReady ? <p className="mt-2 text-sm text-muted">{loading ? 'Проверяем задачи…' : 'Следующий шаг не проверен. Обновите карточку.'}</p> : nextTask ? <div className="mt-2"><button onClick={() => onOpen(nextTask)} className="text-left text-sm font-semibold text-brand hover:underline">{nextTask.name}</button><p className={`mt-1 text-xs ${nextOverdue ? 'text-danger' : 'text-muted'}`}>{nextOverdue ? 'Просрочено · ' : ''}{date(nextTask.data.due_at)} · {readableField('responsible_user_id', nextTask.data.responsible_user_id, catalog, related)}{openTasks.length > 1 ? ` · ещё ${openTasks.length - 1}` : ''}</p></div> : <p className="mt-2 text-sm text-muted">{finished ? 'Открытых задач нет. Карточка завершена или находится в архиве.' : 'Следующий шаг не назначен. Укажите действие, ответственного и срок.'}</p>}
+      </section>}
       <div className="flex min-h-0 min-w-0 flex-1">
         <aside aria-label="Данные карточки" className={`${mobileTab === 'data' ? 'block' : 'hidden'} min-h-0 w-full shrink-0 overflow-y-auto overscroll-contain border-r border-border bg-surface md:block md:w-[360px]`}>
           <div className="space-y-5 p-5">
@@ -351,12 +367,12 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
           </div>
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
             {['deal', 'inquiry', 'contact', 'company'].includes(record.kind) && <CrmCommunications key={record.id} entityId={record.id} isDeal={record.kind === 'deal'} canEdit={canEdit && !record.archived} openMax={maxRequest} openCalls={callRequest} />}
-            <section aria-label="Задачи по карточке" className="space-y-2"><h4 className="text-[12px] font-semibold uppercase tracking-wide text-muted">Следующий шаг{openTasks.length ? ` · ${openTasks.length}` : ''}</h4>{openTasks.length ? openTasks.map(taskCard) : <div className="rounded-lg border border-dashed border-border bg-surface p-3 text-[13px] text-muted">{loading ? 'Загрузка задач…' : 'Открытых задач нет'}</div>}{completedTasks.length > 0 && <details><summary className="cursor-pointer py-2 text-[12px] text-muted">Выполненные задачи · {completedTasks.length}</summary><div className="space-y-2">{completedTasks.map(taskCard)}</div></details>}</section>
+            <section aria-label="Задачи по карточке" className="space-y-2"><h4 className="text-[12px] font-semibold uppercase tracking-wide text-muted">Следующий шаг{openTasks.length ? ` · ${openTasks.length}` : ''}</h4>{openTasks.length ? openTasks.map(taskCard) : <div className="rounded-lg border border-dashed border-border bg-surface p-3 text-[13px] text-muted">{loading ? 'Загрузка задач…' : !tasksReady ? 'Задачи не проверены. Обновите карточку.' : 'Открытых задач нет'}</div>}{completedTasks.length > 0 && <details><summary className="cursor-pointer py-2 text-[12px] text-muted">Выполненные задачи · {completedTasks.length}</summary><div className="space-y-2">{completedTasks.map(taskCard)}</div></details>}</section>
             <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted"><span>События · {visibleEvents.length}{search || filter !== 'all' ? ` из ${events.length} загруженных` : ''}</span>{remainingHistory.length > 0 && <span>Загружена часть истории · фильтр по загруженным событиям</span>}</div>
             {visibleEvents.length ? <ol className="space-y-3">{visibleEvents.map(event => {
               const kind = eventKind(event)
               const Icon = kind === 'calls' ? Phone : kind === 'mail' ? Mail : kind === 'changes' ? Pencil : MessageSquare
-              return <li key={`${event.source}:${event.id}`} className="flex min-w-0 gap-3"><span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted"><Icon size={13} /></span><article className="min-w-0 flex-1 rounded-lg border border-border bg-surface p-3 text-[13px]"><header className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted"><span>{eventLabels[kind]} · {event.source === 'amocrm' ? 'amoCRM' : 'Durov OS'}</span><time dateTime={event.created_at}>{date(event.created_at)}</time></header><EventContent event={event} catalog={catalog} related={[...related, ...sources]} />{event.source === 'amocrm' && event.source_record_id != null && <CrmImportReview sourceId={event.source_record_id} />}</article></li>
+              return <li key={`${event.source}:${event.id}`} className="flex min-w-0 gap-3"><span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted"><Icon size={13} /></span><article className="min-w-0 flex-1 rounded-lg border border-border bg-surface p-3 text-[13px]"><header className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted"><span>{actionLabels[event.action || ''] || eventLabels[kind]} · {event.source === 'amocrm' ? 'amoCRM' : 'Durov OS'}</span><time dateTime={event.created_at}>{date(event.created_at)}</time></header><p className="mb-2 text-xs text-muted">{event.actor?.name ? `Автор: ${event.actor.name}` : 'Автор не указан в источнике'}</p><EventContent event={event} catalog={catalog} related={[...related, ...sources]} />{event.source === 'amocrm' && event.source_record_id != null && <CrmImportReview sourceId={event.source_record_id} />}</article></li>
             })}</ol> : <p className="py-6 text-center text-[13px] text-muted">{loading ? 'Загрузка истории…' : search || filter !== 'all' ? 'Среди загруженных событий совпадений нет' : 'История пока пуста'}</p>}
             {remainingHistory.length > 0 && <Button className="w-full" variant="secondary" size="sm" disabled={!!busy || loading} onClick={() => void loadMore('history')}>Загрузить ещё события ({Object.values(histories).reduce((sum, page) => sum + Math.max(0, page.total - page.offset), 0)} осталось)</Button>}
           </div>
