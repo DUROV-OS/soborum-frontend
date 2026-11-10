@@ -137,6 +137,7 @@ export function ChatPanel({
               <MessageBubble
                 key={message.id}
                 message={message}
+                chatId={chat.id}
                 pendingActions={inlinePendingActions}
                 onResolve={handleResolve}
                 canAct={canEdit}

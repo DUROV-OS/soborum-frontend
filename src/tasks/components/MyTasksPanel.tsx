@@ -1,3 +1,5 @@
+import { TaskPlanEvidence } from '@/ai/components/TaskPlanEvidence'
+import { TaskPrioritiesOut } from '@/ai/types'
 import { useEffect, useState } from 'react'
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -10,6 +12,7 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
   const canShow = hasAccess('ai')
 
   const [priorities, setPriorities] = useState<PriorityTaskOut[] | null>(null)
+  const [report, setReport] = useState<TaskPrioritiesOut | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,7 +22,10 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
     try {
       const res = await getTaskPriorities()
       setPriorities(res.priorities)
+      setReport(res)
     } catch (e) {
+      setReport(null)
+      setPriorities(null)
       setError(e instanceof Error ? e.message : 'Не удалось загрузить приоритетные задачи')
     } finally {
       setLoading(false)
@@ -52,6 +58,7 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
       </div>
 
       <div className="mt-2">
+        {!loading && !error && report && <TaskPlanEvidence report={report} items={report.priorities} />}
         {loading && !priorities && <p className="text-[13px] text-muted">Подбираем приоритетные задачи…</p>}
         {!loading && error && (
           <p className="flex items-center gap-1.5 text-[13px] text-danger">
@@ -60,7 +67,7 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
           </p>
         )}
         {!loading && !error && priorities && priorities.length === 0 && (
-          <p className="text-[13px] text-muted">Нет задач, требующих особого внимания прямо сейчас.</p>
+          <p className="text-[13px] text-muted">Открытых задач, где вы исполнитель или проверяющий, нет.</p>
         )}
         {!loading && !error && priorities && priorities.length > 0 && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -75,7 +82,7 @@ export function MyTasksPanel({ onOpenTask }: { onOpenTask: (task: Task) => void 
                 <div className="mt-1 text-[12px] text-muted">{reason}</div>
                 {task.deadline && (
                   <div className="mt-2 text-[11px] text-muted">
-                    {new Date(task.deadline).toLocaleDateString('ru-RU')}
+                    {new Date(task.deadline).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' })}
                   </div>
                 )}
               </button>

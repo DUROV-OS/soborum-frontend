@@ -154,7 +154,7 @@ export const useAiStore = create<AiState>((set, get) => {
     },
 
     openChat: async (id) => {
-      set({ loadingChat: true, draftDomain: null, optimisticMessage: null, attachments: [] })
+      set({ loadingChat: true, activeChat: null, pendingActions: [], error: null, draftDomain: null, optimisticMessage: null, attachments: [] })
       try {
         await refreshChat(id)
         set({ loadingChat: false })

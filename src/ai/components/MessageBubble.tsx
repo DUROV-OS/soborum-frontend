@@ -2,7 +2,8 @@ import { Volume2, Wrench } from 'lucide-react'
 import { downloadFileById } from '@/shared/lib/httpClient'
 import { splitVoiceReply } from '@/shared/lib/speechReply'
 import { Markdown } from '@/shared/ui/Markdown'
-import { MessageOut, PendingActionOut } from '../types'
+import { AnswerEvidenceData, MessageOut, PendingActionOut } from '../types'
+import { AnswerEvidence } from './AnswerEvidence'
 import { AttachmentChip } from './AttachmentChip'
 import { PendingActionCard } from './PendingActionCard'
 
@@ -12,6 +13,7 @@ export function MessageBubble({
   onResolve,
   preferVoiceLead = false,
   canAct = true,
+  chatId,
 }: {
   message: MessageOut
   pendingActions: PendingActionOut[]
@@ -19,6 +21,7 @@ export function MessageBubble({
   /** Show explicit «Голосом» résumé above the full answer. */
   preferVoiceLead?: boolean
   canAct?: boolean
+  chatId?: number | null
 }) {
   if (message.role !== 'user' && message.role !== 'assistant') return null
 
@@ -76,6 +79,7 @@ export function MessageBubble({
               </div>
             ),
         )}
+      {!isUser && displayText && <AnswerEvidence chatId={chatId} messageId={message.id} evidence={message.content.find(b => b.type === 'answer_evidence') as AnswerEvidenceData | undefined} />}
       {relatedActions.map((action) => (
         <PendingActionCard key={action.id} action={action} onResolve={onResolve} canAct={canAct} />
       ))}

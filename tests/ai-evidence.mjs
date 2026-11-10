@@ -14,6 +14,7 @@ await context.route('**/api/**',async route=>{
  else if(url.pathname==='/api/auth/me/workspace')body={view:'general',blocks:['aktualnoe'],sections:[]}
  else if(url.pathname==='/api/dashboard/today')body={generated_at:stamp,summary:'Факты',widgets:[],actions:[],ai_configured:true}
  else if(url.pathname==='/api/dashboard/aktualnoe')body={generated_at:stamp,source:'database',items:[{cycle_id:7,client_name:'Дом · тест',stage:'Производство дома',percent:legacy?80:null,phrase:legacy?'Готово на 80%':'Заметка по клиенту',last_activity:stamp,recent_events:2,source_hash:legacy?null:'a'.repeat(64),sources:legacy?[]:[{entity:'client_notes',record_id:9,field:'created_at',label:'Заметка по клиенту',at:stamp}]}]}
+ else if(url.pathname==='/api/warehouse/control/queue')body={houses:[],can_edit:false,stock_anomalies:[]}
  else if(url.pathname==='/api/ai/warehouse/analytics'){
   if(unavailable){status=503;body={detail:'Аналитика временно недоступна'}}
   else body={section:'warehouse',generated_at:stamp,data_as_of:stamp,checked_at:stamp,summary:'Нужно проверить складские позиции.',status:'yellow',source:'ai',source_hash:'b'.repeat(64),analysis_version:'section-evidence-v1',snapshot:{total_materials:10,materials_needing_supply:2},citations:['materials_needing_supply'],rule_findings:['Позиции склада требуют пополнения или сверки: 2'],human_approved:false,cached:true,input_changed:changed}

@@ -26,6 +26,7 @@ export function ConsultPanel({ initialMessage = '' }: { initialMessage?: string 
   const hydrate = useConsultStore((state) => state.hydrate)
   const setDraft = useConsultStore((state) => state.setDraft)
   const messages = useConsultStore((state) => state.messages)
+  const chatId = useConsultStore((state) => state.chatId)
   const pendingActions = useConsultStore((state) => state.pendingActions)
   const sending = useConsultStore((state) => state.sending)
   const streamBubbles = useConsultStore((state) => state.streamBubbles)
@@ -43,11 +44,16 @@ export function ConsultPanel({ initialMessage = '' }: { initialMessage?: string 
   const readyToSpeak = useRef(false)
 
   useEffect(() => {
-    hydrate()
-    // Don't auto-speak history after reload — only fresh answers.
-    const lastAssistant = [...useConsultStore.getState().messages].reverse().find((m) => m.role === 'assistant')
-    lastSpokenId.current = lastAssistant?.id ?? null
-    readyToSpeak.current = true
+    let mounted = true
+    readyToSpeak.current = false
+    void hydrate().then(() => {
+      if (!mounted) return
+      // Don't auto-speak authorized history loaded after the server response.
+      const lastAssistant = [...useConsultStore.getState().messages].reverse().find((m) => m.role === 'assistant')
+      lastSpokenId.current = lastAssistant?.id ?? null
+      readyToSpeak.current = true
+    })
+    return () => { mounted = false }
   }, [hydrate])
 
   useEffect(() => {
@@ -159,6 +165,7 @@ export function ConsultPanel({ initialMessage = '' }: { initialMessage?: string 
             <MessageBubble
               key={`${message.role}-${message.id}`}
               message={message}
+              chatId={chatId}
               pendingActions={inlinePending}
               onResolve={handleResolve}
               preferVoiceLead={message.role === 'assistant'}
