@@ -67,3 +67,16 @@
 .workspace-workflow > div > span { color: #ffffffe0; }
 @media (min-width: 1024px) { .workspace-shell .workspace-drawer { max-width: min(1280px, calc(100% - 64px)); } }
 @media (max-width: 1023px) { .workspace-topbar.mobile-safe-topbar { height: calc(4rem + env(safe-area-inset-top, 0px)); } }
+
+/* Client workspace: independent data sections beside the persistent timeline. */
+.crm-card-tabs { position: sticky; top: 0; z-index: 1; display: flex; overflow-x: auto; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid rgb(var(--border)); background: white; }
+.crm-card-tabs button { flex-shrink: 0; min-height: 40px; padding: 8px 10px; color: rgb(var(--muted)); font-size: 13px; border-bottom: 2px solid transparent; }
+.crm-card-tabs button[aria-selected="true"] { color: #0154c8; border-bottom-color: #0075ff; font-weight: 600; }
+.crm-card-divider { display: none; }
+@media (min-width: 768px) { .workspace-drawer .crm-card-data { width: 42%; } }
+@media (min-width: 1024px) {
+  .workspace-drawer .crm-card-data { width: var(--crm-data-width, 42%); }
+  .crm-card-divider { display: flex; align-items: center; justify-content: center; width: 9px; flex-shrink: 0; background: #f7f9fc; cursor: col-resize; touch-action: none; user-select: none; }
+  .crm-card-divider span { width: 3px; height: 36px; border-radius: 3px; background: #b5bfce; }
+  .crm-card-divider:hover, .crm-card-divider:focus-visible { background: #c4e6ff; }
+}
