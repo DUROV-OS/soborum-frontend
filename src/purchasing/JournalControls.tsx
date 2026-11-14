@@ -5,7 +5,7 @@ import { Field, Input, Select } from '@/shared/ui/Field'
 
 export type JournalFilters = { supplier_id: string; payment: string; delivery: string; date_from: string; date_to: string; sort: string }
 export const emptyFilters: JournalFilters = { supplier_id: '', payment: 'all', delivery: 'all', date_from: '', date_to: '', sort: 'newest' }
-export type JournalSummary = { currency: string; total: number; paid: number; pending: number; net: number; unpaid: number }
+export type JournalSummary = { currency: string; total: number; paid: number; pending: number; net: number; unpaid: number; overpaid: number }
 export const journalMoney = (value: number, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 export const journalDate = (value?: string | null) => value ? new Date(value.length === 10 ? value + 'T12:00:00+03:00' : value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—'
 
@@ -40,9 +40,9 @@ export function JournalControls({ query, onQuery, filters, onFilters, archive, o
 
 export function JournalTotals({ rows, loading }: { rows: JournalSummary[]; loading: boolean }) {
   return <div aria-busy={loading} className={`mt-3 space-y-2 ${loading ? 'opacity-50' : ''}`}>
-    {rows.map(row => <div key={row.currency} className="grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2 xl:grid-cols-4">
-      {[['Сумма после возвратов', row.net], ['Оплачено', row.paid], ['Осталось оплатить', row.unpaid], ['Заявки на оплату', row.pending]].map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-base font-semibold tabular-nums text-ink">{journalMoney(Number(value), row.currency)}</p></div>)}
+    {rows.map(row => <div key={row.currency} className="grid gap-3 rounded-xl border border-border bg-surface p-4 sm:grid-cols-2 xl:grid-cols-5">
+      {[['Сумма после возвратов', row.net], ['Оплачено', row.paid], ['Осталось оплатить', row.unpaid], ['Переплата', row.overpaid], ['Заявки на оплату', row.pending]].map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-base font-semibold tabular-nums text-ink">{journalMoney(Number(value), row.currency)}</p></div>)}
     </div>)}
-    {rows.length > 0 && <p className="text-xs text-muted">Итоги по всем найденным заказам. Заявки на оплату учитываются отдельно от проведённых платежей.</p>}
+    {rows.length > 0 && <p className="text-xs text-muted">Итоги по всем найденным заказам. Долг и переплата считаются отдельно по каждому заказу; заявки ещё не являются оплатой.</p>}
   </div>
 }
