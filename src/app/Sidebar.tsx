@@ -12,13 +12,14 @@ import { useNotificationsStore } from '@/notifications/store'
 import { SECTIONS, SectionId } from '@/shared/sections'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 import { InstallAppButton } from '@/shared/mobile/InstallApp'
+import { CollaborationMenu } from '@/collaboration/CollaborationMenu'
+import { isCollaborationRoute, visibleCollaborationTools } from '@/collaboration/catalog'
 
 /** Общие инструменты; рабочие процессы добавляются из единого справочника. */
 const MENU: SectionId[] = [
   'today',
   'tasks',
   'work',
-  'ai',
   'board',
   'agents',
   'ai_proposals',
@@ -48,7 +49,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname, search } = useLocation()
   const groups = salesManager ? [] : visibleWorkflows(hasAccess)
-  const context = workflowContext(pathname, search, groups)
+  const context = isCollaborationRoute(pathname, visibleCollaborationTools(hasAccess)) ? null : workflowContext(pathname, search, groups)
   const [allEntries, setAllEntries] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
   useEffect(() => {
@@ -76,7 +77,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'tasks', 'chats', 'notifications', 'feedback_my'] : MENU
+  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'tasks', 'notifications', 'feedback_my'] : MENU
   let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
@@ -179,6 +180,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-1">
         <ul className="space-y-1.5">
+          <CollaborationMenu onNavigate={onClose} sidebarOpen={open}/>
           {items.map((section) => {
             const Icon = section.icon
             return (
@@ -225,7 +227,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     {section.id === 'ai' && <ArrowUpRight size={15} className="opacity-50" />}
                   </NavLink>
                 </li>
-                {(section.id === 'ai' || (section.id === 'work' && !canSee('ai'))) && workflowItems}
+                {section.id === 'work' && workflowItems}
               </Fragment>
             )
           })}

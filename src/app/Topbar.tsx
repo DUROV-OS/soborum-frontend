@@ -8,6 +8,7 @@ import { SECTIONS } from '@/shared/sections'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
+import { useCollaborationTools } from '@/collaboration/useCollaborationTools'
 
 export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; menuOpen: boolean }) {
   const location = useLocation()
@@ -15,6 +16,7 @@ export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; men
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
+  const collaborationTool = useCollaborationTools().find(tool => tool.to && (location.pathname === tool.to || location.pathname.startsWith(tool.to + '/')))
 
   return (
     <header className="workspace-topbar mobile-safe-topbar flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
@@ -30,7 +32,7 @@ export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; men
           <Menu size={20} />
         </button>
         <span className="truncate text-[13px] font-medium text-muted">
-          {context ? context.group.label + ' · ' + context.entry.label : (section?.label ?? 'Durov OS')}
+          {collaborationTool ? 'Совместная работа · ' + collaborationTool.label : context ? context.group.label + ' · ' + context.entry.label : (section?.label ?? 'Durov OS')}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">

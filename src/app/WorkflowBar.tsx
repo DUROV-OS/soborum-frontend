@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
+import { useCollaborationTools } from '@/collaboration/useCollaborationTools'
 
 export function WorkflowBar() {
   const navigate = useNavigate()
@@ -9,6 +10,12 @@ export function WorkflowBar() {
     location = useLocation()
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
+  const collaborationTools = useCollaborationTools().filter(tool => tool.to)
+  const collaborationTool = collaborationTools.find(tool => location.pathname === tool.to || location.pathname.startsWith(tool.to + '/'))
+  if (collaborationTool) return <nav aria-label="Раздел Совместная работа" className="workspace-workflow mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 text-[13px]">
+    <div className="flex min-w-0 items-center gap-2"><Link to="/collaboration">Совместная работа</Link><span>›</span><span className="truncate">{collaborationTool.label}</span></div>
+    <select aria-label="Перейти в инструмент совместной работы" value={collaborationTool.to} onChange={event => navigate(event.target.value)} className="min-h-10 max-w-full rounded-lg border px-3 sm:max-w-[240px]">{collaborationTools.map(tool => <option key={tool.id} value={tool.to}>{tool.label}</option>)}</select>
+  </nav>
   // Costing has its own role-aware navigation and mobile section selector.
   if (salesManager || !context || ['/costing', '/accounting'].includes(location.pathname)) return null
   return (

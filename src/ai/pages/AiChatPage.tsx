@@ -139,7 +139,7 @@ export function AiChatPage() {
                   <Sparkles size={16} className="text-ai-accent" />
                 </span>
                 <span className="text-[13px] font-medium text-ink">
-                  {activeChat?.title || 'Марина'}
+                  {activeChat?.title || 'Durov GPT'}
                 </span>
               </span>
               {mobileChatOpen ? (

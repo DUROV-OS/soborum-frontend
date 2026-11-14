@@ -1,7 +1,7 @@
 {
   "date": "2026-11-14",
   "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
-  "scope": "Implementation stages 1–4: shared shell, native CRM, organized cards, personal saved filters, consistent typography and warehouse queue reconciliation. Not full Bitrix24 feature parity.",
+  "scope": "Implementation stages 1–5: shared shell, CRM cards and saved filters, typography, warehouse reconciliation, and the first collaboration navigation release. Not full Bitrix24 feature parity.",
   "visual": {
     "implemented": [
       "Original vibecode background and locally stored SVG assets",
@@ -14,7 +14,8 @@
       "Mobile data/history tabs and compact secondary actions",
       "Desktop and mobile card tabs: overview, links/estimates, files, tasks",
       "Resizable data/history divider with per-account browser preference",
-      "Unified system typography: 14px body, 15px main navigation, 600 buttons/headings, semantic 700 bold, italic and bold italic"
+      "Unified system typography: 14px body, 15px main navigation, 600 buttons/headings, semantic 700 bold, italic and bold italic",
+      "Collaboration disclosure matches observed menu order, translucent background, rounded group and 38px desktop rows; Durov GPT branding"
     ],
     "adaptations": [
       "Durov House identity retained",
@@ -41,7 +42,9 @@
       "Clear previous list results immediately when request conditions change",
       "Warehouse queue distinguishes missing norms, pending approval, issue in progress and evidenced completion",
       "Searchable and paginated stock reconciliation with separate stock/reserved/issuable quantities and direct material history",
-      "Inventory shortcut selects inventory documents; failed history loading is explicit and retryable"
+      "Inventory shortcut selects inventory documents; failed history loading is explicit and retryable",
+      "Collaboration overview and permission-filtered links to existing MAX, AI, tasks and meetings",
+      "Shared collaboration breadcrumbs and tool switcher; planned modules visibly unavailable"
     ],
     "retained": [
       "Native CRM search and filters",
@@ -86,12 +89,16 @@
       "Stage 3 browser: no stale contact rows under deal heading, mobile form at 390px without horizontal overflow",
       "Stage 4: warehouse state and stock quantity unit tests; TypeScript/production build",
       "Stage 4 browser: five queue states, anomaly search/filter/pagination, material history and inventory navigation",
-      "Stage 4: typography computed weights and styles; 1440px/390px warehouse layout, 16px mobile inputs; CRM card smoke test"
+      "Stage 4: typography computed weights and styles; 1440px/390px warehouse layout, 16px mobile inputs; CRM card smoke test",
+      "Stage 5: navigation permission unit tests and production build",
+      "Stage 5 browser: menu toggle/Escape/outside close, MAX/GPT/meetings navigation, 390px mobile with inert background and no horizontal overflow",
+      "Stage 5 browser: synthetic manager sees only MAX and tasks; direct /ai redirect remains enforced"
     ],
     "limitations": [
       "Fixture validates UI requests and rendering, not backend financial or warehouse correctness",
       "Live calling, message sending and external integrations were not invoked",
-      "Saved filter sets are local to the employee and browser; dates are absolute and not a rolling period"
+      "Saved filter sets are local to the employee and browser; dates are absolute and not a rolling period",
+      "Collaboration release is navigation only: internal messaging, projects, feed, calendar, shared drive/editor, mail and boards remain unimplemented"
     ]
   }
 }
