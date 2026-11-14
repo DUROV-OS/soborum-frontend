@@ -9,6 +9,7 @@ import {
   Contact,
   ClipboardList,
   Factory,
+  FolderKanban,
   Handshake,
   Home,
   Landmark,
@@ -96,6 +97,7 @@ export type SectionId =
   | 'feedback_my'
   | 'notifications'
   | 'collaboration'
+  | 'projects'
 
 export interface SectionMeta {
   id: SectionId
@@ -119,6 +121,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'today', label: 'Пульс', path: '/today', icon: Activity, notAssignable: true },
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
   // Navigation hub only; each linked tool retains its existing permission.
+  { id: 'projects', label: 'Проекты', path: '/projects', icon: FolderKanban, notAssignable: true },
   { id: 'collaboration', label: 'Совместная работа', path: '/collaboration', icon: Users, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
   { id: 'clients', label: 'Клиенты', path: '/clients', icon: Users },

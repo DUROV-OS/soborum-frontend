@@ -12,9 +12,9 @@ export function WorkflowBar() {
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
   const collaborationTools = useCollaborationTools().filter(tool => tool.to)
   const collaborationTool = collaborationTools.find(tool => location.pathname === tool.to || location.pathname.startsWith(tool.to + '/'))
-  if (collaborationTool) return <nav aria-label="Раздел Совместная работа" className="workspace-workflow mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3 text-[13px]">
-    <div className="flex min-w-0 items-center gap-2"><Link to="/collaboration">Совместная работа</Link><span>›</span><span className="truncate">{collaborationTool.label}</span></div>
-    <select aria-label="Перейти в инструмент совместной работы" value={collaborationTool.to} onChange={event => navigate(event.target.value)} className="min-h-10 max-w-full rounded-lg border px-3 sm:max-w-[240px]">{collaborationTools.map(tool => <option key={tool.id} value={tool.to}>{tool.label}</option>)}</select>
+  if (collaborationTool || location.pathname === '/collaboration') return <nav aria-label="Вкладки совместной работы" className="collaboration-tabs">
+    <Link to="/collaboration" aria-current={location.pathname === '/collaboration' ? 'page' : undefined}>Обзор</Link>
+    {collaborationTools.map(tool => <Link key={tool.id} to={tool.to!} aria-current={tool.id === collaborationTool?.id ? 'page' : undefined}>{tool.label}</Link>)}
   </nav>
   // Costing has its own role-aware navigation and mobile section selector.
   if (salesManager || !context || ['/costing', '/accounting'].includes(location.pathname)) return null

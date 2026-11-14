@@ -9,7 +9,7 @@ export const collaborationTools = [
   { id: 'boards', label: 'Доски', description: 'Схемы, идеи и визуальное обсуждение проектов.' },
   { id: 'drive', label: 'Диск', description: 'Общие файлы компании и папки проектов с правами доступа.' },
   { id: 'mail', label: 'Почта', description: 'Рабочие ящики и переписка, связанная с клиентами и проектами.' },
-  { id: 'projects', label: 'Проекты', description: 'Команда, задачи, обсуждения и документы по каждому проекту.' },
+  { id: 'projects', label: 'Проекты', section: 'projects', to: '/projects', accent: 'blue', description: 'Команда, задачи, обсуждения и документы по каждому проекту.' },
   { id: 'tasks', label: 'Задачи', section: 'tasks', to: '/tasks', description: 'Исполнители, сроки, отчёты и проверка результата.', accent: 'green' },
   { id: 'meetings', label: 'Совещания', section: 'meetings', to: '/meetings', description: 'Записи встреч, протоколы и принятые решения.', accent: 'orange' },
 ] satisfies CollaborationTool[]

@@ -1,0 +1,30 @@
+import { useEffect, useRef, useState } from 'react'
+import { useTasksStore } from '@/tasks/store'
+import { TASK_STATES } from '@/tasks/types'
+import { TaskDetailDrawer } from '@/tasks/components/TaskDetailDrawer'
+import { Button } from '@/shared/ui/Button'
+import { Field, Input, Select } from '@/shared/ui/Field'
+import { Modal } from '@/shared/ui/Modal'
+import { Project, Person, getProjectTasks, projectOptions, projectError, request } from './projectsApi'
+
+export function ProjectTasks({project,active,source,onSourceClear,onChanged}:{project:Project;active:boolean;source:number|null;onSourceClear:()=>void;onChanged:()=>void}) {
+  const [rows,setRows]=useState<Awaited<ReturnType<typeof getProjectTasks>>>([])
+  const [error,setError]=useState(''),[loading,setLoading]=useState(true),[selected,setSelected]=useState<number|null>(null),[creating,setCreating]=useState(false)
+  const [people,setPeople]=useState<Person[]>([]),[title,setTitle]=useState(''),[assignee,setAssignee]=useState(0),[reviewer,setReviewer]=useState(0),[deadline,setDeadline]=useState(''),[busy,setBusy]=useState(false)
+  const generation=useRef(0),attempt=useRef<{json:string;key:string}|null>(null)
+  const stored=useTasksStore(s=>s.tasks)
+  async function load(){const current=++generation.current;setLoading(true);try{const next=await getProjectTasks(project.id);if(current!==generation.current)return;setRows(next);useTasksStore.setState(state=>({tasks:[...state.tasks.filter(task=>!next.some(row=>row.task.id===task.id)),...next.map(row=>row.task)]}));setError('')}catch(err){if(current===generation.current){setRows([]);setSelected(null);setError(projectError(err))}}finally{if(current===generation.current)setLoading(false)}}
+  useEffect(()=>{if(active)void load();return()=>{generation.current++}},[project.id,active])
+  useEffect(()=>{if(source!==null)setCreating(true)},[source])
+  useEffect(()=>{if(!creating)return;let live=true;projectOptions().then(result=>{if(live)setPeople(result.people.filter(person=>person.can_task&&project.members.some(member=>member.id===person.id)))}).catch(err=>{if(live)setError(projectError(err))});return()=>{live=false}},[creating,project.members])
+  function close(){if(busy)return;setCreating(false);onSourceClear();setTitle('');setAssignee(0);setReviewer(0);setDeadline('');attempt.current=null}
+  async function create(){if(busy)return;const body={title:title.trim(),assignee_id:assignee,reviewer_id:reviewer,deadline:deadline?new Date(deadline).toISOString():null,source_message_id:source};const json=JSON.stringify(body);if(attempt.current?.json!==json)attempt.current={json,key:crypto.randomUUID()};setBusy(true);setError('');try{await request(`/${project.id}/tasks`,'POST',{...body,request_id:attempt.current!.key});setCreating(false);onSourceClear();setTitle('');setAssignee(0);setReviewer(0);setDeadline('');attempt.current=null;await load();onChanged()}catch(err){setError(projectError(err))}finally{setBusy(false)}}
+  const selectedTask=rows.find(row=>row.task.id===selected)?.task
+  return <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">Исполнитель сдаёт результат, проверяющий принимает или возвращает его.</p>{project.can_create_task&&<Button onClick={()=>setCreating(true)}>Новая задача</Button>}</div>
+    {error&&<p role="alert" className="text-sm text-danger">{error}</p>}{loading&&<p className="text-sm text-muted">Загрузка задач…</p>}
+    {!loading&&!rows.length&&<p className="rounded-xl border border-dashed border-border p-6 text-sm text-muted">Нет доступных вам задач в этом проекте. Задачи других участников видны при наличии права «Все задачи».</p>}
+    {rows.map(row=>{const task=stored.find(item=>item.id===row.task.id)||row.task;return <button key={task.id} onClick={()=>setSelected(task.id)} className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-4 text-left hover:bg-surface-muted"><span className="min-w-0"><strong className="block break-words text-sm">{task.title}</strong><span className="mt-1 block text-xs text-muted">{task.assignees.map(person=>person.full_name).join(', ')}{row.source_message_id?` · Из обсуждения №${row.source_message_id}`:''}</span></span><span className="rounded-full bg-surface-muted px-3 py-1 text-xs">{TASK_STATES.find(state=>state.key===task.status)?.label}</span></button>})}
+    <TaskDetailDrawer task={selectedTask?(stored.find(task=>task.id===selectedTask.id)||selectedTask):null} onClose={()=>{setSelected(null);void load();onChanged()}}/>
+    <Modal open={creating} onClose={close} title={source?'Задача из обсуждения':'Задача проекта'} footer={<Button disabled={busy||!title.trim()||!assignee||!reviewer||assignee===reviewer} onClick={()=>void create()}>{busy?'Создание…':'Создать задачу'}</Button>}><div className="space-y-4">{error&&<p role="alert" className="text-sm text-danger">{error}</p>}<Field label="Что нужно сделать" required><Input value={title} maxLength={300} disabled={busy} onChange={e=>setTitle(e.target.value)}/></Field><Field label="Исполнитель"><Select value={assignee} disabled={busy} onChange={e=>setAssignee(Number(e.target.value))}><option value={0}>Выберите участника</option>{people.map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</Select></Field><Field label="Проверяющий"><Select value={reviewer} disabled={busy} onChange={e=>setReviewer(Number(e.target.value))}><option value={0}>Выберите другого участника</option>{people.filter(person=>person.id!==assignee).map(person=><option key={person.id} value={person.id}>{person.name}</option>)}</Select></Field><Field label="Срок"><Input type="datetime-local" value={deadline} disabled={busy} onChange={e=>setDeadline(e.target.value)}/></Field><p className="text-xs text-muted">Задача появится также в разделе «Задачи» с его обычными правами доступа. Укажите понятное название; закрытая переписка и файлы проекта в задачу не копируются. Для назначения участнику нужны права работы с задачами.</p></div></Modal>
+  </div>
+}

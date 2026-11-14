@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // «Мои заявки» (0090) и «Уведомления» (0080) — личные, видит каждый.
     if (
       section === 'today' ||
-      section === 'collaboration' ||
+      section === 'collaboration' || section === 'projects' ||
       section === 'agents' ||
       section === 'chats' ||
       section === 'feedback_my' ||

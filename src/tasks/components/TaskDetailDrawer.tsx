@@ -271,7 +271,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
               <div className="flex flex-col gap-2">
                 {ownAcceptBlocked && (
                   <p className="text-[13px] font-medium text-danger">
-                    Свою сдачу принять нельзя — задачу блока производства принимает другой сотрудник.
+                    Свою сдачу принять нельзя — результат принимает другой сотрудник.
                   </p>
                 )}
                 <div className="flex gap-2">
