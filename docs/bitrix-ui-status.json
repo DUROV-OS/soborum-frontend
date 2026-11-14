@@ -1,7 +1,7 @@
 {
   "date": "2026-11-14",
   "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
-  "scope": "Implementation stages 1–2: shared shell, native CRM and organized client/deal workspace. Not full Bitrix24 feature parity.",
+  "scope": "Implementation stages 1–3: shared shell, native CRM, organized cards and personal saved filters. Not full Bitrix24 feature parity.",
   "visual": {
     "implemented": [
       "Original vibecode background and locally stored SVG assets",
@@ -32,7 +32,12 @@
       "Linked contacts/companies and native estimates in a dedicated section",
       "Task completion with required result in a dedicated section",
       "Stage-strip selection reveals the overview and explicit save action",
-      "Draggable divider with arrow/Home/End keyboard controls, reset and storage fallback"
+      "Draggable divider with arrow/Home/End keyboard controls, reset and storage fallback",
+      "Saved filter sets scoped by account and CRM entity type in this browser",
+      "Create, rename/update, reapply, delete and undo filter sets",
+      "Atomic restoration of view/pipeline and existing query conditions",
+      "Unavailable pipeline/stage/owner prevents applying an outdated preset",
+      "Clear previous list results immediately when request conditions change"
     ],
     "retained": [
       "Native CRM search and filters",
@@ -46,7 +51,7 @@
     ],
     "remaining": [
       "Reverse navigation from a contact to all related deals requires a server-filtered relationship endpoint",
-      "Saved personal filters and column preferences",
+      "Personal table-column preferences and optional cross-device filter sync",
       "Task workspace redesign",
       "Unified marketing and communication workspace",
       "Production, warehouse and finance screen-specific layout migration",
@@ -71,11 +76,15 @@
       "Stage 2: note draft persists across detail tabs",
       "Stage 2: task PATCH saves result and updates completed/open counts",
       "Stage 2: selecting a stage from Files reveals Overview and existing save button",
-      "Stage 2: 390px mobile tabs, hidden divider and no document horizontal overflow"
+      "Stage 2: 390px mobile tabs, hidden divider and no document horizontal overflow",
+      "Stage 3 unit: account and section isolation, invalid dates/enums, preserved corrupted storage, concurrent additions, explicit updates, undo and denied storage",
+      "Stage 3 browser: save and reload, restore owner plus list view, rename/delete/undo, repeat apply after changes, independent contacts/deals presets",
+      "Stage 3 browser: no stale contact rows under deal heading, mobile form at 390px without horizontal overflow"
     ],
     "limitations": [
       "Fixture validates UI requests and rendering, not backend financial or warehouse correctness",
-      "Live calling, message sending and external integrations were not invoked"
+      "Live calling, message sending and external integrations were not invoked",
+      "Saved filter sets are local to the employee and browser; dates are absolute and not a rolling period"
     ]
   }
 }

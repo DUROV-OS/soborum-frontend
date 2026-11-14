@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/auth/store'
+import { CrmSavedFilters } from './CrmSavedFilters'
+import type { CrmFilterSnapshot } from './savedFilters'
 import { useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -57,6 +60,8 @@ const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'com
 }))
 
 export function CrmPage() {
+  const accountId = useAuthStore(state => state.current?.id)
+  const [catalogReady, setCatalogReady] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const [catalog, setCatalog] = useState<Catalog>({ pipelines: [], stages: [], users: [], counts: {} })
@@ -119,15 +124,17 @@ export function CrmPage() {
   useEffect(() => {
     api
       .catalog()
-      .then(setCatalog)
+      .then(value => { setCatalog(value); setCatalogReady(true) })
       .catch((e) => setError(e.message))
   }, [revision])
   useEffect(() => {
     if (isBoard) return
     let current = true
+    // Never display rows from the previous entity/filter under the new heading.
+    setLoading(true)
+    setError('')
+    setResult({ total: 0, items: [] })
     const timer = setTimeout(() => {
-      setLoading(true)
-      setError('')
       api
         .list(kind, {
           query,
@@ -214,6 +221,25 @@ export function CrmPage() {
       })
     } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось открыть заявку') }
   }
+  const filterSnapshot: CrmFilterSnapshot = {
+    view, pipeline: kind === 'deal' ? (isBoard ? boardPipeline : pipeline) : '', stage, query, owner, priority, dates,
+    archive: archive as CrmFilterSnapshot['archive'], spam, temperature: temperature as CrmFilterSnapshot['temperature'],
+  }
+  const applySavedFilter = (saved: CrmFilterSnapshot): string | null => {
+    if (!catalogReady) return 'Дождитесь загрузки справочников.'
+    if (saved.pipeline && !catalog.pipelines.some(item => String(item.id) === saved.pipeline && !item.archived)) return 'Воронка этого набора больше недоступна. Текущие фильтры не изменены.'
+    const savedStage = saved.stage ? catalog.stages.find(item => String(item.id) === saved.stage && !item.archived) : null
+    if (saved.stage && (!savedStage || (saved.pipeline && String(savedStage.data.pipeline_id) !== saved.pipeline))) return 'Этап этого набора больше недоступен в выбранной воронке. Текущие фильтры не изменены.'
+    if (saved.owner && saved.owner !== '0' && !catalog.users.some(item => String(item.id) === saved.owner)) return 'Ответственный из набора больше недоступен. Текущие фильтры не изменены.'
+    const params = new URLSearchParams(location.search)
+    params.set('view', saved.view)
+    if (kind === 'deal') params.set('pipeline', saved.pipeline)
+    params.delete('entry'); params.delete('channel')
+    setStage(saved.stage); setArchive(saved.archive); setQuery(saved.query); setOwner(saved.owner); setPriority(saved.priority)
+    setDates({ ...saved.dates }); setSpam(saved.spam); setTemperature(saved.temperature); setOffset(0); setSelected(null); setFiltersOpen(true)
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true })
+    return null
+  }
   const filterCount = [owner, priority, stage, temperature, dates.from || dates.to || dates.unknown, archive !== 'active', spam !== 'normal'].filter(Boolean).length
   return (
     <div className="crm-workspace">
@@ -272,6 +298,7 @@ export function CrmPage() {
           setStage('')
         }}
       />
+      {accountId && ['deal', 'contact', 'company', 'task', 'inquiry'].includes(kind) && <CrmSavedFilters key={`${accountId}:${kind}`} accountId={accountId} kind={kind} current={filterSnapshot} ready={catalogReady} apply={applySavedFilter} />}
       {kind === 'deal' && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label="Вид сделок" className="flex gap-1 rounded-xl border border-border bg-surface p-1">
           <Button size="sm" variant={view === 'board' ? 'primary' : 'ghost'} aria-pressed={view === 'board'} onClick={() => setView('board')}><Columns3 size={16} />Канбан</Button>
