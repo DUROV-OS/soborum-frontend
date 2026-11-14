@@ -9,7 +9,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Ubuntu', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        sans: ['var(--font-ui)'],
       },
       colors: {
         bg: withOpacity('--bg'),

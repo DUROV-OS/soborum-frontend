@@ -12,6 +12,7 @@ import * as warehouseApi from '../api'
 import { useWarehouseStore } from '../store'
 import { Material, MOVEMENT_REASON_LABEL, StockMovement } from '../types'
 import { ContextPanel } from '@/costing/ContextPanel'
+import { formatQuantity } from '../queueState'
 
 export function MaterialDetailDrawer({ material, onClose,onReserves }: { material: Material | null; onClose: () => void; onReserves?:(create:boolean)=>void }) {
   const updateMaterial = useWarehouseStore((s) => s.updateMaterial)
@@ -23,6 +24,9 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<StockMovement[]>([])
+  const [historyError, setHistoryError] = useState('')
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyRevision, setHistoryRevision] = useState(0)
   const [writingOff, setWritingOff] = useState(false)
   const [writeOffQuantity, setWriteOffQuantity] = useState<number | ''>('')
   const [writeOffReason, setWriteOffReason] = useState('')
@@ -30,15 +34,23 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
   const [writeOffError, setWriteOffError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active = true
+    setHistory([])
+    setHistoryError('')
     if (material) {
       setThreshold(material.threshold)
-      warehouseApi.materialHistory(material.id).then(setHistory)
+      setHistoryLoading(true)
+      warehouseApi.materialHistory(material.id)
+        .then(rows => { if (active) setHistory(rows) })
+        .catch(err => { if (active) setHistoryError(err instanceof Error ? err.message : 'Не удалось загрузить историю') })
+        .finally(() => { if (active) setHistoryLoading(false) })
       setWritingOff(false)
       setWriteOffQuantity('')
       setWriteOffReason('')
       setWriteOffError(null)
     }
-  }, [material])
+    return () => { active = false }
+  }, [material, historyRevision])
 
   if (!material) return null
 
@@ -62,7 +74,7 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
       setWriteOffQuantity('')
       setWriteOffReason('')
       setWriteOffError(null)
-      warehouseApi.materialHistory(materialId).then(setHistory)
+      setHistoryRevision(value => value + 1)
     } else {
       setWriteOffError(result.reason ?? 'Не удалось списать материал')
     }
@@ -85,9 +97,9 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
       <div className="flex flex-col gap-5">
         <ContextPanel kind="product" id={material.id} />
         <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
-          <Row label="На складе" value={`${material.quantity_in_stock} ${material.unit}`} />
-          <Row label="В резерве" value={`${material.reserved_quantity??0} ${material.unit}`} />
-          <Row label="Свободно" value={`${material.available_quantity??material.quantity_in_stock} ${material.unit}`} />
+          <Row label="Учётный остаток" value={`${formatQuantity(material.quantity_in_stock)} ${material.unit}`} />
+          <Row label="В резерве" value={`${formatQuantity(material.reserved_quantity??0)} ${material.unit}`} />
+          <Row label="Свободно к выдаче" value={`${formatQuantity(Math.max(0, material.available_quantity??(material.quantity_in_stock-(material.reserved_quantity??0))))} ${material.unit}`} />
           <Row label="Суммарно запрошено" value={`${material.total_requested} ${material.unit}`} />
           <Row label="Склад" value={material.warehouse || '—'} />
           <Row label="Закупочная цена" value={material.purchase_price ? `${material.purchase_price} ₽` : '—'} />
@@ -173,7 +185,9 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
 
         <div>
           <div className="mb-2 text-[13px] font-medium text-ink">История движения</div>
-          <DataTable
+          {historyLoading && <p role="status" className="text-sm text-muted">Загрузка истории движений…</p>}
+          {historyError && <div role="alert" className="space-y-2 text-sm text-danger"><p>{historyError}</p><Button size="sm" variant="secondary" onClick={() => setHistoryRevision(value => value + 1)}>Повторить загрузку истории</Button></div>}
+          {!historyLoading && !historyError && <DataTable
             columns={[
               { header: 'Дата', accessor: (m) => new Date(m.created_at).toLocaleString('ru-RU') },
               {
@@ -186,15 +200,16 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
                 accessor: (m) => (
                   <span className={m.delta >= 0 ? 'text-success' : 'text-danger'}>
                     {m.delta >= 0 ? '+' : ''}
-                    {m.delta}
+                    {formatQuantity(m.delta)}
                   </span>
                 ),
               },
+              { header: 'Остаток после', align: 'right', accessor: (m) => m.balance_after == null ? '—' : `${formatQuantity(m.balance_after)} ${material.unit}` },
             ]}
             rows={history}
             keyOf={(m) => String(m.id)}
             emptyLabel="Движений пока нет"
-          />
+          />}
         </div>
       </div>
     </Drawer>

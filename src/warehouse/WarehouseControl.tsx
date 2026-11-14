@@ -1,7 +1,7 @@
 import { ProofInput } from './ProofInput'
 import { LegacyIssueReconciliation } from './LegacyIssueReconciliation'
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, ClipboardCheck, PackageCheck, RotateCcw } from 'lucide-react'
+import { ClipboardCheck } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Modal } from '@/shared/ui/Modal'
@@ -28,21 +28,6 @@ export function WarehouseHandoff({productionId}:{productionId:number}){
       {data.can_sign&&canEdit&&!data.approved&&<><ProofInput value={file} onChange={setFile} disabled={busy}/><Field label="Страница и таблица норматива"><Input value={locator} disabled={busy} onChange={e=>setLocator(e.target.value)} placeholder="Стр. 3–5, ведомость материалов"/></Field><label className="flex gap-2 text-sm"><input type="checkbox" checked={ack} disabled={busy} onChange={e=>setAck(e.target.checked)}/>Каждая строка и количество сверены с приложенным документом</label><Button onClick={()=>void sign()} disabled={busy||!ack||!file||locator.trim().length<3}>{busy?'Согласование…':'Подтвердить и передать на склад'}</Button></>}
     </div>}
   </section>
-}
-
-export function WarehouseQueue({onIssue,onRequests,onCount}:{onIssue:(id:number)=>void;onRequests:()=>void;onCount:()=>void}){
-  const [data,setData]=useState<a.Queue|null>(null),[error,setError]=useState(''),[query,setQuery]=useState('')
-  async function load(){try{setData(await a.getQueue());setError('')}catch(e){setError(message(e))}}
-  const operationsVersion=useWarehouseStore(s=>s.operationsVersion)
-  useEffect(()=>{void load()},[operationsVersion])
-  const houses=data?.houses.filter(h=>`${h.house_name} ${h.client_name||''}`.toLowerCase().includes(query.toLowerCase()))||[]
-  return <div className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Выдача в производство</h2><p className="mt-1 text-sm text-muted">Согласование → частичная выдача → документированный возврат</p></div><Button variant="secondary" size="sm" onClick={()=>void load()}>Обновить очередь</Button></div>
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">{[{title:'Ждут согласования',value:data?.houses.filter(h=>!h.control.approved&&h.remaining_positions>0).length,icon:ClipboardCheck},{title:'Можно комплектовать',value:data?.houses.filter(h=>h.control.approved&&h.available_positions>0).length,icon:PackageCheck},{title:'Есть нехватка',value:data?.houses.filter(h=>h.shortage_positions>0).length,icon:RotateCcw}].map(c=><div key={c.title} className="min-w-0 rounded-xl border border-border bg-surface p-3 sm:p-4"><c.icon size={18} className="text-brand-dark"/><p className="mt-3 text-2xl font-semibold">{c.value??'—'}</p><p className="mt-1 text-xs text-muted">{c.title}</p></div>)}</div>
-    {error&&<p role="alert" className="text-sm text-danger">{error}</p>}{data&&data.stock_anomalies.length>0&&<div role="alert" className="rounded-xl border border-warning/40 bg-warning-bg p-4 text-sm"><p className="font-medium">Требуется сверка остатков: {data.stock_anomalies.length} поз.</p>{data.stock_anomalies.map(m=><p key={m.material_id}>{m.title}: остаток {m.stock} {m.unit}, доступно с учётом резервов {m.available} {m.unit}</p>)}<Button size="sm" variant="secondary" className="mt-3" onClick={onCount}>Открыть пересчёт</Button></div>}
-    <Input aria-label="Поиск дома в очереди" placeholder="Найти дом или клиента" value={query} onChange={e=>setQuery(e.target.value)}/>
-    {!data&&!error&&<p className="text-sm text-muted">Загружаем очередь…</p>}{data&&houses.length===0&&<p className="text-sm text-muted">Подходящих домов нет.</p>}
-    <div className="grid gap-3 lg:grid-cols-2">{houses.map(h=><article key={h.production_id} className="rounded-xl border border-border bg-surface p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{h.house_name}</h3><p className="mt-1 text-xs text-muted">{h.client_name||`Производство №${h.production_id}`}</p></div>{h.control.approved&&<CheckCircle2 size={18} className="shrink-0 text-success"/>}</div><p className="mt-3 text-sm">{h.remaining_positions?`Осталось выдать: ${h.remaining_positions} поз. · Доступно сейчас: ${h.available_positions} поз.`:'По текущему нормативу выдача завершена'}</p><p className="mt-2 text-xs text-muted">{h.control.approved?`Норматив подтвердил ${h.control.responsible?.name}`:h.control.reason}</p>{h.shortage_positions>0&&<p className="mt-2 text-xs text-warning">Нехватка: {h.shortage_positions} поз. Доступные материалы можно выдать отдельно.</p>}<div className="mt-4 flex flex-wrap gap-2">{data?.can_edit&&<Button size="sm" disabled={!h.control.approved||h.available_positions===0} onClick={()=>onIssue(h.production_id)}>Комплектовать</Button>}{h.requested_positions>0&&<Button size="sm" variant="secondary" onClick={onRequests}>Заявки: {h.requested_positions} поз.</Button>}{h.control.document&&<Button size="sm" variant="ghost" onClick={()=>void a.downloadProof(h.control.document!).catch(e=>setError(message(e)))}>Документ</Button>}</div></article>)}</div>
-  </div>
 }
 
 export function WarehouseReturns(){
