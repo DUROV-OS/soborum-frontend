@@ -618,6 +618,7 @@ function OrderEditor({
       width="max-w-3xl"
       footer={
         <>
+          {row && !reason.trim() && <p className="w-full self-center text-xs text-muted sm:mr-auto sm:w-auto">Для сохранения заполните причину изменения.</p>}
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>

@@ -40,7 +40,7 @@ export function ReceiptEditor({ id, onClose, onSaved }: { id: number; onClose: (
       await onSaved()
     } catch (e) { setError((e as Error).message) } finally { setBusy(false) }
   }
-  return <Modal open title="Изменить приёмку" width="max-w-3xl" onClose={onClose} footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button onClick={save} disabled={busy || !row || reason.trim().length < 3 || (numericChange && (!evidence.file_id || !evidence.locator.trim()))}>Сохранить изменения</Button></>}>
+  return <Modal open title="Изменить приёмку" width="max-w-3xl" onClose={onClose} footer={<>{(reason.trim().length < 3 || (numericChange && (!evidence.file_id || !evidence.locator.trim()))) && <p className="w-full self-center text-xs text-muted sm:mr-auto sm:w-auto">{reason.trim().length < 3 ? "Укажите причину изменения." : "Выберите документ и строку, подтверждающие корректировку."}</p>}<Button variant="secondary" onClick={onClose} disabled={busy}>Отмена</Button><Button onClick={save} disabled={busy || !row || reason.trim().length < 3 || (numericChange && (!evidence.file_id || !evidence.locator.trim()))}>Сохранить изменения</Button></>}>
     <div className="space-y-4">
       {error && <p role="alert" className="text-danger">{error}</p>}
       {!row ? <p className="text-muted">Загрузка приёмки…</p> : <>
