@@ -1,4 +1,6 @@
-import { WarehouseQueue, WarehouseReturns } from '../WarehouseControl'
+import { WarehouseReturns } from '../WarehouseControl'
+import { WarehouseQueue } from '../WarehouseQueue'
+import { getMaterial } from '../api'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -284,7 +286,11 @@ export function WarehousePage() {
       {tab === 'requests' && <RequestApprovalQueue />}
       {tab === 'history' && <JournalPanel />}
       {tab === 'documents' && <StockDocumentsPanel />}
-      {tab === 'queue' && <WarehouseQueue onIssue={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} onRequests={()=>setTab('requests')} onCount={()=>setTab('documents')} />}
+      {tab === 'queue' && <WarehouseQueue onIssue={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} onRequests={()=>setTab('requests')} onCount={()=>setParams({tab:'documents',kind:'inventory'})} onMaterial={async id=>{
+        const material = await getMaterial(id)
+        useWarehouseStore.setState(state => ({ materials: state.materials.map(row => row.id === id ? material : row) }))
+        setSelected(material)
+      }} />}
       {tab === 'returns' && <WarehouseReturns />}
       {tab === 'reservations' && <ReservationsPanel materialId={Number(params.get('material'))||undefined} createMaterialId={Number(params.get('reserve'))||undefined} onCreateHandled={()=>{const query=new URLSearchParams(params);query.delete('reserve');setParams(query,{replace:true})}} onIssueHouse={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} />}
 

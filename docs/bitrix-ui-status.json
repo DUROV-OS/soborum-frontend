@@ -1,7 +1,7 @@
 {
   "date": "2026-11-14",
   "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
-  "scope": "Implementation stages 1–3: shared shell, native CRM, organized cards and personal saved filters. Not full Bitrix24 feature parity.",
+  "scope": "Implementation stages 1–4: shared shell, native CRM, organized cards, personal saved filters, consistent typography and warehouse queue reconciliation. Not full Bitrix24 feature parity.",
   "visual": {
     "implemented": [
       "Original vibecode background and locally stored SVG assets",
@@ -13,7 +13,8 @@
       "Client drawer with 42% data column and timeline",
       "Mobile data/history tabs and compact secondary actions",
       "Desktop and mobile card tabs: overview, links/estimates, files, tasks",
-      "Resizable data/history divider with per-account browser preference"
+      "Resizable data/history divider with per-account browser preference",
+      "Unified system typography: 14px body, 15px main navigation, 600 buttons/headings, semantic 700 bold, italic and bold italic"
     ],
     "adaptations": [
       "Durov House identity retained",
@@ -37,7 +38,10 @@
       "Create, rename/update, reapply, delete and undo filter sets",
       "Atomic restoration of view/pipeline and existing query conditions",
       "Unavailable pipeline/stage/owner prevents applying an outdated preset",
-      "Clear previous list results immediately when request conditions change"
+      "Clear previous list results immediately when request conditions change",
+      "Warehouse queue distinguishes missing norms, pending approval, issue in progress and evidenced completion",
+      "Searchable and paginated stock reconciliation with separate stock/reserved/issuable quantities and direct material history",
+      "Inventory shortcut selects inventory documents; failed history loading is explicit and retryable"
     ],
     "retained": [
       "Native CRM search and filters",
@@ -79,7 +83,10 @@
       "Stage 2: 390px mobile tabs, hidden divider and no document horizontal overflow",
       "Stage 3 unit: account and section isolation, invalid dates/enums, preserved corrupted storage, concurrent additions, explicit updates, undo and denied storage",
       "Stage 3 browser: save and reload, restore owner plus list view, rename/delete/undo, repeat apply after changes, independent contacts/deals presets",
-      "Stage 3 browser: no stale contact rows under deal heading, mobile form at 390px without horizontal overflow"
+      "Stage 3 browser: no stale contact rows under deal heading, mobile form at 390px without horizontal overflow",
+      "Stage 4: warehouse state and stock quantity unit tests; TypeScript/production build",
+      "Stage 4 browser: five queue states, anomaly search/filter/pagination, material history and inventory navigation",
+      "Stage 4: typography computed weights and styles; 1440px/390px warehouse layout, 16px mobile inputs; CRM card smoke test"
     ],
     "limitations": [
       "Fixture validates UI requests and rendering, not backend financial or warehouse correctness",

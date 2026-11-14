@@ -5,7 +5,7 @@
 .workspace-sidebar.mobile-safe-sidebar { background: rgb(53 52 147 / .32); border-right: 1px solid #ffffff36; backdrop-filter: blur(24px); }
 .workspace-sidebar nav { padding: 16px 12px; }
 .workspace-sidebar nav > ul { margin: 0; }
-.workspace-sidebar nav > ul > li > a, .workspace-sidebar nav > ul > li > button { min-height: 40px; padding: 9px 12px; border-radius: 8px; font-size: 14px; }
+.workspace-sidebar nav > ul > li > a, .workspace-sidebar nav > ul > li > button { min-height: 40px; padding: 9px 12px; border-radius: 8px; font-size: 15px; font-weight: 400; line-height: 18px; }
 .workspace-sidebar .bg-white { background: #ffffff30; color: white; }
 .workspace-sidebar .bg-sidebar-accent { background: #ffffff20; }
 .workspace-sidebar a:hover, .workspace-sidebar nav button:hover { background: #ffffff20; }
