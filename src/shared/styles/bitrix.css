@@ -80,3 +80,8 @@
   .crm-card-divider span { width: 3px; height: 36px; border-radius: 3px; background: #b5bfce; }
   .crm-card-divider:hover, .crm-card-divider:focus-visible { background: #c4e6ff; }
 }
+
+.crm-saved-filters { margin-top: 12px; padding: 10px 12px; border: 1px solid #ffffff26; border-radius: 10px; color: white; background: #ffffff12; }
+.crm-saved-filters > div > .ui-button-secondary { color: white; border-color: #ffffff40; background: #ffffff14; }
+.crm-saved-filters select { color: #333; }
+@media (max-width: 639px) { .crm-saved-filters > div > select { flex: 1 1 100%; } }
