@@ -95,6 +95,7 @@ export type SectionId =
   | 'feedback_admin'
   | 'feedback_my'
   | 'notifications'
+  | 'collaboration'
 
 export interface SectionMeta {
   id: SectionId
@@ -117,6 +118,8 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'purchasing', label: 'Закупки и приёмки', path: '/purchasing', icon: Truck, notAssignable: true },
   { id: 'today', label: 'Пульс', path: '/today', icon: Activity, notAssignable: true },
   { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
+  // Navigation hub only; each linked tool retains its existing permission.
+  { id: 'collaboration', label: 'Совместная работа', path: '/collaboration', icon: Users, notAssignable: true },
   { id: 'cycle', label: 'Цикл клиента', path: '/cycles', icon: Repeat },
   { id: 'clients', label: 'Клиенты', path: '/clients', icon: Users },
   { id: 'partners', label: 'База партнёров', path: '/partners', icon: Contact, notAssignable: true },
@@ -131,7 +134,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'ai_proposals', label: 'Предложения ИИ', path: '/ai-proposals', icon: Bot, adminOnly: true },
   { id: 'agents', label: 'Агенты', path: '/agents', icon: Network, notAssignable: true },
   { id: 'chats', label: 'MAX', path: '/chats', icon: MessagesSquare, notAssignable: true },
-  { id: 'ai', label: 'Марина', path: '/ai', icon: Sparkles },
+  { id: 'ai', label: 'Durov GPT', path: '/ai', icon: Sparkles },
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
   { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },

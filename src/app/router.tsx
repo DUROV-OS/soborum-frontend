@@ -48,6 +48,7 @@ const AgentProposalsPage = lazy(() => import('@/agents/pages/AgentProposalsPage'
 const AgentsPage = lazy(() => import('@/agents/pages/AgentsPage').then(module => ({ default: module.AgentsPage })))
 const AllChatsPage = lazy(() => import('@/max/pages/AllChatsPage').then(module => ({ default: module.AllChatsPage })))
 const WorkPage = lazy(() => import('@/work/pages/WorkPage').then(module => ({ default: module.WorkPage })))
+const CollaborationPage = lazy(() => import('@/collaboration/CollaborationPage').then(module => ({ default: module.CollaborationPage })))
 const AccountingPage = lazy(() => import('@/accounting/pages/AccountingPage').then(module => ({ default: module.AccountingPage })))
 const SuppliersPage = lazy(() => import('@/suppliers/pages/SuppliersPage').then(module => ({ default: module.SuppliersPage })))
 const TodayPage = lazy(() => import('@/today/pages/TodayPage').then(module => ({ default: module.TodayPage })))
@@ -85,6 +86,7 @@ export function AppRouter() {
         }
       >
         <Route index element={<RootRedirect />} />
+        <Route path="/collaboration" element={<CollaborationPage />} />
         <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
         <Route path="/cost-approvals" element={<ApprovalsPage />} />
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />
