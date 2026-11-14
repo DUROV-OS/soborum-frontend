@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Plus, PackageCheck, Archive, Pencil } from 'lucide-react'
@@ -7,12 +7,13 @@ import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
-import { DataTable } from '@/shared/ui/DataTable'
+import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 import { AutomaticReview } from './AutomaticReview'
+import { JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
 
 type Item = {
   material: string
@@ -45,6 +46,8 @@ type Order = {
   source_state: string | null
   comment: string | null
   expected_at: string | null
+  created_at: string
+  currency: string
 }
 type Receipt = {
   id: number
@@ -56,6 +59,12 @@ type Receipt = {
   status: string
   note: string
   lines: { title: string; unit: string; quantity: number; unit_price: number }[]
+}
+type LinkedDocuments = {
+  receipts: Receipt[]
+  returns: { id: number; number: string; receipt_id: number; occurred_at: string; amount: number; currency: string; cancelled: boolean }[]
+  payments: { id: number; number: string | null; created_at: string; amount: number; currency: string; status: string; refund: boolean }[]
+  opening_paid: number
 }
 type Material = { id: number; title: string; warehouse: string; unit: string; price: number }
 type Catalog = {
@@ -88,10 +97,20 @@ export function PurchasingPage() {
   const [tab, setTab] = useQueryChoice('tab', ['orders', 'receipts', 'returns'], 'orders', (q) =>
     q.has('return') ? 'returns' : 'orders',
   )
+  const [filters, setFilters] = useState(emptyFilters)
+  const [cardTab, setCardTab] = useState('positions')
+  const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocuments | null>(null)
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  const receiptGeneration = useRef(0)
+  const columnNames = ['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Не оплачено', 'Приёмка', 'Ожидаемая поставка', 'Комментарий']
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('durov.purchasing.columns') || 'null'); if (Array.isArray(saved)) return saved.filter(v => columnNames.includes(v)) } catch { /* Use defaults when browser storage is unavailable. */ }
+    return columnNames.filter(v => v !== 'Комментарий')
+  })
   const [archive, setArchive] = useState('active'),
     [query, setQuery] = useState(''),
     [offset, setOffset] = useState(0)
-  const [orders, setOrders] = useState<{ total: number; items: Order[] }>({ total: 0, items: [] }),
+  const [orders, setOrders] = useState<{ total: number; items: Order[]; summary?: JournalSummary[] }>({ total: 0, items: [] }),
     [receipts, setReceipts] = useState<{ total: number; items: Receipt[] }>({ total: 0, items: [] })
   const [selected, setSelected] = useState<Order | null>(null),
     [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
@@ -125,13 +144,16 @@ export function PurchasingPage() {
     }
     let current = true
     setLoading(true)
+    setError('')
     const timer = setTimeout(() => {
+      const params = new URLSearchParams({ query, offset: String(offset) })
+      Object.entries(filters).forEach(([key, value]) => { if (value && (tab === 'orders' || !['payment', 'delivery', 'sort'].includes(key))) params.set(key, value) })
       const request =
         tab === 'orders'
           ? call<typeof orders>(
-              `/orders?archive=${archive}&query=${encodeURIComponent(query)}&offset=${offset}`,
+              `/orders?archive=${archive}&${params}`,
             )
-          : call<typeof receipts>(`/receipts?offset=${offset}`)
+          : call<typeof receipts>(`/receipts?${params}`)
       request
         .then((r) => {
           if (current) {
@@ -150,28 +172,39 @@ export function PurchasingPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [tab, archive, query, offset, revision])
+  }, [tab, archive, query, offset, revision, filters])
+  const loadReceipts = async (id: number) => {
+    const generation = ++receiptGeneration.current
+    setOrderReceipts([]); setLinkedDocuments(null); setReceiptLoading(true)
+    try {
+      const result = await call<LinkedDocuments>(`/orders/${id}/documents`)
+      if (generation !== receiptGeneration.current) return
+      setOrderReceipts(result.receipts); setLinkedDocuments(result)
+    } catch (e) { if (generation === receiptGeneration.current) setError((e as Error).message) }
+    finally { if (generation === receiptGeneration.current) setReceiptLoading(false) }
+  }
   const reload = async (id?: number) => {
-    setRevision((v) => v + 1)
-    if (id) {
-      const row = await call<Order>(`/orders/${id}`)
-      setSelected(row)
-      setOrderReceipts((await call<{ items: Receipt[] }>(`/receipts?order_id=${id}`)).items)
-    }
+    setRevision(v => v + 1)
+    if (id) { setSelected(await call<Order>(`/orders/${id}`)); await loadReceipts(id) }
   }
-  const open = (row: Order) => {
-    setSelected(row)
-    setOrderReceipts([])
-    call<{ items: Receipt[] }>(`/receipts?order_id=${row.id}`)
-      .then((r) => setOrderReceipts(r.items))
-      .catch((e) => setError(e.message))
-  }
+  const open = (row: Order) => { setSelected(row); setCardTab('positions'); void loadReceipts(row.id) }
+  const orderColumns: DataTableColumn<Order>[] = [
+    { header: 'Заказ', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
+    { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
+    { header: 'Поставщик', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
+    { header: 'Сумма', accessor: r => journalMoney(r.net_total ?? r.total_cost, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Не оплачено', accessor: r => journalMoney(r.unpaid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Приёмка', accessor: r => <span className={`inline-block rounded-full px-2 py-1 text-xs ${r.status === 'received' ? 'bg-success-bg text-success' : 'bg-surface-muted text-muted'}`}>{status[r.status] || r.status}</span>, className: 'min-w-[160px]' },
+    { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
+    { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
+  ]
   const total = tab === 'orders' ? orders.total : receipts.total
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-medium text-ink">Закупки и приёмки</h1>
+          <h1 className="text-[22px] font-medium text-ink">Закупки</h1>
           <p className="mt-1 text-sm text-muted">Заказы поставщикам, частичные поставки, остатки и оплата.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -209,31 +242,19 @@ export function PurchasingPage() {
           { key: 'returns', label: 'Возвраты поставщикам' },
         ]}
       />
-      {tab === 'orders' && (
-        <div className="my-4 flex flex-wrap gap-3">
-          <Input
-            aria-label="Поиск закупок"
-            placeholder="Поставщик, номер, материал…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setOffset(0)
-            }}
-          />
-          <Select
-            aria-label="Архив заказов"
-            value={archive}
-            onChange={(e) => {
-              setArchive(e.target.value)
-              setOffset(0)
-            }}
-          >
-            <option value="active">Действующие</option>
-            <option value="archived">Архивные</option>
-            <option value="all">Все</option>
-          </Select>
-        </div>
-      )}
+      {tab !== 'returns' && <JournalControls query={query} onQuery={v => { setQuery(v); setOffset(0) }} filters={filters}
+        onFilters={v => { setFilters(v); setOffset(0) }} archive={archive} onArchive={v => { setArchive(v); setOffset(0) }} suppliers={catalog.suppliers} receipts={tab === 'receipts'} />}
+      {tab === 'orders' && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="text-muted">Найдено заказов: {loading ? '…' : orders.total}</span>
+        <details className="relative"><summary className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-2">Колонки</summary>
+          <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-border bg-surface p-3 shadow-xl">
+            {columnNames.map(name => <label className="flex gap-2 py-2" key={name}><input type="checkbox" checked={visibleColumns.includes(name)} onChange={e => {
+              const next = e.target.checked ? [...visibleColumns, name] : visibleColumns.filter(v => v !== name)
+              setVisibleColumns(next); try { localStorage.setItem('durov.purchasing.columns', JSON.stringify(next)) } catch { /* Selection still applies to this session. */ }
+            }} />{name}</label>)}
+          </div>
+        </details>
+      </div>}
       {tab === 'returns' ? (
         <PurchaseReturnsPanel
           catalog={catalog}
@@ -247,14 +268,8 @@ export function PurchasingPage() {
           keyOf={(r) => String(r.id)}
           onRowClick={open}
           loading={loading}
-          columns={[
-            { header: 'Заказ', accessor: (r) => '№ ' + r.number },
-            { header: 'Поставщик', accessor: (r) => r.supplier_name },
-            { header: 'Сумма', accessor: (r) => money(r.total_cost) },
-            { header: 'Приёмка', accessor: (r) => status[r.status] || r.status },
-            { header: 'Оплачено', accessor: (r) => money(r.paid) },
-            { header: 'Не оплачено', accessor: (r) => money(r.unpaid) },
-          ]}
+          columns={orderColumns.filter(c => c.header === 'Заказ' || visibleColumns.includes(c.header))}
+          emptyLabel="Заказы не найдены. Измените фильтр или создайте заказ поставщику."
         />
       ) : (
         <DataTable
@@ -277,6 +292,7 @@ export function PurchasingPage() {
           ]}
         />
       )}
+      {tab === 'orders' && <JournalTotals rows={orders.summary || []} loading={loading} />}
       {tab !== 'returns' && (
         <div className="mt-4 flex justify-between gap-3 text-sm">
           <span className="text-muted">
@@ -301,8 +317,9 @@ export function PurchasingPage() {
         </div>
       )}
       <Drawer
+        width="max-w-5xl"
         open={!!selected}
-        onClose={() => setSelected(null)}
+        onClose={() => { setSelected(null); receiptGeneration.current++ }}
         title={selected ? 'Заказ № ' + selected.number : ''}
         subtitle={selected?.supplier_name}
       >
@@ -365,6 +382,8 @@ export function PurchasingPage() {
                 <p>Плановая поставка: {new Date(selected.expected_at).toLocaleDateString('ru-RU')}</p>
               )}
             </div>
+            <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'control', label: 'Проверка закупки' }]} />
+            {cardTab === 'positions' && <>
             <DataTable
               rows={selected.items}
               keyOf={(r) => String(selected.items.indexOf(r))}
@@ -372,28 +391,32 @@ export function PurchasingPage() {
                 { header: 'Материал', accessor: (r) => r.material },
                 { header: 'Заказано', accessor: (r) => qty(r.quantity) + ' ' + r.unit },
                 { header: 'Получено', accessor: (r) => qty(r.received_quantity || 0) },
-                { header: 'Цена', accessor: (r) => money(r.unit_price) },
+                { header: 'Цена', accessor: (r) => journalMoney(r.unit_price, selected.currency) },
+                { header: 'Осталось получить', accessor: r => qty(Math.max(0, r.quantity - (r.received_quantity || 0))) + ' ' + r.unit },
+                { header: 'Сумма', accessor: r => journalMoney(r.quantity * r.unit_price, selected.currency), align: 'right' },
               ]}
             />
-            <AutomaticReview key={selected.id} orderId={selected.id} orderVersion={selected.version} canEdit={canEdit} />
-            {selected.comment && <p className="whitespace-pre-wrap">{selected.comment}</p>}
-            <h3 className="font-medium">Приёмки по заказу</h3>
-            {orderReceipts.length ? (
-              orderReceipts.map((r) => (
-                <button
-                  className="block text-accent underline"
-                  key={r.id}
-                  onClick={() => {
-                    setSelected(null)
-                    setSelectedReceipt(r)
-                  }}
-                >
-                  № {r.number} · {new Date(r.occurred_at).toLocaleDateString('ru-RU')}
+            {selected.comment && <p className="mt-4 whitespace-pre-wrap">{selected.comment}</p>}
+            </>}
+            {cardTab === 'control' && <AutomaticReview key={selected.id} orderId={selected.id} orderVersion={selected.version} canEdit={canEdit} />}
+            {cardTab === 'documents' && <div className="space-y-3">
+              <h3 className="font-medium">Приёмки по заказу</h3>
+              {receiptLoading ? <p className="text-muted">Загрузка документов…</p> : orderReceipts.length ? orderReceipts.map(r => (
+                <button className="flex w-full flex-wrap justify-between gap-2 rounded-lg border border-border p-4 text-left hover:bg-surface-muted" key={r.id} onClick={() => { setSelected(null); setSelectedReceipt(r) }}>
+                  <span className="font-medium text-accent">Приёмка № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{journalMoney(r.lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0), selected.currency)}</span>
                 </button>
-              ))
-            ) : (
-              <p className="text-muted">Связанных документов пока нет.</p>
-            )}
+              )) : <p className="text-muted">По этому заказу ещё нет приёмок.</p>}
+              {!!linkedDocuments?.returns.length && <>
+                <h3 className="pt-3 font-medium">Возвраты поставщику</h3>
+                {linkedDocuments.returns.map(r => <Link key={r.id} to={`/purchasing?tab=returns&return=${r.id}`} onClick={() => setSelected(null)} className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted"><span className="text-accent">Возврат № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{r.cancelled ? 'Отменён' : journalMoney(r.amount, r.currency)}</span></Link>)}
+              </>}
+              {!!linkedDocuments?.payments.length && <>
+                <h3 className="pt-3 font-medium">Платежи и заявки</h3>
+                {linkedDocuments.payments.map(m => <div className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4" key={m.id}><span>{m.refund ? 'Возврат денег' : 'Платёж'} № {m.number || m.id}</span><span>{journalDate(m.created_at)}</span><span>{({draft:'На согласовании', approved:'Согласован', posted:'Проведён', cancelled:'Отменён'} as Record<string,string>)[m.status] || m.status}</span><span className="font-medium">{journalMoney(m.amount, m.currency)}</span></div>)}
+              </>}
+              {!!linkedDocuments?.opening_paid && <p className="rounded-lg bg-surface-muted p-3 text-muted">Перенесённая оплата: {journalMoney(linkedDocuments.opening_paid, selected.currency)}. Это начальный остаток, а не отдельный платёжный документ нашей системы.</p>}
+
+            </div>}
             <Link className="text-accent underline" to="/accounting">
               Открыть бухгалтерию
             </Link>
