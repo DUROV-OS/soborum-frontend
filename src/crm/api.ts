@@ -1,7 +1,9 @@
 import { apiRequest } from '@/shared/lib/httpClient'
+import type { Acquisition } from '@/shared/ui/AcquisitionBadge'
 export type Kind = 'deal' | 'contact' | 'company' | 'task' | 'pipeline' | 'stage' | 'inquiry'
 export type SpamFilter = 'normal' | 'spam' | 'all'
 export type Entry = {
+  acquisition?: Acquisition | null
   priority?: 'low' | 'medium' | 'high' | null
   source_created_at?: string | null
   source_created_at_kind?: 'amocrm' | 'website' | 'local' | 'unknown'

@@ -1,0 +1,69 @@
+/* Reference: the user's Bitrix24 Air / vibecode portal, captured 2026-11-14.
+   Asset origins and checksums: public/bitrix-ui/provenance.json. */
+.bitrix-icon { display: inline-block; flex-shrink: 0; background: currentColor; mask: var(--icon-url) center / contain no-repeat; -webkit-mask: var(--icon-url) center / contain no-repeat; }
+.workspace-shell { background: #353493 url('/bitrix-ui/vibecode.jpg') 0 0 / cover no-repeat; }
+.workspace-sidebar.mobile-safe-sidebar { background: rgb(53 52 147 / .32); border-right: 1px solid #ffffff36; backdrop-filter: blur(24px); }
+.workspace-sidebar nav { padding: 16px 12px; }
+.workspace-sidebar nav > ul { margin: 0; }
+.workspace-sidebar nav > ul > li > a, .workspace-sidebar nav > ul > li > button { min-height: 40px; padding: 9px 12px; border-radius: 8px; font-size: 14px; }
+.workspace-sidebar .bg-white { background: #ffffff30; color: white; }
+.workspace-sidebar .bg-sidebar-accent { background: #ffffff20; }
+.workspace-sidebar a:hover, .workspace-sidebar nav button:hover { background: #ffffff20; }
+.workspace-topbar.mobile-safe-topbar { height: 58px; border-color: #ffffff20; background: #ffffff0d; color: white; backdrop-filter: blur(24px); }
+.workspace-topbar > div:first-child > span { color: #ffffffe0; }
+.workspace-topbar button { border-color: #ffffff40; }
+.workspace-topbar > div:last-child { padding: 3px 6px; border-radius: 10px; background: #fff; color: rgb(var(--ink)); }
+.workspace-content { background: transparent; padding: 20px 24px; }
+.workspace-page { min-height: 100%; border-radius: 16px; background: #f7f9fcf5; padding: 24px; }
+.workspace-workflow { color: #ffffffe0; }
+.workspace-workflow a, .workspace-workflow .text-ink { color: white; }
+.workspace-workflow select { border-color: #ffffff30; background: #ffffff18; color: white; }
+.workspace-workflow option { color: #333; background: white; }
+.ui-button.ui-button { border-radius: 10px; font-weight: 600; }
+.ui-button.ui-button-primary { background: #1bce7b; color: #073b25; }
+.ui-button.ui-button-primary:hover { background: #10b769; }
+.ui-button.ui-button-primary:disabled { background: #1bce7b66; color: #284c3c; }
+.workspace-drawer { border-radius: 16px 0 0 16px; overflow: hidden; }
+.workspace-drawer > div:first-child { background: #f7f9fc; }
+.crm-workspace { min-width: 0; }
+.crm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+.crm-toolbar h1 { font-size: 26px; font-weight: 600; }
+.crm-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.crm-create { order: -1; }
+.crm-search { display: flex; align-items: center; gap: 10px; flex: 1 1 260px; min-width: 0; }
+.crm-search-input { position: relative; flex: 1; min-width: 0; }
+.crm-search-input > .bitrix-icon { position: absolute; left: 12px; top: 10px; color: rgb(var(--muted)); }
+.crm-filters { border: 1px solid rgb(var(--border)); border-radius: 12px; background: white; padding: 14px; }
+.crm-stage-column { background: #ffffff38; border: 1px solid #dce3ee; }
+.crm-stage-heading { border-top: 0; padding-top: 0; }
+.crm-stage-title { background: var(--stage-color, #31ace8); border-radius: 9px 18px 18px 0; padding: 10px 12px; margin: 0 -12px; }
+.crm-stage-title h2 { color: #142638; }
+.crm-stage-heading > button { width: 100%; min-height: 32px; justify-content: center; background: #fff9; border-radius: 7px; }
+.crm-record-stages { display: flex; gap: 3px; padding: 12px 20px; overflow-x: auto; border-bottom: 1px solid rgb(var(--border)); flex-shrink: 0; }
+.crm-record-stages button { flex: 1 0 120px; border-radius: 6px 16px 16px 6px; min-height: 36px; padding: 8px 12px; font-size: 12px; background: #edf2f8; color: #475569; text-align: left; }
+.crm-record-stages button[aria-pressed="true"] { background: #c4e6ff; color: #0154c8; box-shadow: inset 0 0 0 2px #0075ff; }
+.crm-record-stages button:disabled { cursor: default; }
+@media (min-width: 1024px) { .workspace-sidebar.mobile-safe-sidebar { width: 240px; } }
+@media (max-width: 1023px) { .workspace-sidebar.mobile-safe-sidebar { background: #353493f5; } .workspace-content { padding-top: 16px; } .workspace-page { padding: 16px; border-radius: 12px; } }
+@media (max-width: 639px) { .workspace-content { padding-left: 10px; padding-right: 10px; } .workspace-page { padding: 12px; } .workspace-drawer { border-radius: 0; } .crm-toolbar { gap: 10px; } .crm-toolbar h1 { font-size: 22px; } .crm-search { flex-basis: 100%; } .crm-toolbar-actions { width: 100%; } .crm-toolbar-actions .ui-button.ui-button { min-height: 40px; } }
+
+.workspace-page.workspace-page--crm { padding: 0; background: transparent; }
+.workspace-page--crm .crm-toolbar h1 { color: white; }
+.workspace-page--crm .crm-toolbar .ui-button-secondary,
+.workspace-page--crm .crm-workspace > div > .ui-button-secondary,
+.workspace-page--crm [aria-label="Канбан сделок"] > div:first-child > .ui-button-secondary { background: #ffffff20; border-color: #ffffff38; color: white; }
+.workspace-page--crm .crm-workspace > [role="tablist"] { border-color: #ffffff30; }
+.workspace-page--crm .crm-workspace > [role="tablist"] > button { color: #ffffffd9; }
+.workspace-page--crm .crm-workspace > [role="tablist"] > button[aria-selected="true"] { background: #ffffff28; color: white; border-radius: 8px 8px 0 0; }
+.workspace-page--crm [aria-label="Канбан сделок"] > div:first-child > p { color: #ffffffe0; }
+.workspace-page--crm .crm-stage-column { background: #ffffff12; border-color: #ffffff22; }
+.workspace-page--crm .crm-stage-heading [data-stage-budget] { text-align: center; }
+.workspace-page--crm .crm-stage-heading [data-stage-budget] .text-ink,
+.workspace-page--crm .crm-stage-heading [data-stage-budget] .text-muted { color: white; }
+.workspace-page--crm .crm-stage-heading > button { color: white; background: #ffffff26; }
+.workspace-page--crm .crm-stage-column > div:last-child > .text-muted { color: #ffffffe0; }
+
+.workspace-topbar > div:first-child button { color: white; }
+.workspace-workflow > div > span { color: #ffffffe0; }
+@media (min-width: 1024px) { .workspace-shell .workspace-drawer { max-width: min(1280px, calc(100% - 64px)); } }
+@media (max-width: 1023px) { .workspace-topbar.mobile-safe-topbar { height: calc(4rem + env(safe-area-inset-top, 0px)); } }

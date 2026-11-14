@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-14",
+  "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
+  "scope": "First implementation stage: shared shell and native CRM. This is not full Bitrix24 feature parity.",
+  "visual": {
+    "implemented": ["Original vibecode background and locally stored SVG assets", "System font stack measured on the reference portal", "240px translucent desktop sidebar and 58px header", "Green primary actions, blue accents, rounded panels", "Compact CRM toolbar with create, search and filter disclosure", "Colored Kanban stage headers", "Client drawer with 42% data column and timeline", "Mobile data/history tabs and compact secondary actions"],
+    "adaptations": ["Durov House identity retained", "Dark text on green primary buttons for readability", "Only captured icon assets replaced; other domain icons retain existing Lucide components", "Role permissions and business-specific navigation retained"]
+  },
+  "functional": {
+    "added": ["Filter disclosure with active filter count and reset", "Mobile secondary-action disclosure", "Expandable long workflow navigation", "Deal stage strip selecting a draft before explicit save"],
+    "retained": ["Native CRM search and filters", "Kanban/list switching", "Versioned stage writes and required loss reason", "Contact and company data", "Notes and activity history", "Next-step tasks", "Existing call and MAX integration", "Linked estimates and execution"],
+    "remaining": ["Resizable client data/timeline divider", "Dedicated desktop client tabs for related deals, documents and tasks", "Saved personal filters and column preferences", "Task workspace redesign", "Unified marketing and communication workspace", "Production, warehouse and finance screen-specific layout migration", "Bitrix automation equivalents require separate business-rule mapping and backend implementation"]
+  },
+  "verification": {
+    "environment": "Local isolated HTTP fixture; synthetic records only; production integrations not exercised",
+    "passed": ["TypeScript and production build", "Owner filter excludes records and reset restores them", "Deal stage PATCH includes expected record version", "Note POST appears in timeline", "Loss transition cannot save without a reason", "Client contact card opens with phone/email", "390px mobile viewport has no document horizontal overflow", "Mobile history retains saved note", "Mobile secondary actions expand/collapse", "Mobile sidebar and all-sections disclosure work"],
+    "limitations": ["Fixture validates UI requests and rendering, not backend financial or warehouse correctness", "Live calling, message sending and external integrations were not invoked"]
+  }
+}

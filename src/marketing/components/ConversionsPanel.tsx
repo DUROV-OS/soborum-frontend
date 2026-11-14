@@ -2,17 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
+import { ConversionDeliveryPanel, type DeliveryReport } from './ConversionDeliveryPanel'
 
 type Outcome = 'unreviewed' | 'qualified' | 'unqualified' | 'spam' | 'duplicate'
 type Row = { id:number; received_at:string; client_id:number|null; repeat_contact:boolean;
-  source:string; medium:string; campaign:string; form:string; outcome:Outcome; version:number;
-  reason:string; has_visit_id:boolean; sales_inbox_open:boolean; awaiting_quality_hours:number|null; feedback_status:string }
+  source:string; source_label?:string; medium:string; campaign:string; form:string; outcome:Outcome; version:number;
+  reason:string; has_visit_id:boolean; sales_inbox_open:boolean; awaiting_quality_hours:number|null; feedback_status:string; direction?:string }
 type Report = { total_requests:number; unique_contacts:number; qualified_unique_contacts:number; with_visit_id:number;
   unprocessed_inbox:number; can_review:boolean; can_open_clients:boolean; can_export:boolean;
   partial_today:boolean; issues:string[]; rows:Row[]; checked_at:string;
-  delivery:{ automatic_enabled:boolean; exportable_now:number; target:string; note:string } }
+  direction_summary?:{direction:string;requests:number;unique_contacts:number;qualified_unique_contacts:number;awaiting_review:number}[];
+  quality_review_coverage_percent?:number|null; delivery:DeliveryReport }
 const labels:Record<Outcome,string> = { unreviewed:'Нужна оценка', qualified:'Целевой запрос', unqualified:'Не подходит', spam:'Спам', duplicate:'Дубликат' }
-const feedback:Record<string,string> = { awaiting_quality:'Ждёт оценки', excluded:'Не передаётся', ready_for_export:'Готово к выгрузке', missing_visit_id:'Нет связи с визитом', repeat_qualified_contact:'Повторный целевой контакт', outside_matching_window:'Вне срока сопоставления' }
+const feedback:Record<string,string> = { awaiting_quality:'Ждёт оценки', excluded:'Не передаётся', ready_for_export:'Готово к передаче', missing_visit_id:'Нет связи с визитом', repeat_qualified_contact:'Повторный целевой контакт', outside_matching_window:'Вне срока сопоставления', delivery_prepared:'Файл подготовлен',delivery_uploading:'Начата загрузка',delivery_submitted:'Принято Метрикой',delivery_processed:'Обработано Метрикой',delivery_uncertain:'Нужна сверка загрузки',delivery_rejected:'Передача отклонена' }
 const box = 'rounded-md border border-border bg-surface p-4'
 const input = 'rounded border border-border bg-surface px-3 py-2 text-sm'
 function moscowToday() { return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow'}).format(new Date()) }
@@ -47,14 +49,6 @@ export function ConversionsPanel() {
     } catch(e) { setError(e instanceof Error?e.message:'Не удалось сохранить оценку') }
     finally { setSaving(false) }
   }
-  async function download() {
-    setError('')
-    try {
-      const data = await apiRequest<{csv:string;filename:string}>({section:'marketing',path:'/conversions-export'})
-      const url = URL.createObjectURL(new Blob(['\uFEFF'+data.csv],{type:'text/csv;charset=utf-8'}))
-      const a = document.createElement('a');a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url)
-    } catch(e) { setError(e instanceof Error?e.message:'Не удалось подготовить файл') }
-  }
   return <section aria-label="Конверсии и качество обращений" className="space-y-4">
     <div className="flex flex-wrap items-end gap-3">
       <label className="flex flex-col gap-1 text-sm">С<input aria-label="Начало периода конверсий" type="date" className={input} value={from} onChange={e=>setFrom(e.target.value)}/></label>
@@ -72,14 +66,15 @@ export function ConversionsPanel() {
         <h2 className="font-medium">Обратная связь по рекламе</h2>
         <p className="mt-2 text-sm">Сначала подтвердите качество обращения по результату общения. Клик по телефону и открытие формы здесь не считаются заявкой.</p>
         {report.issues.map(issue=><p key={issue} className="mt-2 text-sm text-amber-800">{issue}</p>)}
-        <p className="mt-2 text-sm text-muted">{report.delivery.note} Звонки, переписка и договоры пока не включены в этот реестр.</p>
-        {report.can_export && <div className="mt-3"><Button disabled={!report.delivery.exportable_now} onClick={()=>void download()}>Подготовить файл для Метрики ({report.delivery.exportable_now})</Button><p className="mt-2 text-xs text-muted">Все пригодные подтверждённые обращения за доступное окно, независимо от фильтра таблицы. Скачивание не означает отправку.</p></div>}
+        <p className="mt-2 text-sm text-muted">Звонки, переписка и договоры пока не включены в этот реестр. Оценено обращений: {report.quality_review_coverage_percent==null?'нет данных':`${report.quality_review_coverage_percent}%`}.</p>
+        <div className="mt-3"><ConversionDeliveryPanel delivery={report.delivery} canManage={report.can_export} onChanged={load} onError={setError}/></div>
       </div>
+      {!!report.direction_summary?.length&&<div className={box}><h2 className="font-medium">Направления по сохранённой рекламной разметке</h2><div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{['Направление','Заявки','Контакты','Целевые контакты','Ждут оценки'].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{report.direction_summary.map(row=><tr className="border-t border-border" key={row.direction}><td className="p-2">{row.direction}</td><td className="p-2">{row.requests}</td><td className="p-2">{row.unique_contacts}</td><td className="p-2">{row.qualified_unique_contacts}</td><td className="p-2">{row.awaiting_review}</td></tr>)}</tbody></table></div><p className="mt-2 text-xs text-muted">Разметка показывает рекламную группу, а не подтверждённую потребность. Один контакт может встречаться в нескольких направлениях. Метки прошлых обращений не восстанавливаются догадками.</p></div>}
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-left text-sm"><thead className="bg-surface-muted"><tr>{['Получено','Источник','Качество','Обратная связь','Действие'].map(x=><th key={x} className="p-3 font-medium">{x}</th>)}</tr></thead>
         <tbody>{report.rows.map(row=><tr key={row.id} className="border-t border-border">
           <td className="p-3 whitespace-nowrap">{new Date(row.received_at).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})}<div className="text-xs text-muted">Обращение №{row.id}{row.repeat_contact?' · повторный контакт':''}</div></td>
-          <td className="p-3">{row.source}<div className="text-xs text-muted break-all">{[row.medium,row.campaign,row.form].filter(Boolean).join(' · ')}</div></td>
+          <td className="p-3">{row.source_label || row.source}{row.direction&&row.direction!=='Не определено'&&<div>{row.direction}</div>}<div className="text-xs text-muted break-all">{[row.medium,row.campaign,row.form].filter(Boolean).join(' · ')}</div></td>
           <td className="p-3">{labels[row.outcome]}{row.awaiting_quality_hours!==null && row.awaiting_quality_hours>=24 && <div className="text-xs text-amber-800">Ожидает более суток</div>}</td>
           <td className="p-3">{feedback[row.feedback_status]}{row.sales_inbox_open&&<div className="text-xs text-muted">Входящее ещё открыто</div>}</td>
           <td className="p-3"><div className="flex flex-wrap gap-2">{report.can_review&&<Button onClick={()=>edit(row)}>Оценить</Button>}{row.client_id&&<a className="underline" href={`/clients/${row.client_id}`}>Клиент</a>}</div></td>

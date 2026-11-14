@@ -117,7 +117,8 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
               {draggable && <GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" />}
             </div>
             {entry.data.is_spam === true && <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Спам</span>}
-            {source && <p className="mt-2 break-words text-xs text-muted">Источник: {source}</p>}
+            {source && !entry.acquisition?.is_direct && <p className="mt-2 break-words text-xs text-muted">Источник: {source}</p>}
+            <AcquisitionBadge value={entry.acquisition} />
             {phone && phone !== name && <p className="mt-2 break-words text-xs text-muted">{phone}</p>}
             {email && email !== name && <p className="mt-1 break-words text-xs text-muted">{email}</p>}
             {entry.effective_owner_id != null && <p className="mt-2 text-xs text-muted">{catalog.users.find(user => user.id === entry.effective_owner_id)?.name || `Сотрудник #${entry.effective_owner_id}`}</p>}
@@ -131,3 +132,4 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
         {!loading && !dealsLoading && !error && cards.length > limit && <button type="button" className="min-h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium" onClick={() => setLimits(previous => ({ ...previous, [pipeline]: limit + DISPLAY_SIZE }))}>Показать ещё карточки · {Math.min(limit, cards.length)} из {cards.length}</button>}
     </div>
 }
+import { AcquisitionBadge } from '@/shared/ui/AcquisitionBadge'

@@ -17,7 +17,7 @@ export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; men
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
 
   return (
-    <header className="mobile-safe-topbar flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
+    <header className="workspace-topbar mobile-safe-topbar flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"

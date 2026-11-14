@@ -36,7 +36,7 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
-    <BrowserPhoneProvider><div className="flex h-dvh w-full">
+    <BrowserPhoneProvider><div className="workspace-shell flex h-dvh w-full">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
@@ -47,9 +47,9 @@ export function AppShell() {
       )}
       <div ref={contentRef} className="flex min-w-0 flex-1 flex-col">
         <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)} />
-        <main ref={mainRef} id="main-content" className="mobile-safe-content flex-1 overflow-y-auto bg-bg p-4 sm:p-7 xl:p-9">
+        <main ref={mainRef} id="main-content" className="workspace-content mobile-safe-content flex-1 overflow-y-auto">
           <WorkflowBar />
-          <RouteBoundary><Outlet /></RouteBoundary>
+          <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><Outlet /></RouteBoundary></div>
         </main>
       </div>
       {!salesManager && <MeetingPanel />}

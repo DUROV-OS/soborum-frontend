@@ -147,12 +147,12 @@ export function AccessMatrixPage() {
   }
 
   async function handleResetPassword(account: { id: number; full_name: string }) {
-    if (!window.confirm(`Сбросить пароль сотрудника «${account.full_name}» до default-пароля?`)) return
+    if (!window.confirm(`Сбросить пароль сотрудника «${account.full_name}» на 12345678?`)) return
     setError(null)
     setNotice(null)
     try {
       await resetPassword(account.id)
-      setNotice(`Пароль сотрудника «${account.full_name}» сброшен: password1234`)
+      setNotice(`Пароль сотрудника «${account.full_name}» сброшен: 12345678`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось сбросить пароль')
     }

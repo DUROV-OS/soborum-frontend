@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { BitrixIcon } from './BitrixIcon'
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus'
 
 export function Drawer({
@@ -32,7 +32,7 @@ export function Drawer({
         role="dialog"
         aria-modal={modal}
         aria-label={title}
-        className={`flex h-full w-full ${width} flex-col bg-surface shadow-xl`}
+        className={`workspace-drawer flex h-full w-full ${width} flex-col bg-surface shadow-xl`}
       >
         <div className="flex items-start justify-between border-b border-border px-6 py-5">
           <div>
@@ -45,7 +45,7 @@ export function Drawer({
             aria-label="Закрыть"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-surface-muted hover:text-ink"
           >
-            <X size={18} />
+            <BitrixIcon name="cross-l" size={20} />
           </button>
         </div>
         <div className={bodyClassName}>{children}</div>
