@@ -13,6 +13,7 @@ import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 import { AutomaticReview } from './AutomaticReview'
+import { ReceiptEditor } from './ReceiptEditor'
 import { JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
 
 type Item = {
@@ -25,6 +26,7 @@ type Item = {
   stock_tracked: boolean
 }
 type Order = {
+  has_receipts?: boolean
   id: number
   number: string
   supplier_id: number
@@ -92,6 +94,8 @@ export function PurchasingPage() {
       call<Order>(`/orders/${id}`)
         .then(open)
         .catch((e) => setError(e.message))
+    const receiptId = new URLSearchParams(window.location.search).get('receipt')
+    if (receiptId && /^\d+$/.test(receiptId)) call<Receipt>(`/receipts/${receiptId}`).then(setSelectedReceipt).catch(e => setError(e.message))
   }, [])
   const [catalog, setCatalog] = useState<Catalog>({ suppliers: [], materials: [], accounts: [] })
   const [tab, setTab] = useQueryChoice('tab', ['orders', 'receipts', 'returns'], 'orders', (q) =>
@@ -119,6 +123,7 @@ export function PurchasingPage() {
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true)
   const [returningReceiptId, setReturningReceiptId] = useState<number | null>(null)
+  const [editingReceiptId, setEditingReceiptId] = useState<number | null>(null)
   useEffect(() => {
     setOffset(0)
     setSelected(null)
@@ -329,7 +334,7 @@ export function PurchasingPage() {
               {canReceive && !selected.archived && selected.status !== 'received' && (
                 <Button onClick={() => setReceiving({ row: selected })}>Принять материалы</Button>
               )}
-              {canEdit && !selected.archived && selected.status === 'ordered' && (
+              {canEdit && !selected.archived && (
                 <Button variant="secondary" onClick={() => setEditing({ row: selected })}>
                   <Pencil size={14} />
                   Изменить
@@ -435,6 +440,7 @@ export function PurchasingPage() {
               {status[selectedReceipt.status]}
             </p>
             <p>{catalog.suppliers.find((s) => s.id === selectedReceipt.supplier_id)?.name}</p>
+            {canEdit && selectedReceipt.status === 'posted' && <Button onClick={() => setEditingReceiptId(selectedReceipt.id)}>Изменить приёмку</Button>}
             {canEdit && canReceive && selectedReceipt.status === 'posted' && (
               <Button onClick={() => setReturningReceiptId(selectedReceipt.id)}>Вернуть поставщику</Button>
             )}
@@ -456,6 +462,10 @@ export function PurchasingPage() {
           </div>
         )}
       </Drawer>
+      {editingReceiptId && <ReceiptEditor id={editingReceiptId} onClose={() => setEditingReceiptId(null)} onSaved={async () => {
+        const updated = await call<Receipt>(`/receipts/${editingReceiptId}`)
+        setSelectedReceipt(updated); setEditingReceiptId(null); setRevision(v => v + 1)
+      }} />}
       {returningReceiptId && (
         <PurchaseReturnEditor
           receiptId={returningReceiptId}
@@ -576,6 +586,8 @@ function OrderEditor({
       ],
     )
   const [date, setDate] = useState(row?.expected_at || ''),
+    [number, setNumber] = useState(row?.number || ''),
+    [reason, setReason] = useState(''),
     [comment, setComment] = useState(row?.comment || ''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
@@ -589,7 +601,7 @@ function OrderEditor({
       const result = await call<Order>(
         row ? `/orders/${row.id}?version=${row.version}` : '/orders',
         row ? 'PATCH' : 'POST',
-        row ? { items, expected_at: date || null, comment } : body,
+        row ? { ...body, number, reason } : body,
       )
       await onSaved(result.id)
     } catch (e) {
@@ -609,7 +621,7 @@ function OrderEditor({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button disabled={busy || !supplier || !items.length} onClick={save}>
+          <Button disabled={busy || !supplier || !items.length || (!!row && !reason.trim())} onClick={save}>
             Сохранить заказ
           </Button>
         </>
@@ -621,11 +633,13 @@ function OrderEditor({
             {error}
           </p>
         )}
+        {row && <Field label="Номер заказа"><Input aria-label="Номер заказа" value={number} maxLength={255} onChange={e => setNumber(e.target.value)} /></Field>}
+        {row?.has_receipts && <p className="text-sm text-muted">По заказу есть приёмки. Можно уточнить количество до уже принятого, изменить плановую цену и добавить позиции. Фактическую поставку исправляйте в приёмке.</p>}
         <Field label="Поставщик">
           <Select
             aria-label="Поставщик"
             value={supplier}
-            disabled={!!row}
+            disabled={!!row && (!!row.has_receipts || row.paid > 0 || row.pending_payment > 0)}
             onChange={(e) => setSupplier(e.target.value)}
           >
             <option value="">Выберите поставщика</option>
@@ -643,12 +657,13 @@ function OrderEditor({
             <label className="flex gap-2 text-sm">
               <input
                 type="checkbox"
+                disabled={!!row?.has_receipts && i < row.items.length}
                 checked={!item.stock_tracked}
                 onChange={(e) => patch(i, { stock_tracked: !e.target.checked, warehouse_material_id: null })}
               />
               Услуга без складского учёта
             </label>
-            {item.stock_tracked ? (
+            {row?.has_receipts && i < row.items.length ? <p className="font-medium">{item.material} · {item.unit} <span className="text-sm font-normal text-muted">Принято: {qty(item.received_quantity || 0)}</span></p> : item.stock_tracked ? (
               <MaterialPicker
                 catalog={catalog}
                 value={item.warehouse_material_id}
@@ -695,7 +710,7 @@ function OrderEditor({
             <Button
               variant="secondary"
               size="sm"
-              disabled={items.length === 1}
+              disabled={items.length === 1 || (!!row?.has_receipts && i < row.items.length)}
               onClick={() => setItems((v) => v.filter((_, n) => i !== n))}
             >
               Убрать позицию
@@ -735,6 +750,7 @@ function OrderEditor({
         <Field label="Комментарий">
           <Textarea value={comment} onChange={(e) => setComment(e.target.value)} />
         </Field>
+        {row && <Field label="Причина изменения" required><Textarea aria-label="Причина изменения заказа" maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></Field>}
       </div>
     </Modal>
   )

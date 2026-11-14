@@ -1,3 +1,4 @@
+import { EditMaterialModal } from './EditMaterialModal'
 import { useEffect, useState } from 'react'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -20,6 +21,8 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
   const level = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(level, 'edit')
   const canFull = accessLevelAtLeast(level, 'full')
+  const [editingMaterial, setEditingMaterial] = useState(false)
+  useEffect(() => { setEditingMaterial(false) }, [material?.id])
   const [threshold, setThreshold] = useState<number | ''>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +98,8 @@ export function MaterialDetailDrawer({ material, onClose,onReserves }: { materia
       }
     >
       <div className="flex flex-col gap-5">
+        {canEdit && <Button variant="secondary" onClick={() => setEditingMaterial(true)}>Изменить товар</Button>}
+        {editingMaterial && <EditMaterialModal key={material.id} material={material} onClose={() => setEditingMaterial(false)} />}
         <ContextPanel kind="product" id={material.id} />
         <div className="grid grid-cols-1 gap-4 text-[13px] sm:grid-cols-2">
           <Row label="Учётный остаток" value={`${formatQuantity(material.quantity_in_stock)} ${material.unit}`} />

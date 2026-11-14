@@ -8,6 +8,7 @@ export interface RequestBreakdownItem {
 // Соответствует WarehouseMaterialOut на бэкенде. `warehouse` и `category` —
 // строковые enum'ы (русские подписи), приходят как есть.
 export interface Material {
+  edit_token?: string
   id: number
   is_archived?: boolean
   catalog_path?: string | null
