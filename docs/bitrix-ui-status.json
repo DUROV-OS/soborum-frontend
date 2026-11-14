@@ -1,7 +1,7 @@
 {
   "date": "2026-11-14",
   "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
-  "scope": "Implementation stages 1–5: shared shell, CRM cards and saved filters, typography, warehouse reconciliation, and the first collaboration navigation release. Not full Bitrix24 feature parity.",
+  "scope": "Stages 1–6: shared shell, CRM, warehouse review, collaboration navigation and internal house projects. Procurement reference captured and analyzed with REA; not full external product parity.",
   "visual": {
     "implemented": [
       "Original vibecode background and locally stored SVG assets",
@@ -44,7 +44,9 @@
       "Searchable and paginated stock reconciliation with separate stock/reserved/issuable quantities and direct material history",
       "Inventory shortcut selects inventory documents; failed history loading is explicit and retryable",
       "Collaboration overview and permission-filtered links to existing MAX, AI, tasks and meetings",
-      "Shared collaboration breadcrumbs and tool switcher; planned modules visibly unavailable"
+      "Shared collaboration breadcrumbs and tool switcher; planned modules visibly unavailable",
+      "Persistent collaboration disclosure and permission-filtered top tabs; no duplicate task/chat/meeting links below the group",
+      "Private house projects with membership checks, immutable discussion, SHA256-verified attachments and native tasks requiring independent acceptance"
     ],
     "retained": [
       "Native CRM search and filters",
@@ -92,13 +94,16 @@
       "Stage 4: typography computed weights and styles; 1440px/390px warehouse layout, 16px mobile inputs; CRM card smoke test",
       "Stage 5: navigation permission unit tests and production build",
       "Stage 5 browser: menu toggle/Escape/outside close, MAX/GPT/meetings navigation, 390px mobile with inert background and no horizontal overflow",
-      "Stage 5 browser: synthetic manager sees only MAX and tasks; direct /ai redirect remains enforced"
+      "Stage 5 browser: synthetic manager sees only MAX and tasks; direct /ai redirect remains enforced",
+      "Stage 6: project creation, discussion-to-task, worker report and director acceptance through real isolated backend handlers",
+      "Stage 6: desktop and 390px mobile MAX navigation preserves the expanded group; no page overflow",
+      "Stage 6: TypeScript/Vite build and role-aware navigation unit checks"
     ],
     "limitations": [
       "Fixture validates UI requests and rendering, not backend financial or warehouse correctness",
       "Live calling, message sending and external integrations were not invoked",
       "Saved filter sets are local to the employee and browser; dates are absolute and not a rolling period",
-      "Collaboration release is navigation only: internal messaging, projects, feed, calendar, shared drive/editor, mail and boards remain unimplemented"
+      "Project tasks retain native task-module visibility; message text/files are not copied into tasks. Feed, calendar, shared editor/drive, mail and boards remain planned. Project messages poll every 10 seconds; mentions do not yet create notifications."
     ]
   }
 }

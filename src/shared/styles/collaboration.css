@@ -1,6 +1,10 @@
 /* Menu order, 38px rows, 15px type and translucent group surface measured
    on the owner's Bitrix24 collaboration menu, 2026-11-14. */
 .collaboration-menu { border-radius: 10px; }
+.collaboration-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding: 0 0 8px; }
+.collaboration-tabs a { flex-shrink: 0; padding: 10px 16px; border-radius: 9px; color: #ffffffcf; font-size: 14px; }
+.collaboration-tabs a:hover { background: #ffffff18; }
+.collaboration-tabs a[aria-current="page"] { background: #ffffff30; color: white; font-weight: 600; }
 .collaboration-menu.is-open { background: rgb(255 255 255 / .08); }
 .workspace-sidebar .collaboration-menu > .collaboration-trigger { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: #ffffffd9; padding: 10px 8px; }
 .collaboration-trigger.is-active, .is-open > .collaboration-trigger { background: #ffffff20; color: white; }
@@ -47,3 +51,11 @@
   .collaboration-submenu a, .collaboration-planned { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .collaboration-tool { transition: none; } }
+
+.project-card { border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); border-radius: 16px; padding: 22px; min-width: 0; box-shadow: 0 4px 16px rgb(20 40 60 / 4%); }
+a.project-card { transition: box-shadow .15s, transform .15s; }
+a.project-card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgb(20 40 60 / 9%); }
+.project-tabs { display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid rgb(var(--border)); padding-bottom: 8px; }
+.project-tabs button { padding: 10px 16px; border-radius: 10px; white-space: nowrap; font-size: 14px; }
+.project-tabs button[aria-selected="true"] { background: rgb(var(--brand)); color: white; }
+@media(max-width: 640px) { .project-card { padding: 16px; } }

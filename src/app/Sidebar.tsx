@@ -18,7 +18,6 @@ import { isCollaborationRoute, visibleCollaborationTools } from '@/collaboration
 /** Общие инструменты; рабочие процессы добавляются из единого справочника. */
 const MENU: SectionId[] = [
   'today',
-  'tasks',
   'work',
   'board',
   'agents',
@@ -77,7 +76,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'tasks', 'notifications', 'feedback_my'] : MENU
+  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'notifications', 'feedback_my'] : MENU
   let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
@@ -180,7 +179,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-1">
         <ul className="space-y-1.5">
-          <CollaborationMenu onNavigate={onClose} sidebarOpen={open}/>
+          <CollaborationMenu onNavigate={onClose}/>
           {items.map((section) => {
             const Icon = section.icon
             return (
