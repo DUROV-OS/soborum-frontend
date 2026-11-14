@@ -1,5 +1,6 @@
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus'
 import { useMobileNavigation } from './useMobileNavigation'
+import { BitrixIcon } from '@/shared/ui/BitrixIcon'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
@@ -48,6 +49,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const { pathname, search } = useLocation()
   const groups = salesManager ? [] : visibleWorkflows(hasAccess)
   const context = workflowContext(pathname, search, groups)
+  const [allEntries, setAllEntries] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
   useEffect(() => {
     if (context)
@@ -120,7 +122,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </button>
             {opened && (
               <ul id={'workflow-' + group.id} className="ml-6 mt-1 space-y-0.5 border-l border-white/15 pl-2">
-                {group.entries.map((entry, index) => {
+                {group.entries.filter((entry, index) => allEntries.includes(group.id) || index < 5 || entry.id === context?.entry.id).map((entry, index) => {
                   const active = context?.entry.id === entry.id
                   return (
                     <li key={entry.id}>
@@ -142,6 +144,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     </li>
                   )
                 })}
+                {group.entries.length > 5 && <li><button type="button" aria-expanded={allEntries.includes(group.id)} className="min-h-10 w-full rounded-lg px-3 py-2 text-left text-xs text-white/80 hover:bg-white/10" onClick={() => setAllEntries(previous => previous.includes(group.id) ? previous.filter(id => id !== group.id) : [...previous, group.id])}>{allEntries.includes(group.id) ? 'Свернуть разделы' : `Все разделы · ${group.entries.length}`}</button></li>}
               </ul>
             )}
           </li>
@@ -159,11 +162,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       aria-hidden={mobile && !open ? true : undefined}
       tabIndex={-1}
       aria-label="Главное меню"
-      className={`mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 motion-reduce:transition-none lg:static lg:z-auto lg:translate-x-0 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}
+      className={`workspace-sidebar mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 motion-reduce:transition-none lg:static lg:z-auto lg:translate-x-0 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}
     >
-      <div className="flex h-24 shrink-0 items-center justify-between px-7">
-        <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="text-[24px] font-semibold tracking-tight">
-          Durov OS<span className="text-white/55">.</span>
+      <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 px-5">
+        <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="flex items-center gap-2 text-[20px] font-semibold tracking-tight">
+          <img src="/durov-house-icon.png" alt="" className="h-8 w-8 rounded-lg" />Durov OS<span className="text-white/55">.</span>
         </NavLink>
         <button
           type="button"
@@ -196,7 +199,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                       }`
                     }
                   >
-                    <Icon size={20} strokeWidth={1.6} />
+                    {section.id === 'crm' ? <BitrixIcon name="crm" /> : section.id === 'notifications' ? <BitrixIcon name="notification" /> : section.id === 'chats' ? <BitrixIcon name="open-channels" /> : section.id === 'agents' ? <BitrixIcon name="robot" /> : <Icon size={20} strokeWidth={1.6} />}
                     <span className="flex-1">{section.label}</span>
                     {section.id === 'feedback_admin' && newFeedbackCount > 0 && (
                       <span className="rounded-pill bg-brand px-2 py-0.5 text-[12px] font-medium text-white">
@@ -231,7 +234,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           <InstallAppButton dark />
         </div>
       </nav>
-      <div className="m-5 rounded-xl border border-white/15 p-4">
+      <div className="hidden">
         <p className="text-[13px] font-medium text-white/85">Больше времени на главное</p>
         <p className="mt-1 text-[12px] leading-relaxed text-white/50">
           Люди, процессы и решения — в одном рабочем пространстве.

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Plus, Users, Archive, Pencil, Download, Columns3, List } from 'lucide-react'
+import { Users, Archive, Pencil, Download, Columns3, List } from 'lucide-react'
 import { apiRequest, downloadFile } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
+import { BitrixIcon } from '@/shared/ui/BitrixIcon'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
@@ -85,6 +86,8 @@ export function CrmPage() {
   const [note, setNote] = useState('')
   const [attached, setAttached] = useState<{ total: number; items: SourceFile[] }>({ total: 0, items: [] })
   const [editing, setEditing] = useState<{ entry?: Entry; kind: Kind; inquiry?: Entry; related?: Entry; initialData?: Record<string, unknown>; initialName?: string } | null>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [showControl, setShowControl] = useState(false)
   const [revision, setRevision] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -211,16 +214,16 @@ export function CrmPage() {
       })
     } catch (e) { setError(e instanceof Error ? e.message : 'Не удалось открыть заявку') }
   }
+  const filterCount = [owner, priority, stage, temperature, dates.from || dates.to || dates.unknown, archive !== 'active', spam !== 'normal'].filter(Boolean).length
   return (
-    <div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div className="crm-workspace">
+      <div className="crm-toolbar">
         <div>
-          <h1 className="text-[22px] font-medium text-ink">CRM</h1>
-          <p className="mt-1 text-[13px] text-muted">
-            Сделки по этапам, контакты и следующие действия.
-          </p>
+          <h1 className="text-ink">{labels[kind]}</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="crm-toolbar-actions">
+          <Button variant="secondary" className="sm:hidden" aria-expanded={toolsOpen} aria-controls="crm-tools" onClick={() => setToolsOpen(value => !value)}>Ещё</Button>
+          <div id="crm-tools" className={`${toolsOpen ? "flex" : "hidden"} order-2 w-full flex-wrap gap-2 sm:order-none sm:flex sm:w-auto`}>
           <Button variant="secondary" onClick={() => setFileLibrary(true)}>
             Файлы
           </Button>
@@ -235,12 +238,27 @@ export function CrmPage() {
               Воронки и этапы
             </Button>
           )}
+          </div>
           {canEdit && kind !== 'inquiry' && (
-            <Button onClick={() => setEditing({ kind, initialData: kind === 'deal' && boardPipeline ? { pipeline_id: Number(boardPipeline), stage_id: catalog.stages.filter(s => String(s.data.pipeline_id) === boardPipeline && s.data.outcome === 'open').sort((a, b) => Number(a.data.sort) - Number(b.data.sort))[0]?.id, amount: 0, currency: 'RUB' } : undefined })}>
-              <Plus size={16} />
-              {single[kind]}
+            <Button className="crm-create" onClick={() => setEditing({ kind, initialData: kind === 'deal' && boardPipeline ? { pipeline_id: Number(boardPipeline), stage_id: catalog.stages.filter(s => String(s.data.pipeline_id) === boardPipeline && s.data.outcome === 'open').sort((a, b) => Number(a.data.sort) - Number(b.data.sort))[0]?.id, amount: 0, currency: 'RUB' } : undefined })}>
+              <BitrixIcon name="outline-plus-m" size={20} />
+              Создать
             </Button>
           )}
+        </div>
+        <div className="crm-search">
+          <div className="crm-search-input"><BitrixIcon name="search" size={20} />        <Input
+          aria-label="Поиск в продажах"
+          className="w-full pl-10"
+          placeholder="Название, телефон, почта…"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOffset(0)
+          }}
+        />
+</div>
+          <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="crm-filters" onClick={() => setFiltersOpen(value => !value)}><BitrixIcon name="settings" size={18} />Фильтры{filterCount ? ` · ${filterCount}` : ''}</Button>
         </div>
       </div>
       <Tabs<Kind>
@@ -262,17 +280,8 @@ export function CrmPage() {
         <Button size="sm" variant="secondary" aria-expanded={showControl} onClick={() => setShowControl(value => !value)}>Контроль следующих шагов</Button>
       </div>}
       {showControl && <div className="mt-4"><LeadControl revision={revision} canEdit={canEdit} canFull={canFull} onOpen={open} onTask={related=>setEditing({kind:'task',related})}/></div>}
-      <div className="my-4 flex flex-wrap gap-2">
-        <Input
-          aria-label="Поиск в продажах"
-          className="min-w-48 flex-1"
-          placeholder="Название, телефон, почта…"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            setOffset(0)
-          }}
-        />
+      <div id="crm-filters" hidden={!filtersOpen} className="crm-filters my-4">
+      <div className="flex flex-wrap gap-2">
         {['deal', 'inquiry', 'task'].includes(kind) && <Select aria-label="Фильтр по ответственному" className="sm:max-w-64" value={owner}
           onChange={e => { setOwner(e.target.value); setOffset(0) }}>
           <option value="">Все ответственные</option>
@@ -347,6 +356,8 @@ export function CrmPage() {
         <CrmDateFilter dateFrom={dates.from} dateTo={dates.to} dateUnknown={dates.unknown} onChange={value => { setDates(value); setOffset(0) }} />
         {(dates.from || dates.to || dates.unknown) && <Button size="sm" variant="ghost" onClick={() => { setDates({ from: '', to: '', unknown: false }); setOffset(0) }}>Сбросить даты</Button>}
       </div>}
+      <Button variant="ghost" size="sm" onClick={() => { setOwner(''); setPriority(''); setStage(''); setTemperature(''); setDates({ from: '', to: '', unknown: false }); setArchive('active'); setSpam('normal'); setOffset(0) }}>Сбросить фильтры</Button>
+      </div>
       {error && (
         <p role="alert" className="my-3 text-danger">
           {error}

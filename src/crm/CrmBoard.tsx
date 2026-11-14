@@ -167,6 +167,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     onDragEnd={() => { dragged.current = null; setOver('') }}
     className={`rounded-lg border border-border bg-white p-3 shadow-sm ${busy === entry.id ? 'opacity-50' : canEdit && !entry.archived ? 'cursor-grab active:cursor-grabbing' : ''}`}>
     <div className="flex items-start gap-1"><button type="button" className="min-w-0 flex-1 break-words text-left text-sm font-medium text-ink hover:text-brand" onClick={() => onOpen(entry)}>{entry.name}</button><GripVertical size={14} className="mt-0.5 shrink-0 text-slate-300" /></div>
+    <AcquisitionBadge value={entry.acquisition} />
     <p className="mt-3 text-[15px] font-semibold text-ink">{amount(entry)}</p>
     <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><UserRound size={13} className="shrink-0" />{catalog.users.find(u => u.id === entry.data.responsible_user_id)?.name || 'Ответственный не назначен'}</p>
     <p className="mt-2 text-xs text-muted" data-source-created-at={entry.source_created_at || 'unknown'}>
@@ -205,12 +206,13 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
           const count = column.total + (includesInbox ? inboxCount || 0 : 0)
           const sums = summary?.columns.find(item => item.stage_id === s.id)
           return <section key={s.id} aria-label={`Этап: ${s.name}`} data-stage-id={s.id}
-            className={`w-[280px] shrink-0 overflow-hidden rounded-xl border bg-slate-50 ${over === `stage-${s.id}` ? 'border-brand ring-2 ring-brand/30' : 'border-border'}`}
+            className={`crm-stage-column w-[280px] shrink-0 overflow-hidden rounded-xl border ${over === `stage-${s.id}` ? 'border-brand ring-2 ring-brand/30' : 'border-border'}`}
             onDragOver={e => { if (dragged.current && canEdit && !saving.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(`stage-${s.id}`) } }}
             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver('') }}
             onDrop={e => { e.preventDefault(); dropOnStage(s) }}>
-            <div className="border-t-4 px-3 pb-3 pt-3" style={{ borderTopColor: /^#[\da-f]{6}$/i.test(String(s.data.color)) ? String(s.data.color) : '#cbd5e1' }}>
-              <div className="flex items-start gap-2"><h2 className="min-w-0 flex-1 text-sm font-semibold text-ink">{s.name}</h2>
+            <div className="crm-stage-heading px-3 pb-3">
+
+              <div className="crm-stage-title flex items-start gap-2" style={{ backgroundColor: /^#[\da-f]{6}$/i.test(String(s.data.color)) ? `color-mix(in srgb, ${String(s.data.color)} 65%, white)` : '#31ace8' }}><h2 className="min-w-0 flex-1 text-sm font-semibold text-ink">{s.name}</h2>
                 <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted" aria-label={`Всего карточек: ${count}`} data-column-total={count}>{(column.loading && !column.items.length) || (includesInbox && inboxCount === null) ? '…' : column.error && !column.items.length ? '—' : count}</span></div>
               <div className="mt-2 text-xs" aria-label={`Бюджет этапа: ${s.name}`} data-stage-budget={s.id}>
                 {summaryError ? <span className="text-danger">Не удалось загрузить сумму</span> : !summary ? <span className="text-muted">Считаем сумму…</span>
@@ -246,3 +248,4 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
     </Modal>
   </section>
 }
+import { AcquisitionBadge } from '@/shared/ui/AcquisitionBadge'

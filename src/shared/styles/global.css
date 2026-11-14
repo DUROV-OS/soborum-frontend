@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './bitrix.css';
 
 @tailwind base;
 @tailwind components;
@@ -18,7 +19,7 @@ body {
   margin: 0;
   background-color: rgb(var(--bg));
   color: rgb(var(--ink));
-  font-family: 'Rubik', Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu, 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
 }

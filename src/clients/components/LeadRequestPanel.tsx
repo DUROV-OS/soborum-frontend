@@ -6,6 +6,7 @@ import { Button } from '@/shared/ui/Button'
 import { useClientsStore } from '../store'
 import { Client } from '../types'
 import { ReadRow } from './PanelPrimitives'
+import { AcquisitionBadge } from '@/shared/ui/AcquisitionBadge'
 
 /**
  * Заявка с сайта (0111-b): откуда пришёл лид и что написал клиент. Пока заявка
@@ -37,7 +38,8 @@ export function LeadRequestPanel({ client }: { client: Client }) {
         <Globe size={15} className="text-brand" />
         {fresh ? 'Новая заявка с сайта' : 'Заявка с сайта'}
       </h3>
-      <ReadRow label="Источник" value={client.lead_source} />
+      <ReadRow label="Источник последней заявки" value={client.lead_acquisition?.source_label || client.lead_source} />
+      <AcquisitionBadge value={client.lead_acquisition} detail />
       <div className="border-b border-border py-2 text-[13px] last:border-0">
         <div className="text-muted">Обращение</div>
         <p className="mt-1 whitespace-pre-line text-ink">{client.lead_message?.trim() || 'Клиент не оставил текста'}</p>

@@ -1,0 +1,67 @@
+{
+  "captured": "2026-11-14",
+  "reference": "https://b24-exq5h2.bitrix24.ru/crm/deal/kanban/",
+  "scope": "User-requested visual reconstruction. Browser-observed image assets only; no Bitrix server code.",
+  "assets": [
+    {
+      "file": "vibecode.jpg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/templates/bitrix24/themes/light/vibecode/vibecode.jpg",
+      "sha256": "475239c833c64e928a8897ed9f24d5743ee5eb8d00c23675ac4f6b533edf3a73"
+    },
+    {
+      "file": "vibecode-blurred.webp",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/templates/bitrix24/themes/light/vibecode/vibecode-blurred.webp",
+      "sha256": "eab2300926907939bbb6530103d84f0b7495b7bf5381e02b53ad2b1388bdff0e"
+    },
+    {
+      "file": "search.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/search.svg",
+      "sha256": "82ffefdc2dbca7daf8114c12e9a324c9d986603d629156cf8c2a983a7edd8e92"
+    },
+    {
+      "file": "settings.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/main/dist/images/settings.svg",
+      "sha256": "a8b0a3d6c1f6ccc744511023e7fe9cf169442f9cbf10d7b5cd1eb6403ad7a73b"
+    },
+    {
+      "file": "outline-plus-m.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/buttons/icons/images/outline-plus-m.svg",
+      "sha256": "3cacc829cd2ae1c1526faee3cbc130cd8aa95dd049da92d8b5d42c820d556c06"
+    },
+    {
+      "file": "crm.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/crm.svg",
+      "sha256": "7c458cd54fa9978f9c8b27367eefe34dad445f9130c87f7e1011985294684ddf"
+    },
+    {
+      "file": "notification.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/notification.svg",
+      "sha256": "9272ab44d699c724f707d24c19cfb21947d65f1bdf3dc89ec41cd457e60509e4"
+    },
+    {
+      "file": "open-channels.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/open-channels.svg",
+      "sha256": "4c5efa57ff7598857b93c75365e56d7ab36be2e8c0f3230c6e2c2aa62ed77776"
+    },
+    {
+      "file": "robot.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/robot.svg",
+      "sha256": "3ef8aae5f99647cd2f00e4454e13e51f79c549e8058734814f1f1377ce44ec1d"
+    },
+    {
+      "file": "cross-l.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/cross-l.svg",
+      "sha256": "7ac37fab16d87dd50eb2571624a99360bd046b5a0f1b7d30a5ac51d6b1dfbf45"
+    },
+    {
+      "file": "edit-m.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/edit-m.svg",
+      "sha256": "300aa28d4d61f8cef4a0447964ca8362e994c48b5d20c1176119695eedd91260"
+    },
+    {
+      "file": "chevron-down-s.svg",
+      "source": "https://b24-exq5h2.bitrix24.ru/bitrix/js/ui/icon-set/outline/dist/images/chevron-down-s.svg",
+      "sha256": "7b6531bd78eae67239ef08ff28d95f8b0113e53c0a5442253e680ef4868cea7e"
+    }
+  ]
+}

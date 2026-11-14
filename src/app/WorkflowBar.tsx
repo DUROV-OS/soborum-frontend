@@ -12,7 +12,7 @@ export function WorkflowBar() {
   // Costing has its own role-aware navigation and mobile section selector.
   if (salesManager || !context || ['/costing', '/accounting'].includes(location.pathname)) return null
   return (
-    <nav aria-label={'Раздел ' + context.group.label} className="mb-4 flex min-w-0 items-center justify-between gap-3 text-[13px] text-muted">
+    <nav aria-label={'Раздел ' + context.group.label} className="workspace-workflow mb-4 flex min-w-0 items-center justify-between gap-3 text-[13px] text-muted">
       <div className="flex min-w-0 items-center gap-2">
         <Link to="/work" aria-label="Все разделы работы" className="hover:text-ink">
           Работа

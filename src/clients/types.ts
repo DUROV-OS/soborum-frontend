@@ -1,5 +1,6 @@
 import { PartnerBrief } from '@/partners/types'
 import { HouseModelBrief } from '@/house_models/types'
+import type { Acquisition } from '@/shared/ui/AcquisitionBadge'
 
 /** Путь клиента из восьми стадий (0079). Значения первых пяти остались от
  * прежнего пятиколоночного пути — поменялись только подписи: `approval` —
@@ -216,6 +217,7 @@ export interface Client {
   /** Заявка с сайта (0111): откуда пришёл лид и что написал клиент — `null` у лидов,
    * заведённых вручную. */
   lead_source: string | null
+  lead_acquisition?: Acquisition | null
   lead_message: string | null
   /** Заявка с сайта ещё не обработана (0111-b) — доска её подсвечивает, пока
    * сотрудник не нажмёт «Взять в работу» или не начнёт работу с лидом. */
