@@ -5,6 +5,10 @@
 .collaboration-tabs a { flex-shrink: 0; padding: 10px 16px; border-radius: 9px; color: #ffffffcf; font-size: 14px; }
 .collaboration-tabs a:hover { background: #ffffff18; }
 .collaboration-tabs a[aria-current="page"] { background: #ffffff30; color: white; font-weight: 600; }
+@media (max-width: 640px) {
+  .calendar-section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .calendar-section-tabs a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 8px; font-size: 13px; text-align: center; }
+}
 .collaboration-menu.is-open { background: rgb(255 255 255 / .08); }
 .workspace-sidebar .collaboration-menu > .collaboration-trigger { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: #ffffffd9; padding: 10px 8px; }
 .collaboration-trigger.is-active, .is-open > .collaboration-trigger { background: #ffffff20; color: white; }

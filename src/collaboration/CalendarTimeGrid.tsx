@@ -8,7 +8,7 @@ type Item = Occurrence & {
   recurrence: string;
   location: string;
 };
-const colors: Record<string, string> = {
+const defaultColors: Record<string, string> = {
   meeting: "#4776d0",
   work: "#138b78",
   personal: "#8854bf",
@@ -25,6 +25,7 @@ export function CalendarTimeGrid<T extends Item>({
   open,
   create,
   move,
+  colors = defaultColors,
 }: {
   begin: Date;
   days: number;
@@ -32,6 +33,7 @@ export function CalendarTimeGrid<T extends Item>({
   open: (event: T) => void;
   create: (date: Date) => void;
   move: (id: number, date: Date) => void;
+  colors?: Record<string, string>;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const dateKey = begin.toISOString();

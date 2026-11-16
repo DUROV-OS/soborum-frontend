@@ -3,6 +3,13 @@ import { apiRequest } from "@/shared/lib/httpClient";
 import { Button } from "@/shared/ui/Button";
 import { Field, Input } from "@/shared/ui/Field";
 
+import { instant } from "./calendarTime";
+import {
+  defaultPreferences,
+  minutesText,
+  type CalendarPreferences,
+} from "./CalendarSettings";
+
 type Slot = { start: string; end: string };
 const minutes = (value: string) => {
   const [h, m] = value.split(":").map(Number);
@@ -16,6 +23,9 @@ export function MeetingPlanner({
   excludeId,
   choose,
   disabled = false,
+  preferences = defaultPreferences,
+  searchDays = 7,
+  opensEditor = false,
 }: {
   participants: number[];
   start: string;
@@ -23,10 +33,15 @@ export function MeetingPlanner({
   excludeId?: number;
   choose: (slot: Slot) => void;
   disabled?: boolean;
+  preferences?: CalendarPreferences;
+  searchDays?: number;
+  opensEditor?: boolean;
 }) {
-  const [workStart, setWorkStart] = useState("09:00"),
-    [workEnd, setWorkEnd] = useState("18:00");
-  const [weekdays, setWeekdays] = useState([0, 1, 2, 3, 4]),
+  const [workStart, setWorkStart] = useState(
+      minutesText(preferences.work_start),
+    ),
+    [workEnd, setWorkEnd] = useState(minutesText(preferences.work_end));
+  const [weekdays, setWeekdays] = useState(preferences.weekdays),
     [slots, setSlots] = useState<Slot[] | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -39,6 +54,8 @@ export function MeetingPlanner({
     workStart,
     workEnd,
     weekdays,
+    timezone: preferences.timezone,
+    searchDays,
   });
   useEffect(() => {
     generation.current++;
@@ -49,9 +66,15 @@ export function MeetingPlanner({
       generation.current++;
     };
   }, [key]);
-  const duration = Math.round(
-    (new Date(end).getTime() - new Date(start).getTime()) / 60000,
-  );
+  let from = "",
+    to = "";
+  try {
+    from = instant(start, preferences.timezone);
+    to = instant(end, preferences.timezone);
+  } catch {
+    /* Invalid wall time disables search. */
+  }
+  const duration = Math.round((Date.parse(to) - Date.parse(from)) / 60000);
   const valid =
     Number.isFinite(duration) &&
     duration >= 5 &&
@@ -64,19 +87,18 @@ export function MeetingPlanner({
     setBusy(true);
     setSlots(null);
     setError("");
-    const until = new Date(start);
-    until.setDate(until.getDate() + 7);
+    const until = new Date(Date.parse(from) + searchDays * 86400000);
     try {
       const result = await apiRequest<{ slots: Slot[] }>({
         section: "projects",
         path: "/calendar/suggestions",
         method: "POST",
         body: {
-          start: new Date(start).toISOString(),
+          start: from,
           end: until.toISOString(),
           participants,
           duration_minutes: duration,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: preferences.timezone,
           work_start: minutes(workStart),
           work_end: minutes(workEnd),
           weekdays,
@@ -97,9 +119,9 @@ export function MeetingPlanner({
     >
       <h3 className="font-semibold">Подобрать свободное время</h3>
       <p className="text-xs text-muted">
-        Проверим календарь организатора и выбранных участников на 7 дней вперёд
-        от начала встречи. Подбор относится к одной встрече; будущие повторения
-        требуют отдельной проверки.
+        Проверим календарь организатора и выбранных участников на {searchDays}{" "}
+        дней вперёд от начала встречи. Подбор относится к одной встрече; будущие
+        повторения требуют отдельной проверки.
       </p>
       <fieldset disabled={disabled || busy} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -169,8 +191,11 @@ export function MeetingPlanner({
           {slots.length ? (
             <>
               <p className="text-xs text-muted">
-                Свободно по данным календаря на момент проверки. Выбор интервала
-                заполнит время; встреча создаётся кнопкой «Сохранить».
+                Свободно по данным календаря на момент проверки.{" "}
+                {opensEditor
+                  ? "Выбор откроет карточку новой встречи."
+                  : "Выбор заполнит время в карточке."}{" "}
+                Встреча создаётся кнопкой «Сохранить».
               </p>
               <div className="flex max-h-52 flex-wrap gap-2 overflow-auto">
                 {slots.map((slot) => (
@@ -183,17 +208,20 @@ export function MeetingPlanner({
                   >
                     <span className="block font-medium">
                       {new Date(slot.start).toLocaleDateString("ru-RU", {
+                        timeZone: preferences.timezone,
                         weekday: "short",
                         day: "numeric",
                         month: "short",
                       })}
                     </span>
                     {new Date(slot.start).toLocaleTimeString("ru-RU", {
+                      timeZone: preferences.timezone,
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                     –
                     {new Date(slot.end).toLocaleTimeString("ru-RU", {
+                      timeZone: preferences.timezone,
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -203,8 +231,8 @@ export function MeetingPlanner({
             </>
           ) : (
             <p className="text-sm">
-              На ближайшие 7 дней общего свободного времени не найдено. Измените
-              начало поиска, длительность или рабочие часы.
+              На ближайшие {searchDays} дней общего свободного времени не
+              найдено. Измените начало поиска, длительность или рабочие часы.
             </p>
           )}
         </div>

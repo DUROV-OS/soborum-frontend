@@ -4,6 +4,12 @@ import { Button } from "@/shared/ui/Button";
 import { Field, Input, Select, Textarea } from "@/shared/ui/Field";
 import { CalendarTimeGrid } from "./CalendarTimeGrid";
 import { MeetingPlanner } from "./MeetingPlanner";
+import { useLocation } from "react-router-dom";
+import { useAuthStore } from "@/auth/store";
+import { calendarSection, calendarSections } from "./calendarSections";
+import { CalendarSettings, type CalendarPreferences } from "./CalendarSettings";
+import { CalendarPlannerPage } from "./CalendarPlannerPage";
+import { wallDate, wallTime, instant } from "./calendarTime";
 import { Modal } from "@/shared/ui/Modal";
 type Person = { id: number; name: string };
 type Event = {
@@ -52,35 +58,90 @@ const add = (d: Date, n: number) => {
   r.setDate(r.getDate() + n);
   return r;
 };
-const colors: Record<string, string> = {
-  meeting: "#4776d0",
-  work: "#138b78",
-  personal: "#8854bf",
-  anniversary: "#b06b0d",
-};
 const modes = [
   ["day", "День"],
   ["week", "Неделя"],
   ["work", "Рабочая неделя"],
   ["month", "Месяц"],
   ["schedule", "Расписание"],
-  ["people", "Люди"],
 ];
 export function CalendarPage() {
-  const [mode, setMode] = useState("week"),
-    [date, setDate] = useState(() => day(new Date())),
+  const userId = useAuthStore((s) => s.current?.id);
+  const [preferences, setPreferences] = useState<CalendarPreferences | null>(
+      null,
+    ),
+    [error, setError] = useState(""),
+    [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setPreferences(null);
+    setError("");
+    call<CalendarPreferences>("/preferences")
+      .then((p) => {
+        if (active) setPreferences(p);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId, retry]);
+  if (error)
+    return (
+      <div role="alert" className="space-y-3">
+        <p>{error}</p>
+        <Button onClick={() => setRetry((x) => x + 1)}>
+          Повторить загрузку
+        </Button>
+      </div>
+    );
+  if (!preferences) return <p role="status">Загружаем настройки календаря…</p>;
+  return (
+    <CalendarWorkspace
+      preferences={preferences}
+      savePreferences={setPreferences}
+    />
+  );
+}
+function CalendarWorkspace({
+  preferences,
+  savePreferences,
+}: {
+  preferences: CalendarPreferences;
+  savePreferences: (value: CalendarPreferences) => void;
+}) {
+  const section = calendarSection(useLocation().search);
+  const colors = Object.fromEntries(
+    Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
+  );
+  const [viewMode, setMode] = useState("week"),
+    [date, setDate] = useState(() =>
+      day(wallDate(new Date(), preferences.timezone)),
+    ),
     [query, setQuery] = useState(""),
     [category, setCategory] = useState("");
+  const mode = section === "team" ? "people" : viewMode;
+  useEffect(() => {
+    setDate(day(wallDate(new Date(), preferences.timezone)));
+  }, [preferences.timezone]);
   const [events, setEvents] = useState<Event[]>([]),
     [people, setPeople] = useState<Person[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [revision, setRevision] = useState(0);
-  const [editor, setEditor] = useState<{ row?: Event; at: Date } | null>(null),
+  const [editor, setEditor] = useState<{
+      row?: Event;
+      at: Date;
+      until?: Date;
+      participants?: number[];
+    } | null>(null),
     [selectedPeople, setSelectedPeople] = useState<number[]>([]),
     [busy, setBusy] = useState<
       { person_id: number; start: string; end: string }[]
     >([]);
+  const [teamLoading, setTeamLoading] = useState(false),
+    [teamError, setTeamError] = useState("");
   const begin = day(date);
   if (["week", "work"].includes(mode))
     begin.setDate(begin.getDate() - ((begin.getDay() + 6) % 7));
@@ -99,7 +160,7 @@ export function CalendarPage() {
             ? 30
             : 7;
   const finish = add(begin, length),
-    key = begin.toISOString() + mode;
+    key = begin.toISOString() + mode + preferences.timezone + section;
   useEffect(() => {
     let active = true;
     call<Person[]>("/people")
@@ -113,14 +174,16 @@ export function CalendarPage() {
   }, []);
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    setLoading(false);
     setError("");
+    if (section !== "mine") return;
+    setLoading(true);
     const timer = setTimeout(() => {
       call<Event[]>(
         "/events?" +
           new URLSearchParams({
-            start: begin.toISOString(),
-            end: finish.toISOString(),
+            start: instant(local(begin), preferences.timezone),
+            end: instant(local(finish), preferences.timezone),
             query,
           }),
       )
@@ -142,10 +205,13 @@ export function CalendarPage() {
   useEffect(() => {
     let active = true;
     setBusy([]);
+    setTeamLoading(false);
+    setTeamError("");
     if (mode !== "people" || !selectedPeople.length) return;
+    setTeamLoading(true);
     const p = new URLSearchParams({
-      start: begin.toISOString(),
-      end: finish.toISOString(),
+      start: instant(local(begin), preferences.timezone),
+      end: instant(local(finish), preferences.timezone),
     });
     selectedPeople.forEach((id) => p.append("person_id", String(id)));
     call<typeof busy>("/busy?" + p)
@@ -153,13 +219,28 @@ export function CalendarPage() {
         if (active) setBusy(r);
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (active) setTeamError(e.message);
+      })
+      .finally(() => {
+        if (active) setTeamLoading(false);
       });
     return () => {
       active = false;
     };
   }, [key, selectedPeople, revision]);
-  const shown = events.filter((e) => !category || e.category === category);
+  const shown = events
+    .filter((e) => !category || e.category === category)
+    .map((e) => ({
+      ...e,
+      occurrence_start: wallDate(
+        e.occurrence_start,
+        preferences.timezone,
+      ).toISOString(),
+      occurrence_end: wallDate(
+        e.occurrence_end,
+        preferences.timezone,
+      ).toISOString(),
+    }));
   const atDay = (d: Date) =>
     shown.filter(
       (e) =>
@@ -179,9 +260,9 @@ export function CalendarPage() {
       await call(`/events/${id}`, "PATCH", {
         ...payload(row),
         request_id: crypto.randomUUID(),
-        start: at.toISOString(),
+        start: instant(local(at), preferences.timezone),
         end: new Date(
-          at.getTime() +
+          Date.parse(instant(local(at), preferences.timezone)) +
             new Date(row.end).getTime() -
             new Date(row.start).getTime(),
         ).toISOString(),
@@ -216,214 +297,285 @@ export function CalendarPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Календарь</h1>
+          <h1 className="text-2xl font-semibold">
+            {calendarSections.find(([key]) => key === section)?.[1]}
+          </h1>
           <p className="text-sm text-muted">
-            Встречи команды · время:{" "}
-            {Intl.DateTimeFormat().resolvedOptions().timeZone}
+            {
+              {
+                mine: "Ваши встречи и приглашения",
+                team: "Занятость коллег",
+                planner: "Поиск общего свободного времени",
+                settings: "Ваш рабочий график и оформление",
+              }[section]
+            }{" "}
+            · {preferences.timezone}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            const at = new Date(date);
-            at.setHours(10);
-            setEditor({ at });
-          }}
-        >
-          Новая встреча
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3">
-        <Button variant="secondary" onClick={() => setDate(day(new Date()))}>
-          Сегодня
-        </Button>
-        <Button
-          variant="secondary"
-          aria-label="Предыдущий период"
-          onClick={() =>
-            setDate(
-              mode === "month"
-                ? new Date(date.getFullYear(), date.getMonth() - 1, 1)
-                : add(date, -length),
-            )
-          }
-        >
-          ‹
-        </Button>
-        <div className="w-40 shrink-0">
-          <Input
-            aria-label="Дата календаря"
-            type="date"
-            className="w-40"
-            value={local(date).slice(0, 10)}
-            onChange={(e) => {
-              if (e.target.value)
-                setDate(new Date(e.target.value + "T00:00:00"));
+        {(section === "mine" || section === "team") && (
+          <Button
+            onClick={() => {
+              const at = new Date(date);
+              at.setHours(10);
+              setEditor({ at });
             }}
-          />
-        </div>
-        <Button
-          variant="secondary"
-          aria-label="Следующий период"
-          onClick={() =>
-            setDate(
-              mode === "month"
-                ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
-                : add(date, length),
-            )
+          >
+            Новая встреча
+          </Button>
+        )}
+      </div>
+      {section === "settings" ? (
+        <CalendarSettings preferences={preferences} saved={savePreferences} />
+      ) : section === "planner" ? (
+        <CalendarPlannerPage
+          key={preferences.timezone}
+          preferences={preferences}
+          people={people}
+          choose={(slot, participants) =>
+            setEditor({
+              at: wallDate(slot.start, preferences.timezone),
+              until: wallDate(slot.end, preferences.timezone),
+              participants,
+            })
           }
-        >
-          ›
-        </Button>
-        <div className="flex flex-wrap gap-1" role="tablist">
-          {modes.map(([key, label]) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={mode === key}
-              onClick={() => setMode(key)}
-              className={`rounded-lg px-3 py-2 text-sm ${mode === key ? "bg-brand text-white" : "hover:bg-surface-muted"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Input
-          aria-label="Поиск событий"
-          className="max-w-sm"
-          placeholder="Тема или описание"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
         />
-        <Select
-          aria-label="Категория событий"
-          className="max-w-xs"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">Все категории</option>
-          <option value="meeting">Встречи</option>
-          <option value="work">Работа</option>
-          <option value="personal">Личное</option>
-          <option value="anniversary">Юбилеи</option>
-        </Select>
-      </div>
-      {error && (
-        <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">
-          {error}
-        </p>
-      )}
-      {loading && <p role="status">Загружаем календарь…</p>}
-      {mode === "people" ? (
-        <div className="space-y-3">
-          <p className="text-sm text-muted">
-            Выберите коллег. Показывается только занятость, без названий чужих
-            встреч.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {people.map((p) => (
-              <label key={p.id} className="flex gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedPeople.includes(p.id)}
-                  onChange={(e) =>
-                    setSelectedPeople((old) =>
-                      e.target.checked
-                        ? [...old, p.id]
-                        : old.filter((id) => id !== p.id),
-                    )
-                  }
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-          {selectedPeople.map((id) => (
-            <div key={id} className="rounded-xl border border-border p-3">
-              <strong>{people.find((p) => p.id === id)?.name}</strong>
-              <div className="flex flex-wrap gap-2">
-                {busy
-                  .filter((b) => b.person_id === id)
-                  .map((b, i) => (
-                    <span key={i} className="rounded bg-surface-muted p-2">
-                      {new Date(b.start).toLocaleTimeString("ru-RU", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      –
-                      {new Date(b.end).toLocaleTimeString("ru-RU", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : mode === "schedule" ? (
-        <div className="space-y-3">
-          {shown.length ? (
-            shown.map(eventButton)
-          ) : (
-            <p className="p-8 text-muted">В выбранном периоде нет событий.</p>
-          )}
-        </div>
-      ) : mode === "month" ? (
-        <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-border">
-          {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => (
-            <div key={d} className="bg-surface-muted p-2 text-center text-sm">
-              {d}
-            </div>
-          ))}
-          {Array.from({ length: 42 }, (_, i) => {
-            const d = add(begin, i),
-              items = atDay(d);
-            return (
-              <div key={i} className="min-h-24 border border-border p-2">
-                <button
-                  aria-label={`Открыть ${d.toLocaleDateString("ru-RU")}`}
-                  onClick={() => {
-                    setDate(d);
-                    setMode("day");
-                  }}
-                  className="font-semibold"
-                >
-                  {d.getDate()}
-                </button>
-                <div className="flex flex-wrap gap-1">
-                  {items.map((e) => (
-                    <button
-                      key={e.id}
-                      title={e.title}
-                      aria-label={e.title}
-                      onClick={() =>
-                        setEditor({ row: e, at: new Date(e.start) })
-                      }
-                      style={{ background: colors[e.category] }}
-                      className="h-2 w-2 rounded-full"
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
       ) : (
-        <CalendarTimeGrid
-          begin={begin}
-          days={length}
-          events={shown}
-          open={(e) => setEditor({ row: e, at: new Date(e.start) })}
-          create={(at) => setEditor({ at })}
-          move={move}
-        />
+        <>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setDate(day(wallDate(new Date(), preferences.timezone)))
+              }
+            >
+              Сегодня
+            </Button>
+            <Button
+              variant="secondary"
+              aria-label="Предыдущий период"
+              onClick={() =>
+                setDate(
+                  mode === "month"
+                    ? new Date(date.getFullYear(), date.getMonth() - 1, 1)
+                    : add(date, -length),
+                )
+              }
+            >
+              ‹
+            </Button>
+            <div className="w-40 shrink-0">
+              <Input
+                aria-label="Дата календаря"
+                type="date"
+                className="w-40"
+                value={local(date).slice(0, 10)}
+                onChange={(e) => {
+                  if (e.target.value)
+                    setDate(new Date(e.target.value + "T00:00:00"));
+                }}
+              />
+            </div>
+            <Button
+              variant="secondary"
+              aria-label="Следующий период"
+              onClick={() =>
+                setDate(
+                  mode === "month"
+                    ? new Date(date.getFullYear(), date.getMonth() + 1, 1)
+                    : add(date, length),
+                )
+              }
+            >
+              ›
+            </Button>
+            {section === "mine" && (
+              <div
+                className="flex flex-wrap gap-1"
+                role="tablist"
+                aria-label="Режим календаря"
+              >
+                {modes.map(([key, label]) => (
+                  <button
+                    key={key}
+                    role="tab"
+                    aria-selected={mode === key}
+                    onClick={() => setMode(key)}
+                    className={`rounded-lg px-3 py-2 text-sm ${mode === key ? "bg-brand text-white" : "hover:bg-surface-muted"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {section === "mine" && (
+            <div className="flex flex-wrap gap-3">
+              <Input
+                aria-label="Поиск событий"
+                className="max-w-sm"
+                placeholder="Тема или описание"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <Select
+                aria-label="Категория событий"
+                className="max-w-xs"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">Все категории</option>
+                {Object.entries(preferences.categories).map(([key, c]) => (
+                  <option key={key} value={key}>
+                    {c.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">
+              {error}
+            </p>
+          )}
+          {loading && <p role="status">Загружаем календарь…</p>}
+          {mode === "people" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">
+                Выберите коллег. Показывается только занятость, без названий
+                чужих встреч.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {people.map((p) => (
+                  <label key={p.id} className="flex gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedPeople.includes(p.id)}
+                      onChange={(e) =>
+                        setSelectedPeople((old) =>
+                          e.target.checked
+                            ? [...old, p.id]
+                            : old.filter((id) => id !== p.id),
+                        )
+                      }
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+              {teamLoading && <p role="status">Загружаем занятость…</p>}
+              {teamError && (
+                <p role="alert" className="text-danger">
+                  {teamError}
+                </p>
+              )}
+              {!teamLoading &&
+                !teamError &&
+                selectedPeople.map((id) => (
+                  <div key={id} className="rounded-xl border border-border p-3">
+                    <strong>{people.find((p) => p.id === id)?.name}</strong>
+                    <div className="flex flex-wrap gap-2">
+                      {!busy.some((b) => b.person_id === id) && (
+                        <span className="text-sm text-muted">
+                          Нет занятых интервалов на выбранный день.
+                        </span>
+                      )}
+                      {busy
+                        .filter((b) => b.person_id === id)
+                        .map((b, i) => (
+                          <span
+                            key={i}
+                            className="rounded bg-surface-muted p-2"
+                          >
+                            {new Date(b.start).toLocaleTimeString("ru-RU", {
+                              timeZone: preferences.timezone,
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            –
+                            {new Date(b.end).toLocaleTimeString("ru-RU", {
+                              timeZone: preferences.timezone,
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          ) : mode === "schedule" ? (
+            <div className="space-y-3">
+              {shown.length ? (
+                shown.map(eventButton)
+              ) : (
+                <p className="p-8 text-muted">
+                  В выбранном периоде нет событий.
+                </p>
+              )}
+            </div>
+          ) : mode === "month" ? (
+            <div className="grid grid-cols-7 overflow-hidden rounded-xl border border-border">
+              {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => (
+                <div
+                  key={d}
+                  className="bg-surface-muted p-2 text-center text-sm"
+                >
+                  {d}
+                </div>
+              ))}
+              {Array.from({ length: 42 }, (_, i) => {
+                const d = add(begin, i),
+                  items = atDay(d);
+                return (
+                  <div key={i} className="min-h-24 border border-border p-2">
+                    <button
+                      aria-label={`Открыть ${d.toLocaleDateString("ru-RU")}`}
+                      onClick={() => {
+                        setDate(d);
+                        setMode("day");
+                      }}
+                      className="font-semibold"
+                    >
+                      {d.getDate()}
+                    </button>
+                    <div className="flex flex-wrap gap-1">
+                      {items.map((e) => (
+                        <button
+                          key={e.id}
+                          title={e.title}
+                          aria-label={e.title}
+                          onClick={() =>
+                            setEditor({ row: e, at: new Date(e.start) })
+                          }
+                          style={{ background: colors[e.category] }}
+                          className="h-2 w-2 rounded-full"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <CalendarTimeGrid
+              begin={begin}
+              colors={colors}
+              days={length}
+              events={shown}
+              open={(e) => setEditor({ row: e, at: new Date(e.start) })}
+              create={(at) => setEditor({ at })}
+              move={move}
+            />
+          )}
+        </>
       )}
       {editor && (
         <EventForm
           row={editor.row}
           at={editor.at}
+          until={editor.until}
+          initialParticipants={editor.participants}
+          preferences={preferences}
           people={people}
           close={() => setEditor(null)}
           saved={() => {
@@ -470,27 +622,41 @@ function payload(r: Event) {
 function EventForm({
   row,
   at,
+  until,
+  initialParticipants,
+  preferences,
   people,
   close,
   saved,
 }: {
   row?: Event;
   at: Date;
+  until?: Date;
+  initialParticipants?: number[];
+  preferences: CalendarPreferences;
   people: Person[];
   close: () => void;
   saved: () => void;
 }) {
+  const zone = row?.timezone || preferences.timezone;
+  const colors = Object.fromEntries(
+    Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
+  );
   const [title, setTitle] = useState(row?.title || ""),
-    [start, setStart] = useState(local(row ? new Date(row.start) : at)),
+    [start, setStart] = useState(row ? wallTime(row.start, zone) : local(at)),
     [end, setEnd] = useState(
-      local(row ? new Date(row.end) : new Date(at.getTime() + 3600000)),
+      row
+        ? wallTime(row.end, zone)
+        : local(until || new Date(at.getTime() + 3600000)),
     ),
     [location, setLocation] = useState(row?.location || ""),
     [description, setDescription] = useState(row?.description || ""),
     [category, setCategory] = useState(row?.category || "meeting"),
     [recurrence, setRecurrence] = useState(row?.recurrence || "none"),
     [count, setCount] = useState(row?.count || 12),
-    [participants, setParticipants] = useState(row?.participants || []),
+    [participants, setParticipants] = useState(
+      row?.participants || initialParticipants || [],
+    ),
     [availability, setAvailability] = useState(row?.availability || "busy"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -507,12 +673,19 @@ function EventForm({
       setError("Укажите корректное начало и окончание встречи");
       return;
     }
+    let startUTC: string, endUTC: string;
+    try {
+      startUTC = instant(start, zone);
+      endUTC = instant(end, zone);
+    } catch (e) {
+      setError((e as Error).message);
+      return;
+    }
     const data = {
       title,
-      start: new Date(start).toISOString(),
-      end: new Date(end).toISOString(),
-      timezone:
-        row?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      start: startUTC,
+      end: endUTC,
+      timezone: zone,
       location,
       description,
       category,
@@ -578,6 +751,7 @@ function EventForm({
       }
     >
       <div className="space-y-4">
+        <p className="text-xs text-muted">Время встречи: {zone}</p>
         {error && (
           <p role="alert" className="text-danger">
             {error}
@@ -632,9 +806,9 @@ function EventForm({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            {Object.keys(colors).map((k, i) => (
+            {Object.keys(colors).map((k) => (
               <option key={k} value={k}>
-                {["Встреча", "Работа", "Личное", "Юбилей"][i]}
+                {preferences.categories[k].label}
               </option>
             ))}
           </Select>
@@ -699,14 +873,15 @@ function EventForm({
         </fieldset>
         {!readonly && (
           <MeetingPlanner
+            preferences={{ ...preferences, timezone: zone }}
             participants={participants}
             start={start}
             end={end}
             excludeId={row?.id}
             disabled={busy}
             choose={(slot) => {
-              setStart(local(new Date(slot.start)));
-              setEnd(local(new Date(slot.end)));
+              setStart(wallTime(slot.start, zone));
+              setEnd(wallTime(slot.end, zone));
             }}
           />
         )}
