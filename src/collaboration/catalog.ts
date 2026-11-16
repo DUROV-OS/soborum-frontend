@@ -4,7 +4,7 @@ export const collaborationTools = [
   { id: 'messenger', label: 'Мессенджер', section: 'chats', to: '/chats', description: 'Рабочие чаты MAX, сообщения, вложения и связь с клиентами.', accent: 'blue' },
   { id: 'gpt', label: 'Durov GPT', section: 'ai', to: '/ai', description: 'Марина — ваш ИИ-помощник: обсуждение вопросов и работа с доступными данными.', accent: 'violet' },
   { id: 'feed', label: 'Лента', description: 'Новости команды, объявления, обсуждения и ознакомление.' },
-  { id: 'calendar', label: 'Календарь', description: 'Встречи, сроки задач и события проектов.' },
+  { id: 'calendar', label: 'Календарь', to: '/calendar', description: 'Встречи, повторения и занятость коллег.', accent: 'blue' },
   { id: 'documents', label: 'Документы', description: 'Шаблоны, совместное редактирование, версии и согласование.' },
   { id: 'boards', label: 'Доски', description: 'Схемы, идеи и визуальное обсуждение проектов.' },
   { id: 'drive', label: 'Диск', description: 'Общие файлы компании и папки проектов с правами доступа.' },
