@@ -20,7 +20,7 @@ export function CalendarReminders() {
     setItems([]);
     setDismissed([]);
     const poll = async () => {
-      if (!userId || inFlight || document.hidden) return;
+      if (!userId || inFlight) return;
       inFlight = true;
       try {
         const rows = await apiRequest<Reminder[]>({
