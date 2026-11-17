@@ -61,8 +61,9 @@ export function CalendarTimeGrid<T extends Item>({
       className="max-h-[70vh] overflow-auto rounded-xl border border-border bg-surface"
     >
       <div style={{ minWidth: columns === 1 ? 300 : columns * 115 + 56 }}>
+        <div className="sticky top-0 z-20 bg-surface shadow-sm">
         <div
-          className="sticky top-0 z-20 grid border-b border-border bg-surface shadow-sm"
+          className="grid border-b border-border bg-surface"
           style={{
             gridTemplateColumns: `56px repeat(${columns},minmax(0,1fr))`,
           }}
@@ -112,6 +113,7 @@ export function CalendarTimeGrid<T extends Item>({
                 ))}
             </div>
           ))}
+        </div>
         </div>
         <div
           className="grid"
