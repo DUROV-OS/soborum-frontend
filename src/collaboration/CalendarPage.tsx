@@ -10,6 +10,7 @@ import { calendarSection, calendarSections } from "./calendarSections";
 import { CalendarSettings, type CalendarPreferences } from "./CalendarSettings";
 import { CalendarPlannerPage } from "./CalendarPlannerPage";
 import { wallDate, wallTime, instant } from "./calendarTime";
+import { calendarICS, calendarCSV, downloadCalendar } from "./calendarExport";
 import { Modal } from "@/shared/ui/Modal";
 type Person = { id: number; name: string };
 type Event = {
@@ -30,6 +31,8 @@ type Event = {
   participants: number[];
   responses: Record<string, string>;
   cancelled: boolean;
+  all_day?: boolean;
+  reminder_minutes?: number | null;
   occurrence_start: string;
   occurrence_end: string;
 };
@@ -111,7 +114,11 @@ function CalendarWorkspace({
   preferences: CalendarPreferences;
   savePreferences: (value: CalendarPreferences) => void;
 }) {
-  const section = calendarSection(useLocation().search);
+  const search = useLocation().search;
+  const section = calendarSection(search);
+  const [invitations, setInvitations] = useState<Event[]>([]);
+  const [invitationError, setInvitationError] = useState("");
+  const [invitationsOnly, setInvitationsOnly] = useState(false);
   const colors = Object.fromEntries(
     Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
   );
@@ -120,7 +127,8 @@ function CalendarWorkspace({
       day(wallDate(new Date(), preferences.timezone)),
     ),
     [query, setQuery] = useState(""),
-    [category, setCategory] = useState("");
+    [category, setCategory] = useState(""),
+    [participantFilter, setParticipantFilter] = useState("");
   const mode = section === "team" ? "people" : viewMode;
   useEffect(() => {
     setDate(day(wallDate(new Date(), preferences.timezone)));
@@ -154,13 +162,31 @@ function CalendarWorkspace({
       ? 42
       : mode === "day" || mode === "people"
         ? 1
-        : mode === "work"
-          ? 5
-          : mode === "schedule"
-            ? 30
-            : 7;
+        : mode === "schedule"
+          ? 30
+          : 7;
   const finish = add(begin, length),
     key = begin.toISOString() + mode + preferences.timezone + section;
+  useEffect(() => {
+    let active = true;
+    setInvitationError("");
+    setInvitations([]);
+    call<Event[]>("/invitations")
+      .then((rows) => {
+        if (active) setInvitations(rows);
+      })
+      .catch((e) => {
+        if (active) setInvitationError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [revision]);
+  useEffect(() => {
+    const raw = new URLSearchParams(search).get("date");
+    if (raw && Number.isFinite(Date.parse(raw)))
+      setDate(day(wallDate(raw, preferences.timezone)));
+  }, [search, preferences.timezone]);
   useEffect(() => {
     let active = true;
     call<Person[]>("/people")
@@ -178,6 +204,7 @@ function CalendarWorkspace({
     setError("");
     if (section !== "mine") return;
     setLoading(true);
+    setEvents([]);
     const timer = setTimeout(() => {
       call<Event[]>(
         "/events?" +
@@ -228,19 +255,41 @@ function CalendarWorkspace({
       active = false;
     };
   }, [key, selectedPeople, revision]);
-  const shown = events
+  const filtered = (invitationsOnly ? invitations : events)
     .filter((e) => !category || e.category === category)
-    .map((e) => ({
-      ...e,
-      occurrence_start: wallDate(
-        e.occurrence_start,
-        preferences.timezone,
-      ).toISOString(),
-      occurrence_end: wallDate(
-        e.occurrence_end,
-        preferences.timezone,
-      ).toISOString(),
-    }));
+    .filter(
+      (e) =>
+        !participantFilter ||
+        e.owner_id === Number(participantFilter) ||
+        e.participants.includes(Number(participantFilter)),
+    )
+    .filter(
+      (e) =>
+        !invitationsOnly ||
+        (e.title + " " + e.description)
+          .toLocaleLowerCase()
+          .includes(query.toLocaleLowerCase()),
+    );
+  const openedLink = useRef("");
+  useEffect(() => {
+    const id = Number(new URLSearchParams(search).get("event"));
+    const row = events.find((e) => e.id === id);
+    if (row && openedLink.current !== search) {
+      openedLink.current = search;
+      setEditor({ row, at: new Date(row.start) });
+    }
+  }, [search, events]);
+  const shown = filtered.map((e) => ({
+    ...e,
+    occurrence_start: wallDate(
+      e.occurrence_start,
+      e.all_day ? e.timezone : preferences.timezone,
+    ).toISOString(),
+    occurrence_end: wallDate(
+      e.occurrence_end,
+      e.all_day ? e.timezone : preferences.timezone,
+    ).toISOString(),
+  }));
   const atDay = (d: Date) =>
     shown.filter(
       (e) =>
@@ -275,19 +324,21 @@ function CalendarWorkspace({
   const eventButton = (e: Event) => (
     <button
       key={`${e.id}-${e.occurrence_start}`}
-      draggable={e.can_edit && e.recurrence === "none"}
+      draggable={e.can_edit && e.recurrence === "none" && !e.all_day}
       onDragStart={(a) => a.dataTransfer.setData("text/plain", String(e.id))}
       onClick={() => setEditor({ row: e, at: new Date(e.start) })}
       className="my-1 block w-full rounded-md border-l-4 bg-surface-muted px-2 py-1 text-left text-xs hover:brightness-95"
       style={{ borderColor: colors[e.category] }}
     >
       <strong>
-        {mode === "schedule" &&
+        {(mode === "schedule" || invitationsOnly) &&
           new Date(e.occurrence_start).toLocaleDateString("ru-RU") + " · "}
-        {new Date(e.occurrence_start).toLocaleTimeString("ru-RU", {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}{" "}
+        {e.all_day
+          ? "Весь день"
+          : new Date(e.occurrence_start).toLocaleTimeString("ru-RU", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}{" "}
         · {e.title}
       </strong>
       <span className="block text-muted">{e.location}</span>
@@ -430,7 +481,73 @@ function CalendarWorkspace({
                   </option>
                 ))}
               </Select>
+              <Select
+                aria-label="Участник событий"
+                className="max-w-xs"
+                value={participantFilter}
+                onChange={(e) => setParticipantFilter(e.target.value)}
+              >
+                <option value="">Все участники</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant={invitationsOnly ? "primary" : "secondary"}
+                aria-pressed={invitationsOnly}
+                disabled={!!invitationError}
+                onClick={() => setInvitationsOnly(!invitationsOnly)}
+              >
+                Приглашения ({invitations.length})
+              </Button>
+              <details className="relative rounded-lg border border-border px-3 py-2 text-sm">
+                <summary className="cursor-pointer">Экспорт</summary>
+                <div className="absolute right-0 z-30 mt-2 w-72 space-y-3 rounded-xl border border-border bg-surface p-4 shadow-lg">
+                  <p>
+                    Снимок{" "}
+                    {invitationsOnly
+                      ? "списка приглашений"
+                      : "выбранного периода"}{" "}
+                    с текущими фильтрами. Повторения выгружаются отдельными
+                    событиями. Это не синхронизация.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    disabled={loading || !!error || !filtered.length}
+                    onClick={() =>
+                      downloadCalendar(calendarICS(filtered), "ics")
+                    }
+                  >
+                    Скачать iCalendar (.ics)
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={loading || !!error || !filtered.length}
+                    onClick={() =>
+                      downloadCalendar(
+                        calendarCSV(filtered, preferences.timezone),
+                        "csv",
+                      )
+                    }
+                  >
+                    Скачать CSV для Excel
+                  </Button>
+                </div>
+              </details>
+              {invitationError && (
+                <p role="alert" className="text-danger">
+                  Не удалось загрузить приглашения: {invitationError}
+                </p>
+              )}
             </div>
+          )}
+          {invitationsOnly && section === "mine" && (
+            <p className="text-sm text-muted">
+              Предстоящие приглашения без ответа за все даты. Откройте встречу,
+              чтобы принять или отклонить приглашение.
+            </p>
           )}
           {error && (
             <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">
@@ -503,7 +620,7 @@ function CalendarWorkspace({
                   </div>
                 ))}
             </div>
-          ) : mode === "schedule" ? (
+          ) : mode === "schedule" || invitationsOnly ? (
             <div className="space-y-3">
               {shown.length ? (
                 shown.map(eventButton)
@@ -561,6 +678,7 @@ function CalendarWorkspace({
               begin={begin}
               colors={colors}
               days={length}
+              weekdays={mode === "work" ? preferences.weekdays : undefined}
               events={shown}
               open={(e) => setEditor({ row: e, at: new Date(e.start) })}
               create={(at) => setEditor({ at })}
@@ -601,6 +719,8 @@ function payload(r: Event) {
     count,
     participants,
     cancelled,
+    all_day = false,
+    reminder_minutes = null,
     version,
   } = r;
   return {
@@ -616,6 +736,8 @@ function payload(r: Event) {
     count,
     participants,
     cancelled,
+    all_day,
+    reminder_minutes,
     version,
   };
 }
@@ -648,6 +770,10 @@ function EventForm({
       row
         ? wallTime(row.end, zone)
         : local(until || new Date(at.getTime() + 3600000)),
+    ),
+    [allDay, setAllDay] = useState(row?.all_day || false),
+    [reminder, setReminder] = useState<number | null>(
+      row?.reminder_minutes ?? null,
     ),
     [location, setLocation] = useState(row?.location || ""),
     [description, setDescription] = useState(row?.description || ""),
@@ -694,6 +820,8 @@ function EventForm({
       count,
       participants,
       cancelled,
+      all_day: allDay,
+      reminder_minutes: reminder,
       version: row?.version || 0,
     };
     const json = JSON.stringify(data);
@@ -771,24 +899,84 @@ function EventForm({
               maxLength={200}
             />
           </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(e) => {
+                setAllDay(e.target.checked);
+                if (e.target.checked) {
+                  const a = (start || local(at)).slice(0, 10) + "T00:00";
+                  const last = new Date((end || start || local(at)).slice(0, 10) + "T00:00");
+                  last.setDate(last.getDate() + 1);
+                  setStart(a);
+                  setEnd(local(last));
+                }
+              }}
+            />
+            Весь день
+          </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Начало">
               <Input
                 aria-label="Начало встречи"
-                type="datetime-local"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
+                type={allDay ? "date" : "datetime-local"}
+                value={allDay ? start.slice(0, 10) : start}
+                onChange={(e) =>
+                  setStart(
+                    e.target.value
+                      ? e.target.value + (allDay ? "T00:00" : "")
+                      : "",
+                  )
+                }
               />
             </Field>
-            <Field label="Окончание">
+            <Field
+              label={allDay ? "Последний день (включительно)" : "Окончание"}
+            >
               <Input
                 aria-label="Окончание встречи"
-                type="datetime-local"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
+                type={allDay ? "date" : "datetime-local"}
+                value={
+                  allDay && end
+                    ? local(add(new Date(end), -1)).slice(0, 10)
+                    : end
+                }
+                onChange={(e) =>
+                  setEnd(
+                    allDay && e.target.value
+                      ? local(add(new Date(e.target.value + "T00:00"), 1))
+                      : e.target.value,
+                  )
+                }
               />
             </Field>
           </div>
+          <Field label="Напоминание в Durov OS">
+            <Select
+              aria-label="Напоминание"
+              value={reminder == null ? "" : reminder}
+              onChange={(e) =>
+                setReminder(
+                  e.target.value === "" ? null : Number(e.target.value),
+                )
+              }
+            >
+              <option value="">Без напоминания</option>
+              {[
+                [0, "В момент начала"],
+                [5, "За 5 минут"],
+                [15, "За 15 минут"],
+                [30, "За 30 минут"],
+                [60, "За час"],
+                [1440, "За день"],
+              ].map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Место или ссылка">
             <Input
               value={location}
@@ -871,7 +1059,7 @@ function EventForm({
             ))}
           </div>
         </fieldset>
-        {!readonly && (
+        {!readonly && !allDay && (
           <MeetingPlanner
             preferences={{ ...preferences, timezone: zone }}
             participants={participants}
@@ -914,7 +1102,9 @@ function EventForm({
         )}
         <p className="text-xs text-muted">
           Встреча появится в календарях участников Durov OS. Отправка писем и
-          напоминаний ещё не подключена.
+          push ещё не подключена. Напоминания появляются в любом разделе, пока
+          Durov OS открыта; проверка каждые 30 секунд. «Понятно» скрывает
+          напоминание до перезагрузки страницы.
         </p>
       </div>
     </Modal>
