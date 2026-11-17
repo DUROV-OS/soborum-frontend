@@ -3,6 +3,17 @@ import { apiRequest } from "@/shared/lib/httpClient";
 import { Button } from "@/shared/ui/Button";
 import { Field, Input, Select } from "@/shared/ui/Field";
 export type CalendarPreferences = {
+  templates?: {
+    id: string;
+    title: string;
+    description: string;
+    location: string;
+    category: string;
+    duration_minutes: number;
+    reminder_minutes: number | null;
+    recurrence: string;
+    count: number;
+  }[];
   version: number;
   timezone: string;
   work_start: number;
@@ -18,7 +29,7 @@ export const defaultPreferences: CalendarPreferences = {
   weekdays: [0, 1, 2, 3, 4],
   categories: {
     meeting: { label: "Встречи", color: "#4776d0" },
-    work: { label: "Работа", color: "#138b78" },
+    work: { label: "Задачи", color: "#138b78" },
     personal: { label: "Личное", color: "#8854bf" },
     anniversary: { label: "Юбилеи", color: "#b06b0d" },
   },
@@ -157,6 +168,30 @@ export function CalendarSettings({
             </div>
           ))}
         </div>
+        {!!draft.templates?.length && (
+          <section className="space-y-2">
+            <h3 className="text-sm font-medium">Ваши шаблоны</h3>
+            {draft.templates.map((t) => (
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+              >
+                <span className="text-sm">{t.title}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    change({
+                      templates: draft.templates?.filter((x) => x.id !== t.id),
+                    })
+                  }
+                >
+                  Убрать шаблон
+                </Button>
+              </div>
+            ))}
+          </section>
+        )}
         <Button
           disabled={!valid || busy}
           onClick={async () => {

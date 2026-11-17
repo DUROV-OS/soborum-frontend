@@ -147,6 +147,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
       <div className="flex flex-col gap-5">
         {task.description && <p className="whitespace-pre-line text-[13px] text-ink">{task.description}</p>}
 
+        {!!task.link_meta?.calendar_event_id && <div className="rounded-lg border border-border bg-surface-muted p-3 text-sm"><p>Название, срок, участники и вложения — в календаре. Выполнение и отчёты — здесь.</p><Button variant="secondary" size="sm" className="mt-2" onClick={()=>{onClose();navigate(`/calendar?event=${task.link_meta?.calendar_event_id}&date=${encodeURIComponent(String(task.link_meta?.calendar_start||task.deadline||''))}`)}}>Открыть запись календаря</Button></div>}
         <MaxApprovalActions task={task} onDone={onClose} />
         {!!task.link_meta?.crm_task_id && canViewCRM && <>
           <CrmTaskClientBlock crmTaskId={Number(task.link_meta.crm_task_id)} boardTaskId={task.id}
@@ -174,7 +175,7 @@ export function TaskDetailDrawer({ task, onClose }: { task: Task | null; onClose
 
         {task.deadline && <Row label="Дедлайн" value={new Date(task.deadline).toLocaleDateString('ru-RU')} />}
 
-        {canEdit ? (
+        {canEdit && !task.link_meta?.calendar_event_id ? (
           <div className="flex items-baseline justify-between text-[13px]">
             <span className="text-muted">Приоритет</span>
             <Select

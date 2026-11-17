@@ -42,9 +42,10 @@ function byDeadline(a: Task, b: Task): number {
   return a.id - b.id
 }
 
-type SourceFilter = 'all' | 'manual' | 'clients' | 'production' | 'marketing' | 'warehouse'
+type SourceFilter = 'all' | 'manual' | 'clients' | 'production' | 'marketing' | 'warehouse' | 'calendar'
 
 function sourceOf(task: Task): SourceFilter {
+  if (task.link_meta?.calendar_event_id) return 'calendar'
   if (task.block_id !== null) return 'production'
   if (task.link_type === 'client_stage') return 'clients'
   if (task.link_type === 'content_stage') return 'marketing'
@@ -55,6 +56,7 @@ function sourceOf(task: Task): SourceFilter {
 const SOURCE_LABEL: Record<SourceFilter, string> = {
   all: 'Все разделы',
   manual: 'Ручная',
+  calendar: 'Календарь',
   clients: 'Клиенты',
   production: 'Производство',
   marketing: 'Маркетинг',

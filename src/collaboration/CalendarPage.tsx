@@ -11,13 +11,32 @@ import { CalendarSettings, type CalendarPreferences } from "./CalendarSettings";
 import { CalendarPlannerPage } from "./CalendarPlannerPage";
 import { wallDate, wallTime, instant } from "./calendarTime";
 import { calendarICS, calendarCSV, downloadCalendar } from "./calendarExport";
+import { CalendarAdd } from "./CalendarAdd";
+import {
+  CalendarAttachments,
+  discardCalendarFile,
+  type CalendarFile,
+} from "./CalendarAttachments";
+import { Link } from "react-router-dom";
 import { Modal } from "@/shared/ui/Modal";
-type Person = { id: number; name: string };
+type Person = { id: number; name: string; can_work_tasks?: boolean };
 type Event = {
   id: number;
   version: number;
   owner_id: number;
   can_edit: boolean;
+  can_delete?: boolean;
+  can_manage_access?: boolean;
+  can_respond?: boolean;
+  coorganizers?: number[];
+  editors?: number[];
+  tags?: string[];
+  links?: { label: string; url: string }[];
+  attachment_ids?: string[];
+  attachments?: CalendarFile[];
+  task_assignee_id?: number | null;
+  task_reviewer_id?: number | null;
+  task?: { id: number; status: string; can_open: boolean } | null;
   title: string;
   start: string;
   end: string;
@@ -38,7 +57,7 @@ type Event = {
 };
 const call = <T,>(
   path: string,
-  method: "GET" | "POST" | "PATCH" = "GET",
+  method: "GET" | "POST" | "PATCH" | "DELETE" = "GET",
   body?: unknown,
 ) =>
   apiRequest<T>({
@@ -143,6 +162,7 @@ function CalendarWorkspace({
       at: Date;
       until?: Date;
       participants?: number[];
+      category?: string;
     } | null>(null),
     [selectedPeople, setSelectedPeople] = useState<number[]>([]),
     [busy, setBusy] = useState<
@@ -364,15 +384,13 @@ function CalendarWorkspace({
           </p>
         </div>
         {(section === "mine" || section === "team") && (
-          <Button
-            onClick={() => {
+          <CalendarAdd
+            choose={(category) => {
               const at = new Date(date);
-              at.setHours(10);
-              setEditor({ at });
+              at.setHours(10, 0, 0, 0);
+              setEditor({ at, category });
             }}
-          >
-            Новая встреча
-          </Button>
+          />
         )}
       </div>
       {section === "settings" ? (
@@ -692,6 +710,8 @@ function CalendarWorkspace({
           row={editor.row}
           at={editor.at}
           until={editor.until}
+          initialCategory={editor.category}
+          savePreferences={savePreferences}
           initialParticipants={editor.participants}
           preferences={preferences}
           people={people}
@@ -722,6 +742,13 @@ function payload(r: Event) {
     all_day = false,
     reminder_minutes = null,
     version,
+    coorganizers = [],
+    editors = [],
+    tags = [],
+    links = [],
+    attachment_ids = [],
+    task_assignee_id = null,
+    task_reviewer_id = null,
   } = r;
   return {
     title,
@@ -739,6 +766,13 @@ function payload(r: Event) {
     all_day,
     reminder_minutes,
     version,
+    coorganizers,
+    editors,
+    tags,
+    links,
+    attachment_ids,
+    task_assignee_id,
+    task_reviewer_id,
   };
 }
 function EventForm({
@@ -746,6 +780,8 @@ function EventForm({
   at,
   until,
   initialParticipants,
+  initialCategory,
+  savePreferences,
   preferences,
   people,
   close,
@@ -755,6 +791,8 @@ function EventForm({
   at: Date;
   until?: Date;
   initialParticipants?: number[];
+  initialCategory?: string;
+  savePreferences: (value: CalendarPreferences) => void;
   preferences: CalendarPreferences;
   people: Person[];
   close: () => void;
@@ -777,7 +815,9 @@ function EventForm({
     ),
     [location, setLocation] = useState(row?.location || ""),
     [description, setDescription] = useState(row?.description || ""),
-    [category, setCategory] = useState(row?.category || "meeting"),
+    [category, setCategory] = useState(
+      row?.category || initialCategory || "meeting",
+    ),
     [recurrence, setRecurrence] = useState(row?.recurrence || "none"),
     [count, setCount] = useState(row?.count || 12),
     [participants, setParticipants] = useState(
@@ -786,10 +826,104 @@ function EventForm({
     [availability, setAvailability] = useState(row?.availability || "busy"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [attachments, setAttachments] = useState<CalendarFile[]>(
+    row?.attachments || [],
+  );
+  const staged = useRef(new Set<string>());
+  const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deletion = useRef(crypto.randomUUID());
+  const [templateMessage, setTemplateMessage] = useState("");
+  const saveTemplate = async () => {
+    setBusy(true);
+    setError("");
+    setTemplateMessage("");
+    try {
+      const duration = Math.round(
+        (new Date(end).getTime() - new Date(start).getTime()) / 60000,
+      );
+      if (
+        !title.trim() ||
+        !Number.isFinite(duration) ||
+        duration < 1 ||
+        duration > 1440
+      )
+        throw new Error(
+          "Для шаблона укажите тему и длительность от минуты до суток",
+        );
+      const templates = [
+        ...(preferences.templates || []),
+        {
+          id: crypto.randomUUID(),
+          title,
+          description,
+          location,
+          category,
+          duration_minutes: duration,
+          reminder_minutes: reminder,
+          recurrence,
+          count,
+        },
+      ];
+      const result = await apiRequest<CalendarPreferences>({
+        section: "projects",
+        path: "/calendar/preferences",
+        method: "PUT",
+        body: { ...preferences, templates },
+      });
+      savePreferences(result);
+      setTemplateMessage("Шаблон сохранён в вашей учётной записи");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const [tags, setTags] = useState((row?.tags || []).join(", "));
+  const [links, setLinks] = useState(row?.links || []);
+  const [coorganizers, setCoorganizers] = useState(row?.coorganizers || []);
+  const [editors, setEditors] = useState(row?.editors || []);
+  const [assignee, setAssignee] = useState<number | null>(
+    row?.task_assignee_id || null,
+  );
+  const [reviewer, setReviewer] = useState<number | null>(
+    row?.task_reviewer_id || null,
+  );
+  const managing = !row || !!row.can_manage_access;
+  const closeForm = () => {
+    if (busy || uploading) return;
+    // Bound files cannot be discarded; a lost save response is safe here as well.
+    for (const id of staged.current)
+      void discardCalendarFile(id).catch(() => {});
+    close();
+  };
+  const deleteRecord = async () => {
+    if (!row || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await call(`/events/${row.id}`, "DELETE", {
+        version: row.version,
+        request_id: deletion.current,
+      });
+      saved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
   const retry = useRef({ json: "", id: "" }),
     readonly = !!row && !row.can_edit;
   const save = async (cancelled = false) => {
-    if (busy) return;
+    if (busy || uploading) return;
+    if (
+      category === "work" &&
+      (!assignee || !reviewer || assignee === reviewer)
+    ) {
+      setError("Выберите исполнителя и другого сотрудника для приёмки");
+      return;
+    }
     if (
       !start ||
       !end ||
@@ -818,7 +952,27 @@ function EventForm({
       availability,
       recurrence,
       count,
-      participants,
+      participants:
+        category === "work"
+          ? Array.from(
+              new Set([
+                ...participants,
+                ...[assignee, reviewer].filter(
+                  (id): id is number => id !== null,
+                ),
+              ]),
+            )
+          : participants,
+      coorganizers: coorganizers.filter((id) => participants.includes(id)),
+      editors: editors.filter((id) => participants.includes(id)),
+      tags: tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      links,
+      attachment_ids: attachments.map((f) => f.id),
+      task_assignee_id: category === "work" ? assignee : null,
+      task_reviewer_id: category === "work" ? reviewer : null,
       cancelled,
       all_day: allDay,
       reminder_minutes: reminder,
@@ -835,6 +989,7 @@ function EventForm({
         row ? "PATCH" : "POST",
         { ...data, request_id: retry.current.id },
       );
+      staged.current.clear();
       saved();
     } catch (e) {
       setError((e as Error).message);
@@ -842,29 +997,92 @@ function EventForm({
       setBusy(false);
     }
   };
-  return (
-    <Modal
-      open
-      onClose={close}
-      title={row ? "Встреча" : "Новая встреча"}
-      footer={
-        <>
-          {row?.can_edit && (
+  if (confirmDelete)
+    return (
+      <Modal
+        open
+        onClose={() => {
+          if (!busy) setConfirmDelete(false);
+        }}
+        title="Удалить запись"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setConfirmDelete(false)}
+            >
+              Отмена
+            </Button>
             <Button
               variant="danger"
               disabled={busy}
-              onClick={() => void save(true)}
+              onClick={() => void deleteRecord()}
             >
-              Отменить {row.recurrence === "none" ? "встречу" : "всю серию"}
+              Удалить
+            </Button>
+          </>
+        }
+      >
+        <p>Вы уверены, что хотите удалить эту запись?</p>
+        {row?.recurrence !== "none" && (
+          <p className="mt-2 text-sm text-muted">Будет удалена вся серия.</p>
+        )}
+        {row?.task && (
+          <p className="mt-2 text-sm text-muted">
+            Связанная задача уйдёт из рабочих списков. История выполнения
+            сохранится.
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="mt-2 text-danger">
+            {error}
+          </p>
+        )}
+      </Modal>
+    );
+  return (
+    <Modal
+      open
+      width="max-w-4xl"
+      mobileFull
+      onClose={closeForm}
+      title={
+        row
+          ? {
+              meeting: "Встреча",
+              work: "Задача",
+              personal: "Личное",
+              anniversary: "Юбилей",
+            }[category] || "Запись"
+          : "Добавить запись"
+      }
+      footer={
+        <>
+          {row?.can_delete && (
+            <Button
+              variant="danger"
+              disabled={busy || uploading}
+              onClick={() => {
+                setError("");
+                setConfirmDelete(true);
+              }}
+            >
+              Удалить
             </Button>
           )}
-          <Button variant="secondary" onClick={close}>
+          <Button
+            variant="secondary"
+            disabled={busy || uploading}
+            onClick={closeForm}
+          >
             Закрыть
           </Button>
           {!readonly && (
             <Button
               disabled={
                 busy ||
+                uploading ||
                 !title.trim() ||
                 !start ||
                 !end ||
@@ -879,7 +1097,74 @@ function EventForm({
       }
     >
       <div className="space-y-4">
-        <p className="text-xs text-muted">Время встречи: {zone}</p>
+        {!row && !!preferences.templates?.length && (
+          <Field label="Из шаблона">
+            <Select
+              aria-label="Из шаблона"
+              disabled={busy || uploading}
+              value=""
+              onChange={(e) => {
+                const t = preferences.templates?.find(
+                  (t) => t.id === e.target.value,
+                );
+                if (!t) return;
+                setTitle(t.title);
+                setDescription(t.description);
+                setLocation(t.location);
+                setCategory(t.category);
+                setReminder(t.reminder_minutes);
+                setRecurrence(t.category === "work" ? "none" : t.recurrence);
+                setCount(t.count);
+                setAllDay(false);
+                if (start)
+                  setEnd(
+                    local(
+                      new Date(
+                        new Date(start).getTime() + t.duration_minutes * 60000,
+                      ),
+                    ),
+                  );
+              }}
+            >
+              <option value="">Выберите шаблон</option>
+              {preferences.templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <p className="text-xs text-muted">
+          Часовой пояс: {zone}
+          {row &&
+            ` · Организатор: ${people.find((p) => p.id === row.owner_id)?.name || "сотрудник"}`}
+        </p>
+        {row?.task && (
+          <div className="rounded-lg border border-border bg-surface-muted p-3 text-sm">
+            <span>
+              Задача №{row.task.id} ·{" "}
+              {
+                {
+                  not_ready: "Ожидает",
+                  ready: "Готова к работе",
+                  in_progress: "В работе",
+                  in_review: "На проверке",
+                  done: "Выполнена",
+                }[row.task.status]
+              }
+            </span>
+            {row.task.can_open && (
+              <Link
+                onClick={closeForm}
+                className="ml-3 text-accent underline"
+                to={`/tasks?task=${row.task.id}`}
+              >
+                Выполнение и отчёты →
+              </Link>
+            )}
+          </div>
+        )}
         {error && (
           <p role="alert" className="text-danger">
             {error}
@@ -890,7 +1175,10 @@ function EventForm({
             Изменения применяются ко всей серии встреч.
           </p>
         )}
-        <fieldset disabled={readonly || busy} className="space-y-3">
+        <fieldset
+          disabled={readonly || busy || uploading}
+          className="space-y-3"
+        >
           <Field label="Тема">
             <Input
               aria-label="Тема встречи"
@@ -907,7 +1195,9 @@ function EventForm({
                 setAllDay(e.target.checked);
                 if (e.target.checked) {
                   const a = (start || local(at)).slice(0, 10) + "T00:00";
-                  const last = new Date((end || start || local(at)).slice(0, 10) + "T00:00");
+                  const last = new Date(
+                    (end || start || local(at)).slice(0, 10) + "T00:00",
+                  );
                   last.setDate(last.getDate() + 1);
                   setStart(a);
                   setEnd(local(last));
@@ -985,6 +1275,10 @@ function EventForm({
           </Field>
           <Field label="Повестка">
             <Textarea
+              aria-label="Повестка"
+              rows={6}
+              className="w-full min-h-36 resize-y"
+              maxLength={10000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -992,7 +1286,11 @@ function EventForm({
           <Select
             aria-label="Тип встречи"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            disabled={!!row?.task}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              if (e.target.value === "work") setRecurrence("none");
+            }}
           >
             {Object.keys(colors).map((k) => (
               <option key={k} value={k}>
@@ -1000,6 +1298,54 @@ function EventForm({
               </option>
             ))}
           </Select>
+          {category === "work" && (
+            <div className="space-y-3 rounded-xl border border-border bg-surface-muted p-4">
+              <p className="text-sm text-muted">
+                Задача появится в разделе «Задачи». Окончание — срок выполнения.
+                Отчёт принимает другой сотрудник.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["assignee", "reviewer"] as const).map((kind) => (
+                  <Field
+                    key={kind}
+                    label={kind === "assignee" ? "Исполнитель" : "Проверяющий"}
+                  >
+                    <Select
+                      aria-label={
+                        kind === "assignee" ? "Исполнитель" : "Проверяющий"
+                      }
+                      disabled={!managing}
+                      value={(kind === "assignee" ? assignee : reviewer) || ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value) || null;
+                        (kind === "assignee" ? setAssignee : setReviewer)(id);
+                        if (id)
+                          setParticipants((old) =>
+                            Array.from(new Set([...old, id])),
+                          );
+                      }}
+                    >
+                      <option value="">Выберите сотрудника</option>
+                      {people
+                        .filter((p) => p.can_work_tasks)
+                        .map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </Field>
+                ))}
+              </div>
+            </div>
+          )}
+          <Field label="Теги (через запятую)">
+            <Input
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="Продажи, планёрка, проект"
+            />
+          </Field>
           <Select
             aria-label="Занятость"
             value={availability}
@@ -1011,6 +1357,7 @@ function EventForm({
           </Select>
           <Select
             aria-label="Повторение"
+            disabled={category === "work"}
             value={recurrence}
             onChange={(e) => setRecurrence(e.target.value)}
           >
@@ -1040,25 +1387,167 @@ function EventForm({
           </p>
           <div className="max-h-44 overflow-auto">
             {people.map((p) => (
-              <label key={p.id} className="flex gap-2 py-1 text-sm">
-                <input
-                  type="checkbox"
-                  checked={participants.includes(p.id)}
+              <div
+                key={p.id}
+                className="flex flex-wrap items-center gap-2 py-1 text-sm"
+              >
+                <label className="flex flex-1 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    disabled={
+                      !managing ||
+                      (category === "work" &&
+                        (p.id === assignee || p.id === reviewer))
+                    }
+                    checked={participants.includes(p.id)}
+                    onChange={(e) =>
+                      setParticipants((old) =>
+                        e.target.checked
+                          ? [...old, p.id]
+                          : old.filter((id) => id !== p.id),
+                      )
+                    }
+                  />
+                  {p.name}{" "}
+                  {row?.responses[String(p.id)] &&
+                    `· ${{ pending: "Ожидаем ответ", accepted: "Придёт", tentative: "Возможно", declined: "Не придёт" }[row.responses[String(p.id)]]}`}
+                </label>
+                {participants.includes(p.id) && p.id !== row?.owner_id && (
+                  <Select
+                    aria-label={`Права: ${p.name}`}
+                    className="w-auto max-w-full py-1 text-xs"
+                    disabled={!managing}
+                    value={
+                      coorganizers.includes(p.id)
+                        ? "coorganizer"
+                        : editors.includes(p.id)
+                          ? "editor"
+                          : "viewer"
+                    }
+                    onChange={(e) => {
+                      setCoorganizers((old) => [
+                        ...old.filter((id) => id !== p.id),
+                        ...(e.target.value === "coorganizer" ? [p.id] : []),
+                      ]);
+                      setEditors((old) => [
+                        ...old.filter((id) => id !== p.id),
+                        ...(e.target.value === "editor" ? [p.id] : []),
+                      ]);
+                    }}
+                  >
+                    <option value="viewer">Просмотр</option>
+                    <option value="editor">Редактирование</option>
+                    <option value="coorganizer">Соорганизатор</option>
+                  </Select>
+                )}
+              </div>
+            ))}
+          </div>
+          <section className="space-y-2 rounded-xl border border-border p-3">
+            <h3 className="text-sm font-medium">Ссылки на документы</h3>
+            {links.map((link, i) => (
+              <div key={i} className="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                <Input
+                  aria-label={`Название ссылки ${i + 1}`}
+                  placeholder="Название документа"
+                  value={link.label}
+                  maxLength={120}
                   onChange={(e) =>
-                    setParticipants((old) =>
-                      e.target.checked
-                        ? [...old, p.id]
-                        : old.filter((id) => id !== p.id),
+                    setLinks((old) =>
+                      old.map((v, n) =>
+                        n === i ? { ...v, label: e.target.value } : v,
+                      ),
                     )
                   }
                 />
-                {p.name}{" "}
-                {row?.responses[String(p.id)] &&
-                  `· ${{ pending: "Ожидаем ответ", accepted: "Придёт", tentative: "Возможно", declined: "Не придёт" }[row.responses[String(p.id)]]}`}
-              </label>
+                <Input
+                  aria-label={`Адрес ссылки ${i + 1}`}
+                  type="url"
+                  placeholder="https://…"
+                  value={link.url}
+                  onChange={(e) =>
+                    setLinks((old) =>
+                      old.map((v, n) =>
+                        n === i ? { ...v, url: e.target.value } : v,
+                      ),
+                    )
+                  }
+                />
+                {!readonly && (
+                  <Button
+                    variant="ghost"
+                    aria-label={`Убрать ссылку ${i + 1}`}
+                    onClick={() =>
+                      setLinks((old) => old.filter((_, n) => n !== i))
+                    }
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
             ))}
-          </div>
+            {!readonly && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={links.length >= 10}
+                onClick={() =>
+                  setLinks((old) => [...old, { label: "", url: "" }])
+                }
+              >
+                Добавить ссылку
+              </Button>
+            )}
+          </section>
         </fieldset>
+        {links
+          .filter((l) => /^https?:\/\//i.test(l.url))
+          .map((link, i) => (
+            <a
+              key={i}
+              className="block truncate text-sm text-accent underline"
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {link.label || link.url} ↗
+            </a>
+          ))}
+        <CalendarAttachments
+          files={attachments}
+          onChange={setAttachments}
+          disabled={readonly || busy}
+          uploading={uploading}
+          setUploading={setUploading}
+          staged={staged}
+        />
+        {!readonly && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={
+                busy ||
+                uploading ||
+                !title.trim() ||
+                (preferences.templates?.length || 0) >= 20 ||
+                allDay
+              }
+              onClick={() => void saveTemplate()}
+            >
+              Сохранить как шаблон
+            </Button>
+            <span className="text-xs text-muted">
+              Тема, повестка, место и длительность. Участники и файлы выбираются
+              отдельно.
+            </span>
+            {templateMessage && (
+              <p role="status" className="text-sm">
+                {templateMessage}
+              </p>
+            )}
+          </div>
+        )}
         {!readonly && !allDay && (
           <MeetingPlanner
             preferences={{ ...preferences, timezone: zone }}
@@ -1073,7 +1562,7 @@ function EventForm({
             }}
           />
         )}
-        {readonly && (
+        {row?.can_respond && (
           <div className="flex flex-wrap gap-2">
             {["accepted", "tentative", "declined"].map((response, i) => (
               <Button
