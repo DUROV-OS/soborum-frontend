@@ -10,6 +10,7 @@ export type ExportEvent = {
   all_day?: boolean;
   occurrence_start: string;
   occurrence_end: string;
+  occurrence_id?: string;
   reminder_minutes?: number | null;
 };
 const escapeText = (s: string) =>
@@ -60,7 +61,7 @@ export function calendarICS(events: ExportEvent[], now = new Date()) {
     // Snapshot: each visible occurrence has a stable UID; never exports unseen repetitions.
     lines.push(
       "BEGIN:VEVENT",
-      `UID:${e.id}-${utc(e.occurrence_start)}@calendar.durov.house`,
+      `UID:${e.id}-${e.occurrence_id ?? utc(e.occurrence_start)}@calendar.durov.house`,
       `SEQUENCE:${e.version}`,
       `DTSTAMP:${utc(now.toISOString())}`,
     );

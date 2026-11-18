@@ -12,12 +12,13 @@ const links = [
   { title: 'Задачи', note: 'Назначенные вам задачи и сроки', to: '/tasks', icon: ClipboardList },
   { title: 'MAX', note: 'Общение из подключённого рабочего аккаунта', to: '/chats', icon: MessagesSquare },
   { title: 'Команда', note: 'Сотрудники с доступом к CRM', to: '/team', icon: Users },
+  { title: 'Проекты', note: 'Команда, задачи и документы проектов', to: '/projects', icon: Briefcase },
   { title: 'Уведомления', note: 'Личные уведомления по работе', to: '/notifications', icon: Bell },
 ]
 
 /** Sales landing deliberately does not load the owner dashboard or ERP clients. */
 export function SalesWorkspace({ view = 'today' }: { view?: 'today' | 'work' | 'sales' }) {
-  const title = view === 'today' ? 'Главное на сегодня' : view === 'work' ? 'Работа' : 'Продажи'
+  const title = view === 'today' ? 'Главное на сегодня' : view === 'work' ? 'Разделы' : 'Продажи'
   const today = new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'long', day: 'numeric', month: 'long' })
   return <div className="mx-auto max-w-[1440px] space-y-7 pb-6">
     <div><p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Рабочий обзор</p>

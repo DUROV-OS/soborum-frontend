@@ -1,3 +1,5 @@
+import { MessageCircle } from 'lucide-react'
+import { chatKind, chatFilters } from '../chatFilters'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Check, Copy, Link2, RefreshCw, Search, Send, UserCheck, UserPlus } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -186,16 +188,18 @@ export function AllChatsPage() {
     pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
   }
 
+  const [chatFilter, setChatFilter] = useState('all')
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return chats
-    return chats.filter(
+    const visible = chats.filter(c => chatFilter === 'all' || chatKind(c.type) === chatFilter)
+    if (!q) return visible
+    return visible.filter(
       (c) =>
         (c.title ?? '').toLowerCase().includes(q) ||
         (c.lastMessage?.text ?? '').toLowerCase().includes(q) ||
         phoneMatches(c.phone, q),
     )
-  }, [chats, query])
+  }, [chats, query, chatFilter])
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
@@ -293,12 +297,15 @@ export function AllChatsPage() {
           </div>
         </div>
 
+        <div role="group" aria-label="Категории чатов" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2 py-2">
+          {chatFilters.map(([id, label]) => <button key={id} type="button" aria-pressed={chatFilter === id} onClick={() => setChatFilter(id)} className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 text-xs ${chatFilter === id ? 'bg-brand/10 font-semibold text-brand-dark' : 'text-muted hover:bg-surface-muted'}`}>{label}</button>)}
+        </div>
         <div className="flex-1 overflow-y-auto p-2">
           {chatsLoading && chats.length === 0 && <p className="px-2 py-2 text-[12px] text-muted">Загрузка…</p>}
           {chatsError && <p className="px-2 py-2 text-[12px] text-danger">{chatsError}</p>}
           {!chatsLoading && !chatsError && filtered.length === 0 && (
             <p className="px-2 py-2 text-[12px] text-muted">
-              {query ? 'Ничего не найдено' : 'Чатов пока нет'}
+              {query ? 'Ничего не найдено' : chatFilter === 'all' ? 'Чатов пока нет' : 'В этой категории пока нет чатов'}
             </p>
           )}
           <div className="flex flex-col gap-0.5">
@@ -312,7 +319,7 @@ export function AllChatsPage() {
                 }`}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
+                  <MessageCircle size={16} aria-label="MAX" className="shrink-0 text-brand" /><span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
                   <span className="shrink-0 text-[10px] text-muted">{relTime(c.lastEventTime)}</span>
                 </div>
                 {c.phone && <span className="text-[12px] text-muted">{formatPhone(c.phone)}</span>}

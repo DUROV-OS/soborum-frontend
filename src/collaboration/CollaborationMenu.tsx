@@ -35,7 +35,7 @@ export function CollaborationMenu({ onNavigate }: { onNavigate: () => void }) {
     <ul id="collaboration-menu-items" aria-label="Инструменты совместной работы" className="collaboration-submenu">
       {tools.filter(tool => open || tool.id === 'calendar').map((tool, index) => <li key={tool.id} className={index > 0 && tool.id === 'tasks' ? 'collaboration-menu-divider' : undefined}>
         {tool.to ? <Link to={tool.to} onClick={navigate} aria-current={pathname === tool.to || pathname.startsWith(tool.to + '/') ? 'page' : undefined}>
-          <ToolIcon id={tool.id}/><span>{tool.label}</span>{tool.id === 'messenger' && <small>MAX</small>}
+          <ToolIcon id={tool.id}/><span>{tool.label}</span>
         </Link> : <span className="collaboration-planned" aria-disabled="true" title={tool.description}><ToolIcon id={tool.id}/><span>{tool.label}</span><small>Скоро</small></span>}
       </li>)}
       {open && <li className="collaboration-menu-divider"><Link to="/collaboration" onClick={navigate} aria-current={pathname === '/collaboration' ? 'page' : undefined} className="collaboration-overview">Обзор рабочего пространства</Link></li>}

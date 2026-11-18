@@ -24,7 +24,7 @@ export function salesRouteAllowed(pathname: string, search: string): boolean {
     return !query.has('tab') || ['deal', 'contact', 'company', 'task', 'inquiry', 'pipeline', 'stage'].includes(query.get('tab') || '')
   }
   if (pathname === '/tasks') return !query.has('scope') || query.get('scope') === 'mine'
-  if (['/today', '/work', '/collaboration', '/calendar', '/sales', '/team', '/notifications', '/feedback', '/feedback/my', '/costing'].includes(pathname)) return true
+  if (['/today', '/work', '/collaboration', '/calendar', '/mail', '/sales', '/team', '/notifications', '/feedback', '/feedback/my', '/costing'].includes(pathname)) return true
   if (/^\/projects(?:\/\d+)?$/.test(pathname)) return true
   if (/^\/chats(?:\/-?\d+)?$/.test(pathname)) return true
   if (/^\/partners(?:\/\d+)?$/.test(pathname)) return true

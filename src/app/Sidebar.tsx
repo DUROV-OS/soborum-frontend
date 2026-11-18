@@ -17,8 +17,8 @@ import { isCollaborationRoute, visibleCollaborationTools } from '@/collaboration
 
 /** Общие инструменты; рабочие процессы добавляются из единого справочника. */
 const MENU: SectionId[] = [
-  'today',
   'work',
+  'today',
   'board',
   'agents',
   'ai_proposals',
@@ -76,7 +76,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['today', 'crm', 'estimates', 'partners', 'notifications', 'feedback_my'] : MENU
+  const menu: SectionId[] = salesManager ? ['work', 'today', 'crm', 'estimates', 'partners', 'notifications', 'feedback_my'] : MENU
   let items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
@@ -86,8 +86,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     const crm = SECTIONS.find(s => s.id === 'crm')!
     const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
     const estimates = SECTIONS.find(s => s.id === 'estimates')!
-    if (hasAccess('estimates')) items.splice(3, 0, { ...estimates, label: 'Каталог и цены', path: '/costing?tab=catalog' })
-    if (hasAccess('crm')) items.splice(4, 0,
+    if (hasAccess('estimates')) items.splice(items.findIndex(item => item.id === 'estimates') + 1, 0, { ...estimates, label: 'Каталог и цены', path: '/costing?tab=catalog' })
+    if (hasAccess('crm')) items.splice(items.findIndex(item => item.id === 'partners'), 0,
       { ...crm, label: 'Команда', path: '/team' },
     )
     items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
@@ -179,7 +179,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       </div>
       <nav className="flex-1 overflow-y-auto px-4 pb-4 pt-1">
         <ul className="space-y-1.5">
-          <CollaborationMenu onNavigate={onClose}/>
           {items.map((section) => {
             const Icon = section.icon
             return (
@@ -226,7 +225,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     {section.id === 'ai' && <ArrowUpRight size={15} className="opacity-50" />}
                   </NavLink>
                 </li>
-                {section.id === 'work' && workflowItems}
+                {section.id === 'today' && <><CollaborationMenu onNavigate={onClose}/>{workflowItems}</>}
               </Fragment>
             )
           })}

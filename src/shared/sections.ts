@@ -119,7 +119,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'moysklad', label: 'МойСклад', path: '/moysklad', icon: Database, notAssignable: true },
   { id: 'purchasing', label: 'Закупки и приёмки', path: '/purchasing', icon: Truck, notAssignable: true },
   { id: 'today', label: 'Пульс', path: '/today', icon: Activity, notAssignable: true },
-  { id: 'work', label: 'Работа', path: '/work', icon: Briefcase, notAssignable: true },
+  { id: 'work', label: 'Разделы', path: '/work', icon: Briefcase, notAssignable: true },
   // Navigation hub only; each linked tool retains its existing permission.
   { id: 'projects', label: 'Проекты', path: '/projects', icon: FolderKanban, notAssignable: true },
   { id: 'collaboration', label: 'Совместная работа', path: '/collaboration', icon: Users, notAssignable: true },

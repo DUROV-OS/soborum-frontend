@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { layoutDay, type Occurrence } from "./calendarLayout";
+import { calendarDragType, readCalendarDrag } from './calendarDrag';
 
 type Item = Occurrence & {
   title: string;
@@ -8,6 +9,7 @@ type Item = Occurrence & {
   recurrence: string;
   location: string;
   all_day?: boolean;
+  occurrence_id?: string;
 };
 const defaultColors: Record<string, string> = {
   meeting: "#4776d0",
@@ -28,6 +30,10 @@ export function CalendarTimeGrid<T extends Item>({
   create,
   move,
   colors = defaultColors,
+  workStart = 480,
+  workEnd = 1140,
+  workingDays = [0, 1, 2, 3, 4],
+  disabled = false,
 }: {
   begin: Date;
   days: number;
@@ -35,14 +41,19 @@ export function CalendarTimeGrid<T extends Item>({
   events: T[];
   open: (event: T) => void;
   create: (date: Date) => void;
-  move: (id: number, date: Date) => void;
+  move: (id: number, date: Date, occurrence?: string) => void;
   colors?: Record<string, string>;
+  workStart?: number;
+  workEnd?: number;
+  workingDays?: number[];
+  disabled?: boolean;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
+  const [dropHint, setDropHint] = useState<{ date: number; minute: number } | null>(null);
   const dateKey = begin.toISOString();
   useEffect(() => {
-    if (viewport.current) viewport.current.scrollTop = 8 * 60 * SCALE;
-  }, [dateKey, days, weekdays]);
+    if (viewport.current) viewport.current.scrollTop = workStart * SCALE;
+  }, [dateKey, days, workStart]);
   const dates = Array.from({ length: days }, (_, i) => {
     const d = new Date(begin);
     d.setDate(d.getDate() + i);
@@ -103,7 +114,7 @@ export function CalendarTimeGrid<T extends Item>({
                 )
                 .map((e) => (
                   <button
-                    key={`${e.id}-${e.occurrence_start}`}
+                    key={`${e.id}-${e.occurrence_id ?? e.occurrence_start}`}
                     className="block w-full rounded border-l-4 bg-surface p-1 text-left text-xs font-medium"
                     style={{ borderColor: colors[e.category] }}
                     onClick={() => open(e)}
@@ -138,29 +149,42 @@ export function CalendarTimeGrid<T extends Item>({
           {dates.map((d) => (
             <div
               key={d.toISOString()}
-              className="relative border-l border-border"
+              className="relative border-l border-border bg-surface-muted"
+              data-calendar-day={d.toLocaleDateString('en-CA')}
               style={{
                 height: 1440 * SCALE,
                 backgroundImage:
                   "linear-gradient(to bottom, var(--color-border, #e5e7eb) 1px, transparent 1px)",
                 backgroundSize: `100% ${30 * SCALE}px`,
               }}
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={(e) => {
+                if (disabled || !e.dataTransfer.types.includes(calendarDragType)) return;
+                e.preventDefault();
+                setDropHint({ date: d.getTime(), minute: Math.max(0, Math.min(1425, Math.round((e.clientY - e.currentTarget.getBoundingClientRect().top) / SCALE / 15) * 15)) });
+              }}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropHint(null); }}
+              onDragEnd={() => setDropHint(null)}
               onDrop={(e) => {
                 e.preventDefault();
-                const id = Number(
-                  e.dataTransfer.getData("application/x-durov-calendar"),
-                );
-                if (!Number.isSafeInteger(id) || id <= 0) return;
+                setDropHint(null);
+                const item = readCalendarDrag(e.dataTransfer);
+                if (!item || disabled) return;
                 const minutes =
                   Math.round(
                     (e.clientY - e.currentTarget.getBoundingClientRect().top) /
                       SCALE /
                       15,
                   ) * 15;
-                move(id, timeAt(d, Math.max(0, Math.min(1425, minutes))));
+                move(item.id, timeAt(d, Math.max(0, Math.min(1425, minutes))), item.occurrence);
               }}
             >
+              {workingDays.includes((d.getDay() + 6) % 7) && <div
+                aria-label={`Рабочие часы ${String(Math.floor(workStart / 60)).padStart(2, '0')}:${String(workStart % 60).padStart(2, '0')}–${String(Math.floor(workEnd / 60)).padStart(2, '0')}:${String(workEnd % 60).padStart(2, '0')}`}
+                data-work-start={workStart} data-work-end={workEnd}
+                className="pointer-events-none absolute left-0 w-full bg-surface"
+                style={{ top: workStart * SCALE, height: (workEnd - workStart) * SCALE,
+                  backgroundImage: 'linear-gradient(to bottom, var(--color-border, #e5e7eb) 1px, transparent 1px)', backgroundSize: `100% ${30 * SCALE}px` }} />}
+              {dropHint?.date === d.getTime() && <div className="pointer-events-none absolute left-0 z-30 w-full border-t-2 border-brand text-xs text-brand-dark" style={{ top: dropHint.minute * SCALE }}><span className="rounded bg-surface px-2">{clock(timeAt(d, dropHint.minute))}</span></div>}
               {Array.from({ length: 48 }, (_, i) => (
                 <button
                   type="button"
@@ -179,14 +203,14 @@ export function CalendarTimeGrid<T extends Item>({
               ).map(({ event, start, end, lane, lanes }) => (
                 <button
                   type="button"
-                  key={`${event.id}-${event.occurrence_start}`}
+                  key={`${event.id}-${event.occurrence_id ?? event.occurrence_start}`}
                   title={`${event.title} · ${clock(new Date(event.occurrence_start))}–${clock(new Date(event.occurrence_end))}${event.location ? " · " + event.location : ""}`}
                   aria-label={`${event.title}, ${clock(new Date(event.occurrence_start))}–${clock(new Date(event.occurrence_end))}`}
-                  draggable={event.can_edit && event.recurrence === "none"}
+                  draggable={event.can_edit && !disabled}
                   onDragStart={(e) =>
                     e.dataTransfer.setData(
-                      "application/x-durov-calendar",
-                      String(event.id),
+                      calendarDragType,
+                      JSON.stringify({ id: event.id, occurrence: event.occurrence_id || event.occurrence_start }),
                     )
                   }
                   onClick={() => open(event)}

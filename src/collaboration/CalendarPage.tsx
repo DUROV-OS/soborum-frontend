@@ -19,6 +19,8 @@ import {
 } from "./CalendarAttachments";
 import { Link } from "react-router-dom";
 import { Modal } from "@/shared/ui/Modal";
+import { calendarDragType, readCalendarDrag } from './calendarDrag';
+import { CalendarDays } from 'lucide-react';
 type Person = { id: number; name: string; can_work_tasks?: boolean };
 type Event = {
   id: number;
@@ -54,6 +56,7 @@ type Event = {
   reminder_minutes?: number | null;
   occurrence_start: string;
   occurrence_end: string;
+  occurrence_id?: string;
 };
 const call = <T,>(
   path: string,
@@ -138,6 +141,13 @@ function CalendarWorkspace({
   const [invitations, setInvitations] = useState<Event[]>([]);
   const [invitationError, setInvitationError] = useState("");
   const [invitationsOnly, setInvitationsOnly] = useState(false);
+  const [movePending, setMovePending] = useState<{ row: Event; at: Date } | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [moveNotice, setMoveNotice] = useState('');
+  const [moveError, setMoveError] = useState('');
+  const [preview, setPreview] = useState<Event | null>(null);
+  const [previewTime, setPreviewTime] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const colors = Object.fromEntries(
     Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
   );
@@ -316,37 +326,48 @@ function CalendarWorkspace({
         new Date(e.occurrence_start) < add(d, 1) &&
         new Date(e.occurrence_end) > d,
     );
-  const move = async (id: number, at: Date) => {
-    const row = events.find((e) => e.id === id);
-    if (!row?.can_edit) return;
-    if (row.recurrence !== "none") {
-      setError(
-        "Повторяющаяся встреча: откройте карточку для изменения всей серии.",
-      );
-      return;
-    }
+  const saveMove = async (row: Event, at: Date, scope: 'occurrence' | 'series') => {
+    setMoving(true); setMoveError(''); setMoveNotice('');
     try {
-      await call(`/events/${id}`, "PATCH", {
-        ...payload(row),
+      await call(`/events/${row.id}/move`, "PATCH", {
+        version: row.version,
         request_id: crypto.randomUUID(),
-        start: instant(local(at), preferences.timezone),
-        end: new Date(
-          Date.parse(instant(local(at), preferences.timezone)) +
-            new Date(row.end).getTime() -
-            new Date(row.start).getTime(),
-        ).toISOString(),
+        occurrence_id: row.occurrence_id || '0', scope,
+        start: instant(local(at), row.all_day ? row.timezone : preferences.timezone),
       });
       setRevision((v) => v + 1);
+      setMovePending(null); setMoveNotice('Время события изменено');
     } catch (e) {
-      setError((e as Error).message);
-    }
+      setMoveError((e as Error).message);
+      setMovePending(null); setRevision(v => v + 1);
+    } finally { setMoving(false); }
+  };
+  const move = (id: number, at: Date, occurrence?: string) => {
+    const row = events.find(e => e.id === id && (!occurrence || e.occurrence_id === occurrence));
+    if (!row?.can_edit || moving) return;
+    if (row.recurrence !== 'none') setMovePending({ row, at });
+    else void saveMove(row, at, 'occurrence');
+  };
+  const dropOnDay = (transfer: DataTransfer, date: Date) => {
+    const item = readCalendarDrag(transfer);
+    if (!item) return;
+    const row = shown.find(e => e.id === item.id && e.occurrence_id === item.occurrence);
+    if (!row) return;
+    const start = new Date(row.occurrence_start), at = new Date(date);
+    at.setHours(row.all_day ? 0 : start.getHours(), row.all_day ? 0 : start.getMinutes(), 0, 0);
+    move(item.id, at, item.occurrence);
+  };
+  const openPreview = (event: Event) => {
+    const canonical = events.find(e => e.id === event.id && e.occurrence_id === event.occurrence_id) || event;
+    setPreview(canonical);
+    setPreviewTime(local(wallDate(canonical.occurrence_start, canonical.all_day ? canonical.timezone : preferences.timezone)));
   };
   const eventButton = (e: Event) => (
     <button
-      key={`${e.id}-${e.occurrence_start}`}
-      draggable={e.can_edit && e.recurrence === "none" && !e.all_day}
-      onDragStart={(a) => a.dataTransfer.setData("text/plain", String(e.id))}
-      onClick={() => setEditor({ row: e, at: new Date(e.start) })}
+      key={`${e.id}-${e.occurrence_id ?? e.occurrence_start}`}
+      draggable={e.can_edit && !moving}
+      onDragStart={(a) => a.dataTransfer.setData(calendarDragType, JSON.stringify({ id: e.id, occurrence: e.occurrence_id || '0' }))}
+      onClick={() => openPreview(e)}
       className="my-1 block w-full rounded-md border-l-4 bg-surface-muted px-2 py-1 text-left text-xs hover:brightness-95"
       style={{ borderColor: colors[e.category] }}
     >
@@ -366,6 +387,22 @@ function CalendarWorkspace({
   );
   return (
     <div className="space-y-4">
+      {(moving || moveNotice) && <p role="status" className="text-sm text-muted">{moving ? 'Сохраняем новое время…' : moveNotice}</p>}
+      {moveError && <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">Не удалось перенести событие: {moveError}</p>}
+      <Modal open={!!preview} onClose={() => setPreview(null)} title={preview?.title || 'Событие'} footer={preview?.can_edit && <Button onClick={() => { setEditor({ row: preview, at: new Date(preview.start) }); setPreview(null); }}>{preview.recurrence === 'none' ? 'Редактировать' : 'Редактировать серию'}</Button>}>
+        {preview && <div className="space-y-3 text-sm">
+          <p className="border-l-4 pl-3" style={{ borderColor: colors[preview.category] }}>{preferences.categories[preview.category]?.label}</p>
+          <p>{new Date(preview.occurrence_start).toLocaleString('ru-RU', { timeZone: preferences.timezone })} — {new Date(preview.occurrence_end).toLocaleString('ru-RU', { timeZone: preferences.timezone })} · {preferences.timezone}</p>
+          {preview.location && <p>{preview.location}</p>}{preview.description && <p className="whitespace-pre-wrap break-words">{preview.description}</p>}
+          {!!preview.participants.length && <p className="text-muted">Участники: {preview.participants.map(id => people.find(p => p.id === id)?.name || 'Сотрудник').join(', ')}</p>}
+          {preview.can_edit && <div className="space-y-2 border-t border-border pt-3"><Field label="Перенести на"><Input aria-label="Новое время события" type="datetime-local" value={previewTime} onChange={e => setPreviewTime(e.target.value)}/></Field><Button variant="secondary" disabled={!previewTime || moving} onClick={() => { move(preview.id, new Date(previewTime), preview.occurrence_id); setPreview(null); }}>Перенести</Button></div>}
+        </div>}
+      </Modal>
+      <Modal open={!!movePending} onClose={() => { if (!moving) setMovePending(null); }} title="Перенести повторяющуюся встречу" footer={<>
+        <Button variant="ghost" disabled={moving} onClick={() => setMovePending(null)}>Отмена</Button>
+        <Button disabled={moving} onClick={() => movePending && void saveMove(movePending.row, movePending.at, 'occurrence')}>Только это событие</Button>
+        <Button disabled={moving} onClick={() => movePending && void saveMove(movePending.row, movePending.at, 'series')}>Всю серию</Button>
+      </>}><p>Новое время: {movePending?.at.toLocaleString('ru-RU')}. При переносе серии остальные встречи сдвинутся на тот же интервал.</p></Modal>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">
@@ -413,11 +450,13 @@ function CalendarWorkspace({
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3">
             <Button
               variant="secondary"
+              aria-label="Сегодня"
+              className="!px-2 sm:!px-4"
               onClick={() =>
                 setDate(day(wallDate(new Date(), preferences.timezone)))
               }
             >
-              Сегодня
+              <CalendarDays size={18} className="sm:hidden"/><span className="hidden sm:inline">Сегодня</span>
             </Button>
             <Button
               variant="secondary"
@@ -432,11 +471,11 @@ function CalendarWorkspace({
             >
               ‹
             </Button>
-            <div className="w-40 shrink-0">
+            <div className="w-32 shrink-0 sm:w-40">
               <Input
                 aria-label="Дата календаря"
                 type="date"
-                className="w-40"
+                className="w-full"
                 value={local(date).slice(0, 10)}
                 onChange={(e) => {
                   if (e.target.value)
@@ -459,7 +498,7 @@ function CalendarWorkspace({
             </Button>
             {section === "mine" && (
               <div
-                className="flex flex-wrap gap-1"
+                className="flex w-full min-w-0 gap-1 overflow-x-auto sm:w-auto sm:flex-wrap"
                 role="tablist"
                 aria-label="Режим календаря"
               >
@@ -469,7 +508,7 @@ function CalendarWorkspace({
                     role="tab"
                     aria-selected={mode === key}
                     onClick={() => setMode(key)}
-                    className={`rounded-lg px-3 py-2 text-sm ${mode === key ? "bg-brand text-white" : "hover:bg-surface-muted"}`}
+                    className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-sm ${mode === key ? "bg-brand text-white" : "hover:bg-surface-muted"}`}
                   >
                     {label}
                   </button>
@@ -478,7 +517,9 @@ function CalendarWorkspace({
             )}
           </div>
           {section === "mine" && (
-            <div className="flex flex-wrap gap-3">
+            <>
+            <Button variant="secondary" className="sm:hidden" aria-expanded={filtersOpen} aria-controls="calendar-filters" onClick={() => setFiltersOpen(v => !v)}>Поиск и фильтры{(query || category || participantFilter || invitationsOnly) ? ' · включены' : ''}</Button>
+            <div id="calendar-filters" className={`${filtersOpen ? 'flex' : 'hidden'} flex-wrap gap-3 sm:flex`}>
               <Input
                 aria-label="Поиск событий"
                 className="max-w-sm"
@@ -560,6 +601,7 @@ function CalendarWorkspace({
                 </p>
               )}
             </div>
+            </>
           )}
           {invitationsOnly && section === "mine" && (
             <p className="text-sm text-muted">
@@ -662,7 +704,7 @@ function CalendarWorkspace({
                 const d = add(begin, i),
                   items = atDay(d);
                 return (
-                  <div key={i} className="min-h-24 border border-border p-2">
+                  <div key={i} className="min-h-24 min-w-0 border border-border p-1 sm:p-2" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); dropOnDay(e.dataTransfer, d); }}>
                     <button
                       aria-label={`Открыть ${d.toLocaleDateString("ru-RU")}`}
                       onClick={() => {
@@ -673,19 +715,22 @@ function CalendarWorkspace({
                     >
                       {d.getDate()}
                     </button>
-                    <div className="flex flex-wrap gap-1">
-                      {items.map((e) => (
+                    <div className="space-y-1">
+                      {items.slice(0, 3).map((e) => (
                         <button
-                          key={e.id}
+                          key={`${e.id}-${e.occurrence_id}`}
                           title={e.title}
                           aria-label={e.title}
+                          draggable={e.can_edit && !moving}
+                          onDragStart={a => a.dataTransfer.setData(calendarDragType, JSON.stringify({ id: e.id, occurrence: e.occurrence_id || '0' }))}
                           onClick={() =>
-                            setEditor({ row: e, at: new Date(e.start) })
+                            openPreview(e)
                           }
-                          style={{ background: colors[e.category] }}
-                          className="h-2 w-2 rounded-full"
-                        />
+                          style={{ borderColor: colors[e.category] }}
+                          className="block w-full truncate rounded border-l-4 bg-surface-muted px-1 py-1 text-left text-[10px] sm:text-xs"
+                        >{e.title}</button>
                       ))}
+                      {items.length > 3 && <button className="text-xs text-brand-dark" onClick={() => { setDate(d); setMode('day'); }}>Ещё {items.length - 3}</button>}
                     </div>
                   </div>
                 );
@@ -695,10 +740,14 @@ function CalendarWorkspace({
             <CalendarTimeGrid
               begin={begin}
               colors={colors}
+              workStart={preferences.work_start}
+              workEnd={preferences.work_end}
+              workingDays={preferences.weekdays}
+              disabled={moving}
               days={length}
               weekdays={mode === "work" ? preferences.weekdays : undefined}
               events={shown}
-              open={(e) => setEditor({ row: e, at: new Date(e.start) })}
+              open={openPreview}
               create={(at) => setEditor({ at })}
               move={move}
             />
@@ -724,56 +773,6 @@ function CalendarWorkspace({
       )}
     </div>
   );
-}
-function payload(r: Event) {
-  const {
-    title,
-    start,
-    end,
-    timezone,
-    description,
-    location,
-    category,
-    availability,
-    recurrence,
-    count,
-    participants,
-    cancelled,
-    all_day = false,
-    reminder_minutes = null,
-    version,
-    coorganizers = [],
-    editors = [],
-    tags = [],
-    links = [],
-    attachment_ids = [],
-    task_assignee_id = null,
-    task_reviewer_id = null,
-  } = r;
-  return {
-    title,
-    start,
-    end,
-    timezone,
-    description,
-    location,
-    category,
-    availability,
-    recurrence,
-    count,
-    participants,
-    cancelled,
-    all_day,
-    reminder_minutes,
-    version,
-    coorganizers,
-    editors,
-    tags,
-    links,
-    attachment_ids,
-    task_assignee_id,
-    task_reviewer_id,
-  };
 }
 function EventForm({
   row,

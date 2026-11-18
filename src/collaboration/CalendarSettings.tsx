@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiRequest } from "@/shared/lib/httpClient";
 import { Button } from "@/shared/ui/Button";
 import { Field, Input, Select } from "@/shared/ui/Field";
@@ -24,8 +24,8 @@ export type CalendarPreferences = {
 export const defaultPreferences: CalendarPreferences = {
   version: 0,
   timezone: "Europe/Moscow",
-  work_start: 540,
-  work_end: 1080,
+  work_start: 480,
+  work_end: 1140,
   weekdays: [0, 1, 2, 3, 4],
   categories: {
     meeting: { label: "Встречи", color: "#4776d0" },
@@ -51,6 +51,7 @@ export function CalendarSettings({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [done, setDone] = useState(false);
+  useEffect(() => { setDraft(preferences); }, [preferences]);
   const change = (patch: Partial<CalendarPreferences>) => {
     setDraft((old) => ({ ...old, ...patch }));
     setDone(false);

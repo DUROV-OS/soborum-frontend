@@ -33,7 +33,7 @@ export function WorkPage() {
   return (
     <div className="space-y-7">
       <div>
-        <h1 className="text-[22px] font-medium text-ink">Работа</h1>
+        <h1 className="text-[22px] font-medium text-ink">Разделы</h1>
         <p className="mt-1 text-sm text-muted">
           Разделы по рабочим процессам: от заказа до исполнения и расчётов.
         </p>
