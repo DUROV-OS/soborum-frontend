@@ -79,6 +79,7 @@ export function createMaterial(input: MaterialCreateInput): Promise<Material> {
 }
 
 export interface MaterialUpdateInput extends MaterialCharacteristicsInput {
+  edit_token?: string
   category?: string
   title?: string
   code?: string

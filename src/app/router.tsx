@@ -50,6 +50,8 @@ const AllChatsPage = lazy(() => import('@/max/pages/AllChatsPage').then(module =
 const WorkPage = lazy(() => import('@/work/pages/WorkPage').then(module => ({ default: module.WorkPage })))
 const ProjectsPage = lazy(() => import('@/collaboration/ProjectsPage').then(module => ({ default: module.ProjectsPage })))
 const CollaborationPage = lazy(() => import('@/collaboration/CollaborationPage').then(module => ({ default: module.CollaborationPage })))
+const MailPage = lazy(() => import('@/mail/MailPage').then(module => ({ default: module.MailPage })))
+const CalendarPage = lazy(() => import('@/collaboration/CalendarPage').then(module => ({ default: module.CalendarPage })))
 const AccountingPage = lazy(() => import('@/accounting/pages/AccountingPage').then(module => ({ default: module.AccountingPage })))
 const SuppliersPage = lazy(() => import('@/suppliers/pages/SuppliersPage').then(module => ({ default: module.SuppliersPage })))
 const TodayPage = lazy(() => import('@/today/pages/TodayPage').then(module => ({ default: module.TodayPage })))
@@ -90,6 +92,8 @@ export function AppRouter() {
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectsPage />} />
         <Route path="/collaboration" element={<CollaborationPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/mail" element={<MailPage />} />
         <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
         <Route path="/cost-approvals" element={<ApprovalsPage />} />
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />

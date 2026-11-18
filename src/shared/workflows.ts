@@ -412,9 +412,9 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
   },
   {
     id: 'company',
-    label: 'Компания и команда',
+    label: 'Маркетинг',
     icon: Building2,
-    note: 'Маркетинг, знания о проектах и совместная работа',
+    note: 'Каналы привлечения, кампании и результаты маркетинга',
     entries: [
       {
         id: 'marketing',
@@ -477,9 +477,14 @@ export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
     if (group.id === 'warehouse') return { ...group, entries: [...withCategory(group.entries, 'Складские операции'), ...withCategory(groupById.goods.entries, 'Справочники')] }
     if (group.id === 'production') return { ...group, entries: group.entries.map(entry => ({ ...entry, category: ['house-techcards', 'house-projects', 'production-standards', 'recipes'].includes(entry.id) ? 'Внутренние справочники' : 'Рабочие документы' })).sort((a, b) => Number(a.category === 'Внутренние справочники') - Number(b.category === 'Внутренние справочники')) }
     if (group.id === 'money') return { ...group, label: 'Бухгалтерия' }
-    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => !['house-models', 'chats', 'meetings'].includes(entry.id)) }
+    if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => entry.id === 'marketing') }
     return group
   })
+
+WORKFLOWS.push(
+  { id: 'projects', label: 'Проекты', icon: Building2, note: 'Команда и ход выполнения проектов', entries: [{ id: 'projects', label: 'Проекты', to: '/projects', section: 'projects', note: 'Команда, задачи, обсуждения и документы' }] },
+  { id: 'data', label: 'Данные и архив', icon: Building2, note: 'Сохранённые документы и справочники', entries: groupById.company.entries.filter(entry => entry.id === 'source-history') },
+)
 
 export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): WorkGroup[] {
   return WORKFLOWS.map((g) => ({

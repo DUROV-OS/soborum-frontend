@@ -43,7 +43,7 @@ function useSave(done: () => void) {
   return { busy, error, save }
 }
 
-function DocumentInput({ supplierId, value, change, title = 'Документ и место в нём' }: { supplierId: number; value: Citation; change: (v: Citation) => void; title?: string }) {
+export function DocumentInput({ supplierId, value, change, title = 'Документ и место в нём' }: { supplierId: number; value: Citation; change: (v: Citation) => void; title?: string }) {
   const [documents, setDocuments] = useState<Doc[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const currentValue = useRef(value)
   currentValue.current = value

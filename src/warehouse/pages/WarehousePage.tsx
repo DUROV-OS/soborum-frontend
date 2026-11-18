@@ -96,6 +96,14 @@ export function WarehousePage() {
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)
+  const [cardError, setCardError] = useState('')
+  const linkedMaterialId = tab === 'materials' ? params.get('material') : null
+  useEffect(() => {
+    if (!linkedMaterialId || !/^\d+$/.test(linkedMaterialId)) return
+    let active = true
+    getMaterial(Number(linkedMaterialId)).then(row => { if (active) setSelected(row) }).catch(e => { if (active) setCardError(e.message) })
+    return () => { active = false }
+  }, [linkedMaterialId])
   const [query, setQuery] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [onlyNeedsSupply, setOnlyNeedsSupply] = useState(false)
@@ -299,7 +307,8 @@ export function WarehousePage() {
       <InventoryOperationModal kind={inventoryKind} onClose={() => setInventoryKind(null)} />
       <TechcardIssueModal open={issuingByTechcard} initialProductionId={issuingHouseId} onClose={() => {setIssuingByTechcard(false);setIssuingHouseId(undefined)}} />
       <ManualIssueModal open={issuingManually} onClose={() => setIssuingManually(false)} />
-      <MaterialDetailDrawer material={selectedMaterial} onClose={() => setSelected(null)} onReserves={create=>{if(selectedMaterial){setParams({tab:'reservations',material:String(selectedMaterial.id),...(create?{reserve:String(selectedMaterial.id)}:{})});setSelected(null)}}}/>
+      {cardError && <p role="alert" className="text-danger">{cardError}</p>}
+      <MaterialDetailDrawer material={selectedMaterial} onClose={() => { setSelected(null); if (linkedMaterialId) setParams(p => { p.delete('material'); return p }) }} onReserves={create=>{if(selectedMaterial){setParams({tab:'reservations',material:String(selectedMaterial.id),...(create?{reserve:String(selectedMaterial.id)}:{})});setSelected(null)}}}/>
 
       <OnboardingDialog
         open={onboarding.open}

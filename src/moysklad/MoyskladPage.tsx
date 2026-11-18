@@ -29,7 +29,7 @@ type Row = {
   applicable?: boolean
   agent?: string
 }
-type Detail = Row & { payload: Record<string, unknown> }
+type Detail = Row & { payload: Record<string, unknown>; working_links?: { title: string; url: string }[] }
 const money = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
 const date = (s?: string | null) =>
   s ? new Date(s.includes('T') ? s : s.replace(' ', 'T')).toLocaleString('ru-RU') : '—'
@@ -470,6 +470,7 @@ export function MoyskladPage() {
       >
         {detail && (
           <div className="text-[13px] leading-relaxed">
+            {!!detail.working_links?.length && <div className="mb-4 space-y-2 rounded-lg border border-border p-3"><p className="text-muted">Это сохранённый оригинал из «МойСклада». Изменения вносите в рабочую карточку Durov OS.</p>{detail.working_links.map(link => <a key={link.url} href={link.url} className="block rounded-lg bg-brand px-4 py-3 font-medium text-white">{link.title} →</a>)}</div>}
             <Value value={detail.payload} />
             {files.length > 0 && (
               <div className="mt-6 border-t border-border pt-4">

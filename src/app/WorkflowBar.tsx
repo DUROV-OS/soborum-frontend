@@ -3,6 +3,7 @@ import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 import { useCollaborationTools } from '@/collaboration/useCollaborationTools'
+import { calendarSections, calendarSection } from '@/collaboration/calendarSections'
 
 export function WorkflowBar() {
   const navigate = useNavigate()
@@ -12,17 +13,17 @@ export function WorkflowBar() {
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
   const collaborationTools = useCollaborationTools().filter(tool => tool.to)
   const collaborationTool = collaborationTools.find(tool => location.pathname === tool.to || location.pathname.startsWith(tool.to + '/'))
-  if (collaborationTool || location.pathname === '/collaboration') return <nav aria-label="Вкладки совместной работы" className="collaboration-tabs">
-    <Link to="/collaboration" aria-current={location.pathname === '/collaboration' ? 'page' : undefined}>Обзор</Link>
-    {collaborationTools.map(tool => <Link key={tool.id} to={tool.to!} aria-current={tool.id === collaborationTool?.id ? 'page' : undefined}>{tool.label}</Link>)}
+  if (location.pathname === '/calendar') return <nav aria-label="Разделы календаря" className="collaboration-tabs calendar-section-tabs">
+    {calendarSections.map(([id, label]) => <Link key={id} to={'/calendar?section=' + id} aria-current={calendarSection(location.search) === id ? 'page' : undefined}>{label}</Link>)}
   </nav>
+  if (collaborationTool || location.pathname === '/collaboration') return null
   // Costing has its own role-aware navigation and mobile section selector.
   if (salesManager || !context || ['/costing', '/accounting'].includes(location.pathname)) return null
   return (
     <nav aria-label={'Раздел ' + context.group.label} className="workspace-workflow mb-4 flex min-w-0 items-center justify-between gap-3 text-[13px] text-muted">
       <div className="flex min-w-0 items-center gap-2">
         <Link to="/work" aria-label="Все разделы работы" className="hover:text-ink">
-          Работа
+          Разделы
         </Link>
         <span>›</span>
         <span className="font-medium text-ink">{context.group.label}</span>

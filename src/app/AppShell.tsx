@@ -12,6 +12,8 @@ import { WorkflowBar } from './WorkflowBar'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
+import { CalendarReminders } from '@/collaboration/CalendarReminders'
+import { PrimaryNavigation } from './PrimaryNavigation'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -47,8 +49,10 @@ export function AppShell() {
       )}
       <div ref={contentRef} className="flex min-w-0 flex-1 flex-col">
         <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)} />
+        <PrimaryNavigation />
         <main ref={mainRef} id="main-content" className="workspace-content mobile-safe-content flex-1 overflow-y-auto">
           <WorkflowBar />
+          <CalendarReminders />
           <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><Outlet /></RouteBoundary></div>
         </main>
       </div>
