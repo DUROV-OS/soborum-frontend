@@ -51,6 +51,7 @@ const WorkPage = lazy(() => import('@/work/pages/WorkPage').then(module => ({ de
 const ProjectsPage = lazy(() => import('@/collaboration/ProjectsPage').then(module => ({ default: module.ProjectsPage })))
 const CollaborationPage = lazy(() => import('@/collaboration/CollaborationPage').then(module => ({ default: module.CollaborationPage })))
 const MailPage = lazy(() => import('@/mail/MailPage').then(module => ({ default: module.MailPage })))
+const DrivePage = lazy(() => import('@/drive/DrivePage').then(module => ({ default: module.DrivePage })))
 const CalendarPage = lazy(() => import('@/collaboration/CalendarPage').then(module => ({ default: module.CalendarPage })))
 const AccountingPage = lazy(() => import('@/accounting/pages/AccountingPage').then(module => ({ default: module.AccountingPage })))
 const SuppliersPage = lazy(() => import('@/suppliers/pages/SuppliersPage').then(module => ({ default: module.SuppliersPage })))
@@ -94,6 +95,7 @@ export function AppRouter() {
         <Route path="/collaboration" element={<CollaborationPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/mail" element={<MailPage />} />
+        <Route path="/drive" element={<DrivePage />} />
         <Route path="/integrity" element={<AccessGate section="admin"><IntegrityPage /></AccessGate>} />
         <Route path="/cost-approvals" element={<ApprovalsPage />} />
         <Route path="/sales" element={salesManager ? <SalesWorkspace view="sales" /> : <AccessGate section="sales"><SalesPage /></AccessGate>} />

@@ -6,7 +6,7 @@ export const collaborationTools = [
   { id: 'mail', label: 'Почта', to: '/mail', description: 'Корпоративный ящик sales@durov.house: папки, письма и вложения.', accent: 'blue' },
   { id: 'gpt', label: 'Durov GPT', section: 'ai', to: '/ai', description: 'Марина — ваш ИИ-помощник: обсуждение вопросов и работа с доступными данными.', accent: 'violet' },
   { id: 'documents', label: 'Документы', description: 'Шаблоны, совместное редактирование, версии и согласование.' },
-  { id: 'drive', label: 'Диск', description: 'Общие файлы компании и папки проектов с правами доступа.' },
+  { id: 'drive', label: 'Диск', to: '/drive', description: 'Личные и общие файлы, папки, сохранённые версии и корзина.', accent: 'blue' },
   { id: 'tasks', label: 'Задачи', section: 'tasks', to: '/tasks', description: 'Исполнители, сроки, отчёты и проверка результата.', accent: 'green' },
   { id: 'meetings', label: 'Совещания', section: 'meetings', to: '/meetings', description: 'Записи встреч, протоколы и принятые решения.', accent: 'orange' },
 ] satisfies CollaborationTool[]

@@ -61,7 +61,7 @@ export function CommunicationSettings({ accounts }: { accounts: Account[] }) {
       {config && <form className="space-y-4" onSubmit={event => { event.preventDefault(); void save() }}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Общий входящий номер"><Input value={config.main_phone} onChange={event => setConfig({ ...config, main_phone: event.target.value, pbx_setup_confirmed: false, enabled: false, auto_create_leads: false })} /></Field>
-          <Field label="Ожидание менеджера, секунд"><Input type="number" min={10} max={120} value={config.wait_seconds} onChange={event => setConfig({ ...config, wait_seconds: Number(event.target.value), pbx_setup_confirmed: false, enabled: false })} /></Field>
+          <Field label="Ожидание менеджера, секунд"><Input type="number" min={3} max={120} value={config.wait_seconds} onChange={event => setConfig({ ...config, wait_seconds: Number(event.target.value), pbx_setup_confirmed: false, enabled: false })} /></Field>
         </div>
         <div className="space-y-3 rounded-lg border border-border p-3">
           <Field label="Этап для новых заявок"><Select aria-label="Этап для новых заявок" value={config.lead_stage_id ?? ''} onChange={event => setConfig({ ...config, lead_stage_id: event.target.value ? Number(event.target.value) : null, auto_create_leads: false, max_incoming_enabled: false })}>
