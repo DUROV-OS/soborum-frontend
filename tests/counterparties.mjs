@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict'
+import { mkdir } from 'node:fs/promises'
+import { chromium } from 'playwright'
+const browser=await chromium.launch({headless:true,channel:process.env.SMOKE_BROWSER_CHANNEL||'msedge'})
+const context=await browser.newContext({viewport:{width:1440,height:1000}})
+await context.addInitScript(()=>localStorage.setItem('soborbum.auth.token','synthetic-counterparty-test'))
+const page=await context.newPage(),errors=[]
+page.on('pageerror',e=>errors.push(e.message))
+await page.route('**/api/**',async route=>{
+  const url=new URL(route.request().url())
+  if(url.pathname.startsWith('/api/counterparties')||url.pathname.startsWith('/api/moysklad')) {
+    const response=await route.fetch({url:'http://127.0.0.1:8154'+url.pathname+url.search});return route.fulfill({response})
+  }
+  const body=url.pathname==='/api/auth/me'?{id:1,full_name:'Тестовый бухгалтер',email:'counterparty@example.invalid',role:'admin',is_active:true,module_access:{accounting:'full',warehouse:'full'}}:url.pathname.includes('unread-count')?{count:0}:[]
+  return route.fulfill({contentType:'application/json',body:JSON.stringify(body)})
+})
+await mkdir('test-results/counterparties',{recursive:true})
+try{
+  await page.goto('http://127.0.0.1:5185/suppliers')
+  await page.getByRole('heading',{name:'Контрагенты',exact:true}).waitFor()
+  await page.getByRole('button',{name:'Добавить',exact:true}).click()
+  await page.getByRole('button',{name:'Сохранить',exact:true}).click()
+  assert.equal(await page.getByLabel('ИНН',{exact:true}).getAttribute('aria-invalid'),'true')
+  await page.getByLabel('Наименование',{exact:true}).fill('Новый тестовый контрагент')
+  await page.getByLabel('Тип контрагента',{exact:true}).selectOption('legal_entity')
+  await page.getByLabel('ИНН',{exact:true}).fill('7707083893')
+  await page.getByLabel('Юридический адрес',{exact:true}).fill('Москва, адрес 1')
+  await page.getByLabel('Юридический и фактический адреса совпадают',{exact:true}).check()
+  assert.equal(await page.getByLabel('Фактический адрес',{exact:true}).inputValue(),'Москва, адрес 1')
+  await page.getByLabel('Фактический адрес',{exact:true}).fill('Москва, адрес 2')
+  assert.equal(await page.getByLabel('Юридический и фактический адреса совпадают',{exact:true}).isChecked(),false)
+  await page.getByRole('button',{name:'Добавить контактное лицо',exact:true}).click()
+  await page.getByLabel('Контактное лицо (ФИО) 1',{exact:true}).fill('Анна Тестовая')
+  await page.getByLabel('E-mail контактного лица 1',{exact:true}).fill('anna@example.org')
+  await page.getByRole('button',{name:'Сохранить',exact:true}).click()
+  await page.getByRole('button',{name:'Обновить данные из МойСклад',exact:true}).waitFor()
+  await page.screenshot({path:'test-results/counterparties/desktop.png'})
+  await page.setViewportSize({width:390,height:844})
+  await page.screenshot({path:'test-results/counterparties/mobile.png'})
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Mobile overflow')
+  await page.getByRole('button',{name:'Закрыть',exact:true}).last().click()
+  await page.setViewportSize({width:1440,height:1000})
+  await page.getByText('Архивный поставщик',{exact:true}).click()
+  await page.getByRole('button',{name:'Обновить данные из МойСклад',exact:true}).click()
+  await page.getByText('Пустые поля выбраны для заполнения. Замены существующих значений отметьте отдельно.').waitFor()
+  await page.getByRole('button',{name:'Применить выбранное',exact:true}).click()
+  await page.getByRole('button',{name:'Обновить данные из МойСклад',exact:true}).waitFor()
+  assert.equal(await page.getByLabel('Наименование',{exact:true}).inputValue(),'Архивный поставщик')
+  assert.equal(await page.getByLabel('ИНН',{exact:true}).inputValue(),'7736050003')
+  await page.getByRole('tab',{name:'Документы',exact:true}).click()
+  await page.getByRole('link',{name:'Счёт-фактура № СФ-42',exact:true}).waitFor()
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Excel',exact:true}).click();assert((await download).suggestedFilename().endsWith('.xlsx'))
+  await page.screenshot({path:'test-results/counterparties/documents.png'})
+  await page.getByRole('link',{name:'Счёт-фактура № СФ-42',exact:true}).click()
+  await page.getByText('СФ-42',{exact:true}).first().waitFor()
+  assert.deepEqual(errors,[])
+  console.log('Counterparty UI verified against isolated API: create, validation, addresses, contacts, live form, snapshot merge, documents, export, deep link, mobile.')
+}finally{await browser.close()}

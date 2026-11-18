@@ -1,4 +1,5 @@
 import { Chip } from '@/shared/ui/Chip'
+import { Link } from 'react-router-dom'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { useAccountingStore } from '../store'
@@ -42,6 +43,7 @@ export function CounterpartyDrawer({ onOpenMovement }: { onOpenMovement: (id: nu
       }
     >
       <div className="flex flex-col gap-5">
+        <Link className="text-sm text-brand-dark underline" to={`/suppliers?counterparty=${openId}`}>Реквизиты, документы и обновление из МойСклад</Link>
         <div className="grid grid-cols-3 gap-3 text-[13px]">
           <div>
             <div className="text-muted">Приход</div>

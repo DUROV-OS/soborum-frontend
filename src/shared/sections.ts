@@ -140,7 +140,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'ai', label: 'Durov GPT', path: '/ai', icon: Sparkles },
   { id: 'meetings', label: 'Совещание', path: '/meetings', icon: Mic, notAssignable: true },
   { id: 'accounting', label: 'Бухгалтерия', path: '/accounting', icon: Calculator },
-  { id: 'suppliers', label: 'Поставщики', path: '/suppliers', icon: Handshake, notAssignable: true },
+  { id: 'suppliers', label: 'Контрагенты', path: '/suppliers', icon: Handshake, notAssignable: true },
   { id: 'notifications', label: 'Уведомления', path: '/notifications', icon: Bell, notAssignable: true },
   { id: 'feedback_my', label: 'Мои заявки', path: '/feedback/my', icon: MessageSquareText, notAssignable: true },
   { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },

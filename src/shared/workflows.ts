@@ -93,7 +93,7 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     entries: [
       {
         id: 'suppliers',
-        label: 'Поставщики',
+        label: 'Контрагенты',
         to: '/suppliers',
         section: 'suppliers',
         note: 'Контакты поставщиков, прайс-листы и закупки',
