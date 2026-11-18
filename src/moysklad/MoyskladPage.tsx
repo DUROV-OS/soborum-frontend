@@ -259,6 +259,14 @@ export function MoyskladPage() {
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<Detail | null>(null)
   useEffect(() => {
+    const id = params.get('record')
+    if (!id || !/^\d+$/.test(id)) return
+    let active = true
+    apiRequest<Detail>({ section: 'moysklad', path: `/records/${id}` })
+      .then(r => { if (active) setDetail(r) }).catch(e => { if (active) setError(e.message) })
+    return () => { active = false }
+  }, [params.get('record')])
+  useEffect(() => {
     setOffset(0)
     setDetail(null)
   }, [type, archive])

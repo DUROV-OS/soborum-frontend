@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { getToken, setToken } from '@/shared/lib/httpClient'
 import { SectionId } from '@/shared/sections'
 import * as authApi from './api'
-import { Account, AccessLevel, JobRole, Role } from './types'
+import { Account, AccessLevel, JobRole, Role, accessLevelAtLeast } from './types'
 import { isSalesManager, salesNavigationLevel } from './salesNavigation'
 
 interface AuthState {
@@ -77,7 +77,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (isSalesManager(account)) return salesNavigationLevel(account, section)
     // Commercial users receive a server-filtered workspace without internal costs.
     if (section === 'estimates') return account.module_access.costing && account.module_access.costing !== 'none' ? account.module_access.costing : account.module_access.clients ?? 'none'
-    if (section === 'suppliers') return account.module_access.warehouse ?? 'none'
+    if (section === 'suppliers') {
+      const warehouse = account.module_access.warehouse ?? 'none', accounting = account.module_access.accounting ?? 'none'
+      return accessLevelAtLeast(accounting, warehouse) ? accounting : warehouse
+    }
     if (section === 'recipes') return account.module_access.production !== undefined && account.module_access.production !== 'none' ? account.module_access.production : account.module_access.warehouse ?? 'none'
     if (section === 'crm' || section === 'sales') return account.module_access.clients ?? 'none'
     if (section === 'purchasing') return account.module_access.accounting ?? 'none'
