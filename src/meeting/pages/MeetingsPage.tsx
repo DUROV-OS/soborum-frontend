@@ -22,6 +22,7 @@ import {
   updateMeeting,
 } from '../api'
 import { NotesView } from '../components/NotesView'
+import { MeetingPlan } from '../components/MeetingPlan'
 import { useMeetingStore } from '../store'
 import { MeetingDetailOut, MeetingOut } from '../types'
 
@@ -295,6 +296,7 @@ function AskMarina({ meetingId, aiEnabled }: { meetingId: number; aiEnabled: boo
 function MeetingNotesSection({ meeting }: { meeting: MeetingDetailOut }) {
   const canEdit = accessLevelAtLeast(useAccessLevel('ai'), 'edit')
   const [notes, setNotes] = useState(meeting.notes)
+  useEffect(() => setNotes(meeting.notes), [meeting.notes])
   const [busy, setBusy] = useState<'notes' | 'doc' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -673,6 +675,17 @@ function MeetingDetail({ id }: { id: number }) {
       .catch((e) => setError(e instanceof Error ? e.message : 'Совещание не найдено'))
   }, [id])
 
+  useEffect(() => {
+    if (!meeting?.processing || !['queued', 'transcribing', 'analyzing', 'error'].includes(meeting.processing.status)) return
+    let cancelled = false
+    const timer = setInterval(() => {
+      void getMeeting(id).then(value => { if (!cancelled) setMeeting(value) }).catch(() => {
+        if (!cancelled) setError('Связь прервалась. Обработка на сервере продолжается; обновите страницу для проверки.')
+      })
+    }, 5000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [id, meeting?.processing?.status])
+
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <Link to="/meetings" className="inline-flex items-center gap-1.5 text-[13px] text-muted hover:underline">
@@ -711,7 +724,7 @@ function MeetingDetail({ id }: { id: number }) {
             ) : (
               <div className="space-y-2.5">
                 {meeting.transcript.map((line) => (
-                  <div key={line.id} className="text-[13px]">
+                  <div key={line.id} id={`meeting-line-${line.id}`} className="scroll-mt-4 text-[13px]">
                     <div className="flex items-center gap-2 text-[11px] text-muted">
                       <span className="font-medium">{line.speaker}</span>
                       <span className="tabular-nums">
@@ -724,6 +737,8 @@ function MeetingDetail({ id }: { id: number }) {
               </div>
             )}
           </section>
+
+          <MeetingPlan meeting={meeting} onChange={processing => setMeeting(m => m ? { ...m, processing } : m)} />
 
           <MeetingNotesSection meeting={meeting} />
 

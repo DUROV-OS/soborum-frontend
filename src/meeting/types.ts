@@ -49,4 +49,30 @@ export interface MeetingDetailOut extends MeetingOut {
   transcript: TranscriptLineOut[]
   notes: MeetingNotesOut | null
   ai_enabled: boolean
+  processing: MeetingProcessing | null
+}
+
+export interface MeetingAction {
+  id: string
+  title: string
+  expected_result: string
+  assignee_id: number | null
+  reviewer_id: number | null
+  deadline: string | null
+  duration_minutes: number | null
+  scheduled_start: string | null
+  source_line_ids: number[]
+  quote: string
+  clarification: string
+  selected: boolean
+  task_id?: number
+  event_id?: number
+}
+export interface MeetingProcessing {
+  status: 'queued' | 'transcribing' | 'analyzing' | 'ready' | 'error'
+  error: string
+  version: number
+  actions?: MeetingAction[]
+  recommendations?: string[]
+  attempts: number
 }

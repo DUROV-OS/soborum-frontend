@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/auth/store'
-import { CrmCardDivider, useCrmCardSplit } from './CrmCardDivider'
+import { CrmCardDivider, useCrmCardSplit, useCrmHistoryExpanded } from './CrmCardDivider'
 import { ReactNode, useId, useEffect, useMemo, useRef, useState } from 'react'
 import { useBrowserPhone } from './BrowserPhone'
 import { Archive, Building2, Check, Clock3, Download, FileText, Mail, MessageSquare, Pencil, Phone, Search, UserRound } from 'lucide-react'
@@ -156,6 +156,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
   const [revision, setRevision] = useState(0)
   const accountId = useAuthStore(state => state.current?.id)
   const split = useCrmCardSplit(accountId)
+  const historyLayout = useCrmHistoryExpanded(accountId)
   const panelId = useId()
   const [detailTab, setDetailTab] = useState<'overview' | 'links' | 'files' | 'tasks'>('overview')
   const [mobileTab, setMobileTab] = useState<'data' | 'history'>(() => ['max', 'calls'].includes(new URLSearchParams(window.location.search).get('channel') || '') ? 'history' : 'data')
@@ -318,7 +319,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
     }}><Input aria-label={`Результат задачи ${task.name}`} placeholder="Результат выполнения" required maxLength={5000} value={taskResults[task.id] || ''} onChange={event => setTaskResults(value => ({ ...value, [task.id]: event.target.value }))} /><Button size="sm" type="submit" variant="secondary" disabled={!actionable || !taskResults[task.id]?.trim()} className="shrink-0">Завершить</Button></form>}
   </div>
 
-  return <Drawer open modal={!voice || ['idle', 'ended', 'error'].includes(voice.state.phase)} onClose={onClose} title={record.id === entry.id ? record.name : entry.name} subtitle={<span className="break-all">{kindLabels[entry.kind]} · №{entry.id}{entry.source_id ? ` · Источник #${entry.source_id}` : ''}{record.archived ? ' · В архиве' : ''}</span>} width="max-w-[1280px] [&>div:first-child>div]:min-w-0 [&>div:first-child>button]:shrink-0 [&_h2]:break-words" bodyClassName="flex-1 min-h-0 overflow-hidden">
+  return <Drawer open modal={!voice || ['idle', 'ended', 'error'].includes(voice.state.phase)} onClose={onClose} title={record.id === entry.id ? record.name : entry.name} subtitle={<span className="break-all">{kindLabels[entry.kind]} · №{entry.id}{entry.source_id ? ` · Источник #${entry.source_id}` : ''}{record.archived ? ' · В архиве' : ''}</span>} width="crm-record-drawer max-w-[1600px] [&>div:first-child>div]:min-w-0 [&>div:first-child>button]:shrink-0 [&_h2]:break-words" bodyClassName="flex-1 min-h-0 overflow-hidden">
     <div className="flex h-full min-h-0 flex-col">
       {record.kind === 'deal' && stageOptions.length > 0 && <div className="crm-record-stages" role="group" aria-label="Этапы сделки">{stageOptions.map(item => <button key={item.id} type="button" aria-pressed={stage === String(item.id)} disabled={!actionable} onClick={() => { setStage(String(item.id)); setMobileTab('data'); setDetailTab('overview') }}>{item.name}</button>)}</div>}
       {record.kind === 'deal' && stageChanged && <p role="status" className="shrink-0 bg-blue-50 px-5 py-2 text-xs text-blue-800">Выбран новый этап. Проверьте данные и нажмите «Сохранить этап» в блоке «Сделка».</p>}
@@ -330,7 +331,7 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Ближайшее действие</h3>{canEdit && !finished && tasksReady && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onTask(record)}>Назначить действие</Button>}</div>
         {!tasksReady ? <p className="mt-2 text-sm text-muted">{loading ? 'Проверяем задачи…' : 'Следующий шаг не проверен. Обновите карточку.'}</p> : nextTask ? <div className="mt-2"><button onClick={() => onOpen(nextTask)} className="text-left text-sm font-semibold text-brand hover:underline">{nextTask.name}</button><p className={`mt-1 text-xs ${nextOverdue ? 'text-danger' : 'text-muted'}`}>{nextOverdue ? 'Просрочено · ' : ''}{date(nextTask.data.due_at)} · {readableField('responsible_user_id', nextTask.data.responsible_user_id, catalog, related)}{openTasks.length > 1 ? ` · ещё ${openTasks.length - 1}` : ''}</p></div> : <p className="mt-2 text-sm text-muted">{finished ? 'Открытых задач нет. Карточка завершена или находится в архиве.' : 'Следующий шаг не назначен. Укажите действие, ответственного и срок.'}</p>}
       </section>}
-      <div ref={split.containerRef} style={split.style} className="flex min-h-0 min-w-0 flex-1">
+      <div ref={split.containerRef} style={split.style} className={`flex min-h-0 min-w-0 flex-1 ${historyLayout.expanded ? 'crm-history-expanded' : ''}`}>
         <aside id={panelId} aria-label="Данные карточки" className={`${mobileTab === 'data' ? 'block' : 'hidden'} crm-card-data min-h-0 w-full shrink-0 overflow-y-auto overscroll-contain border-r border-border bg-surface md:block`}>
           <div className="crm-card-tabs" role="tablist" aria-label="Содержимое карточки">{([
             ['overview', 'Общее'], ['links', 'Связи и сметы'], ['files', `Файлы${filesReady ? ` · ${attachments.length}${remainingFiles.length ? '+' : ''}` : ''}`], ['tasks', `Задачи${tasksReady ? ` · ${openTasks.length}` : ''}`],
@@ -394,7 +395,8 @@ export function CrmRecordCard({ entry, catalog, canEdit, canFull, onClose, onOpe
         <CrmCardDivider containerRef={split.containerRef} percent={split.percent} onChange={split.update} controls={panelId} />
         <section aria-label="История работы с клиентом" className={`${mobileTab === 'history' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col bg-slate-50 md:flex`}>
           <div className="shrink-0 space-y-3 border-b border-border bg-surface px-4 py-3 sm:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">История работы с клиентом</h3>{canEdit && !record.archived && ['deal', 'inquiry', 'contact', 'company'].includes(record.kind) && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onTask(record)}><Clock3 size={14} />Назначить следующий шаг</Button>}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">История работы с клиентом</h3><button type="button" aria-pressed={historyLayout.expanded} onClick={historyLayout.toggle} className="hidden min-h-9 rounded border border-border px-3 text-xs text-brand md:block" title="Размер запоминается для вашей учётной записи в этом браузере">{historyLayout.expanded ? 'Вернуть данные карточки' : 'Развернуть историю'}</button>{canEdit && !record.archived && ['deal', 'inquiry', 'contact', 'company'].includes(record.kind) && <Button size="sm" variant="secondary" disabled={!actionable} onClick={() => onTask(record)}><Clock3 size={14} />Назначить следующий шаг</Button>}</div>
+            <p className="hidden text-xs text-muted md:block">{historyLayout.expanded ? 'История занимает всю ширину карточки.' : 'Перетащите границу слева, чтобы изменить ширину истории.'} Настройка сохраняется для вас в этом браузере.</p>
             <div className="relative"><Search size={15} className="pointer-events-none absolute left-3 top-2.5 text-muted" /><Input className="pl-9" aria-label="Поиск по загруженной истории" placeholder="Поиск по загруженной истории" value={search} onChange={event => setSearch(event.target.value)} /></div>
             <div className="flex flex-wrap gap-1" role="group" aria-label="Фильтр истории">{(Object.keys(eventLabels) as EventKind[]).map(value => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-3 py-1.5 text-[12px] ${filter === value ? 'bg-brand text-white' : 'text-muted hover:bg-surface-muted'}`}>{eventLabels[value]}</button>)}</div>
           </div>
