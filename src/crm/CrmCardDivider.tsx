@@ -1,6 +1,6 @@
 import { CSSProperties, RefObject, useEffect, useRef, useState } from 'react'
 
-const MIN = 32, MAX = 60, DEFAULT = 42
+const MIN = 25, MAX = 60, DEFAULT = 35
 const clamp = (value: number) => Math.min(MAX, Math.max(MIN, value))
 function read(key: string) {
   try {
@@ -21,6 +21,19 @@ export function useCrmCardSplit(accountId: number | undefined) {
     try { localStorage.setItem(key, String(next)) } catch { /* Resizing still works without storage. */ }
   }
   return { percent, update, containerRef, style: { '--crm-data-width': `${percent}%` } as CSSProperties }
+}
+
+export function useCrmHistoryExpanded(accountId: number | undefined) {
+  const key = `durov.crm.history-expanded:${accountId ?? 'anonymous'}`
+  const readExpanded = () => { try { return localStorage.getItem(key) === 'true' } catch { return false } }
+  const [expanded, setExpanded] = useState(readExpanded)
+  useEffect(() => setExpanded(readExpanded()), [key])
+  const toggle = () => {
+    const next = !expanded
+    setExpanded(next)
+    try { localStorage.setItem(key, String(next)) } catch { /* The layout still works without storage. */ }
+  }
+  return { expanded, toggle }
 }
 
 export function CrmCardDivider({ containerRef, percent, onChange, controls }: {
