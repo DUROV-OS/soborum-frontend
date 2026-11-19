@@ -47,6 +47,7 @@ let created = false,
   received = false,
   paid = false,
   archived = false
+const uploads = []
 await page.route('**/api/**', async (route) => {
   const req = route.request(),
     url = new URL(req.url()),
@@ -73,6 +74,21 @@ await page.route('**/api/**', async (route) => {
     body = order
   } else if (path === '/api/purchasing/orders') body = { total: 1, items: [order] }
   else if (path === '/api/purchasing/orders/1') body = order
+  else if (path === '/api/purchasing/orders/1/positions') body = [{
+    number: 1, name: 'Тестовый брус', quantity: 10, unit: 'шт', received_quantity: received ? 3 : 0,
+    unit_price: 20, stock_unit: 'шт', stock: '12', available: '8', vat: 'included', vat_rate: '20',
+    amount_with_vat: '200.00', amount: '166.67',
+  }]
+  else if (path === '/api/purchasing/orders/1/files') {
+    if (req.method() === 'POST') {
+      assert.match(req.postData(), /filename="test-order.pdf"/)
+      assert.match(req.postData(), /request_id/)
+      body = {key: 'local-1', filename: 'test-order.pdf', size: 20, source: 'Durov OS', path: '/orders/1/files/1'}
+      uploads.push(body)
+    } else body = uploads
+  }
+  else if (path === '/api/purchasing/orders/1/files/1')
+    return route.fulfill({status: 200, contentType: 'application/pdf', body: '%PDF-1.7\nsynthetic'})
   else if (path === '/api/purchasing/orders/1/documents') body = { receipts: [], payments: [], returns: [], opening_paid: 0 }
   else if (path === '/api/purchasing/receipts' && req.method() === 'POST') {
     const b = req.postDataJSON()
@@ -104,6 +120,29 @@ await page.route('**/api/**', async (route) => {
 try {
   await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173') + '/purchasing?tab=orders')
   await page.getByRole('heading', { name: 'Заказы поставщикам', exact: true }).waitFor()
+  await page.getByRole('button', {name: '№ 1', exact: true}).click()
+  const card = page.getByRole('dialog', {name: 'Заказ № 1', exact: true})
+  const positions = card.getByRole('region', {name: 'Позиции заказа'})
+  await positions.getByRole('cell', {name: 'Тестовый брус'}).waitFor()
+  assert.deepEqual(await positions.getByRole('columnheader').allTextContents(),
+    ['№', 'Наименование', 'Количество', 'Доступно', 'Остаток на складе', 'НДС', 'Цена', 'Сумма с НДС', 'Сумма'])
+  await positions.getByRole('cell', {name: '8 шт', exact: true}).waitFor()
+  await positions.getByRole('cell', {name: '12 шт', exact: true}).waitFor()
+  await positions.getByRole('cell', {name: /166,67/}).waitFor()
+  await page.setViewportSize({ width: 390, height: 844 })
+  assert(await positions.getByRole('table').evaluate(table => table.parentElement.scrollWidth > table.parentElement.clientWidth))
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await card.getByRole('tab', {name: 'Файлы', exact: true}).click()
+  const files = card.getByRole('region', {name: 'Файлы заказа'})
+  await files.getByText('К заказу пока нет вложений.').waitFor()
+  await files.getByLabel('Выбрать файл заказа').setInputFiles({
+    name: 'test-order.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nsynthetic'),
+  })
+  const download = page.waitForEvent('download')
+  await files.getByRole('button', {name: 'Скачать test-order.pdf'}).click()
+  assert.equal((await download).suggestedFilename(), 'test-order.pdf')
+  await card.getByRole('button', {name: 'Закрыть', exact: true}).click()
   await page.getByRole('button', { name: 'Заказ поставщику', exact: true }).click()
   const form = page.getByRole('dialog', { name: 'Заказ поставщику', exact: true })
   await form.getByLabel('Организация', { exact: true }).selectOption({ label: 'Технология' })
