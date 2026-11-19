@@ -1,44 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { ChevronDown, UsersRound } from 'lucide-react'
-import { useAuthStore } from '@/auth/store'
-import { isCollaborationRoute, visibleCollaborationTools } from './catalog'
-import { ToolIcon } from './ToolIcon'
+import { Link } from 'react-router-dom'
+import { UsersRound } from 'lucide-react'
+import { useCollaborationNavigation } from './navigation'
 
 export function CollaborationMenu({ onNavigate }: { onNavigate: () => void }) {
-  const [open, setOpen] = useState(false)
-  const root = useRef<HTMLLIElement>(null), trigger = useRef<HTMLButtonElement>(null)
-  const { pathname, search } = useLocation()
-  const current = useAuthStore(s => s.current), hasAccess = useAuthStore(s => s.hasAccess)
-  const tools = visibleCollaborationTools(hasAccess)
-  const active = isCollaborationRoute(pathname, tools)
-  // Keep the section expanded while the right-hand tool changes.
-  useEffect(() => { if (active) setOpen(true) }, [pathname, search, active])
-  useEffect(() => { setOpen(active) }, [current?.id])
-  useEffect(() => {
-    if (!open) return
-    const outside = (event: PointerEvent) => { if (!active && !root.current?.contains(event.target as Node)) setOpen(false) }
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && root.current?.contains(document.activeElement)) {
-        event.preventDefault(); event.stopPropagation(); setOpen(false); trigger.current?.focus()
-      }
-    }
-    document.addEventListener('pointerdown', outside)
-    document.addEventListener('keydown', escape)
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
-  }, [open, active])
-  function navigate() { setOpen(true); onNavigate() }
-  return <li ref={root} className={`collaboration-menu${open ? ' is-open' : ''}`}>
-    <button ref={trigger} type="button" className={`collaboration-trigger${active ? ' is-active' : ''}`} aria-expanded={open} aria-controls="collaboration-menu-items" onClick={() => setOpen(value => !value)}>
-      <UsersRound size={20} strokeWidth={1.6} aria-hidden="true"/><span className="min-w-0 flex-1">Совместная работа</span><ChevronDown size={14} className={open ? 'rotate-180' : ''} aria-hidden="true"/>
-    </button>
-    <ul id="collaboration-menu-items" aria-label="Инструменты совместной работы" className="collaboration-submenu">
-      {tools.filter(tool => open || tool.id === 'calendar').map((tool, index) => <li key={tool.id} className={index > 0 && tool.id === 'tasks' ? 'collaboration-menu-divider' : undefined}>
-        {tool.to ? <Link to={tool.to} onClick={navigate} aria-current={pathname === tool.to || pathname.startsWith(tool.to + '/') ? 'page' : undefined}>
-          <ToolIcon id={tool.id}/><span>{tool.label}</span>
-        </Link> : <span className="collaboration-planned" aria-disabled="true" title={tool.description}><ToolIcon id={tool.id}/><span>{tool.label}</span><small>Скоро</small></span>}
-      </li>)}
-      {open && <li className="collaboration-menu-divider"><Link to="/collaboration" onClick={navigate} aria-current={pathname === '/collaboration' ? 'page' : undefined} className="collaboration-overview">Обзор рабочего пространства</Link></li>}
-    </ul>
+  const { active, resume } = useCollaborationNavigation()
+  return <li>
+    <Link to={resume()} aria-current={active ? 'page' : undefined} onClick={onNavigate}
+      className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
+        (active ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
+      <UsersRound size={19} aria-hidden />
+      <span>Совместная работа</span>
+    </Link>
   </li>
 }

@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ExternalLink, Folder, Mail, Paperclip, RefreshCw, Search } from 'lucide-react'
@@ -9,32 +10,43 @@ import { downloadMailAttachment, listFolders, listMail, mailStatus, markMailRead
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Не удалось загрузить почту'
 const dateText = (s: string) => Number.isNaN(Date.parse(s)) ? s : new Date(s).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' })
 
+function appendMail(previous: MailList, next: MailList): MailList {
+  if (next.uidvalidity !== previous.uidvalidity) throw new Error('Папка изменилась. Обновите почту.')
+  const seen = new Set(previous.items.map(item => item.uid))
+  return { ...next, items: [...previous.items, ...next.items.filter(item => !seen.has(item.uid))] }
+}
+
 export function MailPage() {
   const userId = useAuthStore(s => s.current?.id)
   const [status, setStatus] = useState<MailStatus | null>(null)
   const [folders, setFolders] = useState<MailFolder[]>([])
-  const [folder, setFolder] = useState('')
+  const [folder, setFolder] = useCollaborationView('mail', 'folder', '')
   const [list, setList] = useState<MailList | null>(null)
   const [message, setMessage] = useState<MailMessage | null>(null)
-  const [query, setQuery] = useState(''), [search, setSearch] = useState('')
+  const [query, setQuery] = useCollaborationView('mail', 'query', ''), [search, setSearch] = useCollaborationView('mail', 'search', '')
   const [loading, setLoading] = useState(true), [opening, setOpening] = useState(false)
   const [mutating, setMutating] = useState(false), [error, setError] = useState('')
   const [refresh, setRefresh] = useState(0), [updated, setUpdated] = useState('')
+  const [depth, setDepth] = useCollaborationView('mail', 'pages', { view: '', count: 1 })
+  const depthRef = useRef(depth)
+  depthRef.current = depth
+  const view = JSON.stringify([folder, search])
   const generation = useRef(0), detail = useRef(0)
 
   useEffect(() => {
     let active = true
     generation.current++; detail.current++
-    setStatus(null); setFolders([]); setFolder(''); setList(null); setMessage(null); setLoading(true); setError('')
+    setStatus(null); setFolders([]); setList(null); setMessage(null); setLoading(true); setError('')
     mailStatus().then(async s => {
       if (!active) return
-      setStatus(s)
       if (s.configured && s.can_access) {
         const rows = await listFolders()
         if (!active) return
-        setFolders(rows); setFolder(rows.find(f => f.inbox)?.id || rows[0]?.id || '')
+        setFolders(rows)
+        setFolder(previous => rows.some(f => f.id === previous) ? previous : rows.find(f => f.inbox)?.id || rows[0]?.id || '')
         setUpdated(new Date().toLocaleTimeString('ru-RU'))
       }
+      setStatus(s)
     }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false; generation.current++; detail.current++ }
   }, [userId, refresh])
@@ -44,12 +56,23 @@ export function MailPage() {
     const request = ++generation.current
     detail.current++
     setList(null); setMessage(null); setOpening(false); setLoading(true); setError('')
-    listMail(folder, search).then(result => {
-      if (request === generation.current) { setList(result); setUpdated(new Date().toLocaleTimeString('ru-RU')) }
-    }).catch(e => { if (request === generation.current) setError(errorText(e)) })
+    const saved = depthRef.current
+    async function load() {
+      let result = await listMail(folder, search)
+      const pages = saved.view === view ? saved.count : 1
+      for (let page = 1; request === generation.current && page < pages && result.next_before; page++) {
+        setList(result)
+        result = appendMail(result, await listMail(folder, search, result.next_before))
+      }
+      if (request === generation.current) {
+        setList(result)
+        setUpdated(new Date().toLocaleTimeString('ru-RU'))
+      }
+    }
+    load().catch(e => { if (request === generation.current) setError(errorText(e)) })
       .finally(() => { if (request === generation.current) setLoading(false) })
     return () => { generation.current++; detail.current++ }
-  }, [folder, search, status])
+  }, [folder, search, status, view])
 
   async function more() {
     if (!list?.next_before || loading) return
@@ -58,8 +81,8 @@ export function MailPage() {
     try {
       const next = await listMail(folder, search, list.next_before)
       if (request !== generation.current) return
-      if (next.uidvalidity !== list.uidvalidity) throw new Error('Папка изменилась. Обновите почту.')
-      setList(previous => previous && ({ ...next, items: [...previous.items, ...next.items.filter(item => !previous.items.some(old => old.uid === item.uid))] }))
+      setList(appendMail(list, next))
+      setDepth(previous => ({ view, count: previous.view === view ? previous.count + 1 : 2 }))
     } catch (e) { if (request === generation.current) setError(errorText(e)) }
     finally { if (request === generation.current) setLoading(false) }
   }
@@ -113,7 +136,7 @@ export function MailPage() {
     {error && <div role="alert" className="rounded-xl border border-danger/30 bg-danger-bg p-4 text-sm text-danger">{error} <button className="underline" onClick={() => setRefresh(v => v + 1)}>Повторить</button></div>}
     {status && !status.can_access && <section className="rounded-xl border border-border bg-surface p-5"><h2 className="font-semibold">Нет доступа к общему ящику</h2><p className="mt-2 text-sm text-muted">Руководитель или администратор может назначить вам доступ к корпоративной почте.</p></section>}
     {status?.can_access && !status.configured && <section className="rounded-xl border border-border bg-surface p-5"><h2 className="font-semibold">Почтовый ящик ещё не подключён</h2><p className="mt-2 text-sm text-muted">Для отображения писем нужно настроить доступ NIC.RU на сервере. Пароль ящика не передаётся в браузер.</p></section>}
-    {loading && !folder && <p role="status">Загрузка почты…</p>}
+    {loading && !folders.length && <p role="status">Загрузка почты…</p>}
     {status?.can_access && status.configured && !loading && !error && !folders.length && <p className="text-muted">Почтовый сервис не вернул доступных папок.</p>}
     {!!folders.length && <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
       <ModuleNavigation label="Разделы почты"><nav aria-label="Почтовые папки" className="flex gap-1 overflow-x-auto border-b border-border pb-2">

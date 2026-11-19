@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { ArchiveRestore, ChevronRight, Download, FileArchive, FileSpreadsheet, FileText, Folder as FolderIcon, FolderPlus, HardDrive, History as HistoryIcon, Image as ImageIcon, LockKeyhole, Pencil, RefreshCw, Search, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
@@ -19,25 +20,51 @@ function FileIcon({ name }: { name: string }) {
 }
 type Dialog = { kind: 'folder' } | { kind: 'rename' | 'move' | 'trash' | 'history'; file: DriveFile }
 
+function appendFiles(previous: FileList, next: FileList): FileList {
+  const seen = new Set(previous.items.map(item => item.id))
+  return { ...next, items: [...previous.items, ...next.items.filter(item => !seen.has(item.id))] }
+}
+
 export function DrivePage() {
   const userId = useAuthStore(s => s.current?.id)
-  const [scope, setScope] = useState<Scope>('personal'), [trash, setTrash] = useState(false), [folder, setFolder] = useState('')
-  const [query, setQuery] = useState(''), [search, setSearch] = useState(''), [folders, setFolders] = useState<Folder[]>([])
+  const [scope, setScope] = useCollaborationView<Scope>('drive', 'scope', 'personal')
+  const [trash, setTrash] = useCollaborationView('drive', 'trash', false)
+  const [folder, setFolder] = useCollaborationView('drive', 'folder', '')
+  const [query, setQuery] = useCollaborationView('drive', 'query', ''), [search, setSearch] = useCollaborationView('drive', 'search', ''), [folders, setFolders] = useState<Folder[]>([])
   const [files, setFiles] = useState<FileList | null>(null), [refresh, setRefresh] = useState(0), [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('')
   const [dialog, setDialog] = useState<Dialog | null>(null), [name, setName] = useState(''), [destination, setDestination] = useState('')
   const [history, setHistory] = useState<History | null>(null), [historyLoading, setHistoryLoading] = useState(false)
+  const [depth, setDepth] = useCollaborationView('drive', 'pages', { view: '', count: 1 })
+  const depthRef = useRef(depth)
+  depthRef.current = depth
+  const view = JSON.stringify([scope, folder, search, trash])
   const input = useRef<HTMLInputElement>(null), replacement = useRef<DriveFile | undefined>(undefined), generation = useRef(0), historyGeneration = useRef(0)
   useEffect(() => { const timer = window.setTimeout(() => setSearch(query.trim()), 250); return () => window.clearTimeout(timer) }, [query])
   useEffect(() => { setDialog(null); setHistory(null); setFiles(null); setFolders([]); setNotice('') }, [userId])
   useEffect(() => {
     let active = true; const request = ++generation.current
     setLoading(true); setError(''); setFiles(null)
-    Promise.all([listFolders(scope), listFiles(scope, folder, search, trash)]).then(([f, rows]) => {
-      if (active && request === generation.current) { setFolders(f); setFiles(rows) }
-    }).catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) })
+    const saved = depthRef.current
+    async function load() {
+      const [folders, first] = await Promise.all([listFolders(scope), listFiles(scope, folder, search, trash)])
+      if (!active || request !== generation.current) return
+      setFolders(folders)
+      let result = first
+      let cursor = first.items.length
+      const pages = saved.view === view ? saved.count : 1
+      for (let page = 1; active && page < pages && cursor < result.total; page++) {
+        setFiles(result)
+        const next = await listFiles(scope, folder, search, trash, cursor)
+        if (!next.items.length) break
+        cursor += next.items.length
+        result = appendFiles(result, next)
+      }
+      if (active && request === generation.current) setFiles(result)
+    }
+    load().catch(e => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false; generation.current++ }
-  }, [scope, folder, search, trash, refresh, userId])
+  }, [scope, folder, search, trash, refresh, userId, view])
   useEffect(() => {
     const request = ++historyGeneration.current
     setHistory(null)
@@ -82,7 +109,12 @@ export function DrivePage() {
   async function more() {
     if (!files) return
     const request = generation.current; setLoading(true)
-    try { const result = await listFiles(scope, folder, search, trash, files.items.length); if (request === generation.current) setFiles(old => old && ({ ...result, items: [...old.items, ...result.items.filter(r => !old.items.some(x => x.id === r.id))] })) }
+    try {
+      const result = await listFiles(scope, folder, search, trash, files.items.length)
+      if (request !== generation.current) return
+      setFiles(appendFiles(files, result))
+      if (result.items.length) setDepth(previous => ({ view, count: previous.view === view ? previous.count + 1 : 2 }))
+    }
     catch (e) { if (request === generation.current) setError(errorText(e)) }
     finally { if (request === generation.current) setLoading(false) }
   }

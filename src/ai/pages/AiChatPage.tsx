@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import { MouseEvent, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Sparkles, Trash2 } from 'lucide-react'
@@ -76,8 +77,9 @@ export function AiChatPage() {
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
 
   const domains = ALL_DOMAINS.filter((d) => d === 'general' || hasAccess(DOMAIN_TO_SECTION[d]))
-  const [domain, setDomain] = useState<ChatDomain>('general')
-  const [tab, setTab] = useState<MarinaTab>('chat')
+  const [storedDomain, setDomain] = useCollaborationView<ChatDomain>('gpt', 'domain', 'general')
+  const domain = domains.includes(storedDomain) ? storedDomain : 'general'
+  const [tab, setTab] = useCollaborationView<MarinaTab>('gpt', 'tab', 'chat')
   const onboarding = useSectionOnboarding('ai')
 
   useEffect(() => {

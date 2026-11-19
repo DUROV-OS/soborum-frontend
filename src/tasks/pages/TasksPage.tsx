@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -179,25 +180,32 @@ export function TasksPage() {
   // сброшены, чтобы карточек было ровно столько, сколько в счётчике.
   const [searchParams, setSearchParams] = useSearchParams()
   const openOnly = searchParams.get('status') === 'open'
-  const [subTab, setSubTab] = useState<SubTab>(searchParams.get('scope') === 'all' ? 'all' : 'mine')
+  const requestedScope = searchParams.get('scope')
+  const [subTab, setSubTab] = useCollaborationView<SubTab>('tasks', 'tab', requestedScope === 'all' && canSeeAll ? 'all' : 'mine')
   const [boardReady, setBoardReady] = useState(false)
   const [boardError, setBoardError] = useState<string | null>(null)
   const [claimingId, setClaimingId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<string | null>(null)
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | ''>('')
-  const [responsibleFilter, setResponsibleFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useCollaborationView<SourceFilter>('tasks', 'source', 'all')
+  const [priorityFilter, setPriorityFilter] = useCollaborationView<TaskPriority | ''>('tasks', 'priority', '')
+  const [responsibleFilter, setResponsibleFilter] = useCollaborationView('tasks', 'responsible', '')
   const [knownResponsibles, setKnownResponsibles] = useState<Record<number, string>>({})
-  const [employeeFilter, setEmployeeFilter] = useState<string>(EMPLOYEE_ALL)
-  const [roleFilter, setRoleFilter] = useState<Record<EmployeeRole, boolean>>(ALL_ROLES)
+  const [employeeFilter, setEmployeeFilter] = useCollaborationView('tasks', 'employee', EMPLOYEE_ALL)
+  const [roleFilter, setRoleFilter] = useCollaborationView('tasks', 'roles', ALL_ROLES)
   const specificEmployeeSelected = employeeFilter !== EMPLOYEE_ALL && employeeFilter !== EMPLOYEE_UNASSIGNED
   const noRoleSelected = specificEmployeeSelected && !roleFilter.assignee && !roleFilter.responsible && !roleFilter.reviewer
   // Борд задач по умолчанию — за всё время: авто-задачи из разделов (смена
   // стадии клиента, контента, нехватка на складе) создаются без дедлайна, и
   // период-фильтр по месяцу их полностью прятал.
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
-  const [query, setQuery] = useState('')
+  const [dateFilter, setDateFilter] = useCollaborationView<DateFilter>('tasks', 'date', 'all')
+  const [query, setQuery] = useCollaborationView('tasks', 'search', '')
   const onboarding = useSectionOnboarding('tasks')
+
+  useEffect(() => {
+    if (requestedScope === 'mine' || requestedScope === 'all') {
+      setSubTab(requestedScope === 'all' && canSeeAll ? 'all' : 'mine')
+    }
+  }, [requestedScope, canSeeAll, setSubTab])
 
   useEffect(() => {
     if (!canSeeAll && subTab === 'all') setSubTab('mine')

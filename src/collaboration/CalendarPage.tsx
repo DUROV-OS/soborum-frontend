@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/shared/lib/httpClient";
 import { Button } from "@/shared/ui/Button";
@@ -142,28 +143,32 @@ function CalendarWorkspace({
   const section = calendarSection(search);
   const [invitations, setInvitations] = useState<Event[]>([]);
   const [invitationError, setInvitationError] = useState("");
-  const [invitationsOnly, setInvitationsOnly] = useState(false);
+  const [invitationsOnly, setInvitationsOnly] = useCollaborationView("calendar", "invitations-only", false);
   const [movePending, setMovePending] = useState<{ row: Event; at: Date } | null>(null);
   const [moving, setMoving] = useState(false);
   const [moveNotice, setMoveNotice] = useState('');
   const [moveError, setMoveError] = useState('');
   const [preview, setPreview] = useState<Event | null>(null);
   const [previewTime, setPreviewTime] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useCollaborationView("calendar", "filters-open", false);
   const colors = Object.fromEntries(
     Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
   );
-  const [viewMode, setMode] = useState("week"),
-    [date, setDate] = useState(() =>
+  const [viewMode, setMode] = useCollaborationView("calendar", "view", "week"),
+    [date, setDate] = useCollaborationView("calendar", "date", () =>
       day(wallDate(new Date(), preferences.timezone)),
     ),
-    [query, setQuery] = useState(""),
-    [category, setCategory] = useState(""),
-    [participantFilter, setParticipantFilter] = useState("");
+    [query, setQuery] = useCollaborationView("calendar", "query", ""),
+    [category, setCategory] = useCollaborationView("calendar", "category", ""),
+    [participantFilter, setParticipantFilter] = useCollaborationView("calendar", "participant", "");
   const mode = section === "team" ? "people" : viewMode;
+  const previousTimezone = useRef(preferences.timezone);
   useEffect(() => {
-    setDate(day(wallDate(new Date(), preferences.timezone)));
-  }, [preferences.timezone]);
+    if (previousTimezone.current !== preferences.timezone) {
+      previousTimezone.current = preferences.timezone;
+      setDate(day(wallDate(new Date(), preferences.timezone)));
+    }
+  }, [preferences.timezone, setDate]);
   const [events, setEvents] = useState<Event[]>([]),
     [people, setPeople] = useState<Person[]>([]),
     [error, setError] = useState(""),
@@ -176,7 +181,7 @@ function CalendarWorkspace({
       participants?: number[];
       category?: string;
     } | null>(null),
-    [selectedPeople, setSelectedPeople] = useState<number[]>([]),
+    [selectedPeople, setSelectedPeople] = useCollaborationView<number[]>("calendar", "team", []),
     [busy, setBusy] = useState<
       { person_id: number; start: string; end: string }[]
     >([]);

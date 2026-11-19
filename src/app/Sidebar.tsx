@@ -102,12 +102,24 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
         if (group.id === 'purchasing') {
           const target = lastPurchaseEntry(group.entries, current?.id)
           const active = context?.group.id === group.id
+          const shortcuts = group.entries.filter(entry => entry.id === 'suppliers' || entry.id === 'supplier-factures')
+          const activeShortcut = active && shortcuts.some(entry => entry.id === context.entry.id)
           return <li key="workflow-purchasing">
-            <Link to={active ? context.entry.to : target.to} aria-current={active ? 'page' : undefined} onClick={onClose}
+            <Link to={active ? context.entry.to : target.to} aria-current={active && !activeShortcut ? 'page' : undefined} onClick={onClose}
               className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
                 (active ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
               <Icon size={19} /><span>{group.label}</span>
             </Link>
+            {shortcuts.length > 0 && <ul aria-label="Быстрые ссылки закупок" className="ml-6 mt-1 border-l border-white/15 pl-2">
+              {shortcuts.map(entry => {
+                const selected = active && context.entry.id === entry.id
+                return <li key={entry.id}><Link to={entry.to} onClick={onClose} aria-current={selected ? 'page' : undefined}
+                  className={'flex min-h-11 items-center rounded-lg px-3 py-2 text-[13px] ' +
+                    (selected ? 'bg-white font-medium text-sidebar' : 'text-white/70 hover:bg-sidebar-accent hover:text-white')}>
+                  {entry.label}
+                </Link></li>
+              })}
+            </ul>}
           </li>
         }
         return (

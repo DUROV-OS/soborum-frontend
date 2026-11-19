@@ -1,6 +1,3 @@
-/* Menu order, 38px rows, 15px type and translucent group surface measured
-   on the owner's Bitrix24 collaboration menu, 2026-11-14. */
-.collaboration-menu { border-radius: 10px; }
 .collaboration-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding: 0 0 8px; }
 .collaboration-tabs a { flex-shrink: 0; padding: 10px 16px; border-radius: 9px; color: #ffffffcf; font-size: 14px; }
 .collaboration-tabs a:hover { background: #ffffff18; }
@@ -9,18 +6,6 @@
   .calendar-section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
   .calendar-section-tabs a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 8px; font-size: 13px; text-align: center; }
 }
-.collaboration-menu.is-open { background: rgb(255 255 255 / .08); }
-.workspace-sidebar .collaboration-menu > .collaboration-trigger { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; color: #ffffffd9; padding: 10px 8px; }
-.collaboration-trigger.is-active, .is-open > .collaboration-trigger { background: #ffffff20; color: white; }
-.collaboration-submenu { padding: 4px 0; }
-.collaboration-submenu a, .collaboration-planned { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 8px 10px; border-radius: 8px; font-size: 15px; line-height: 20px; color: #ffffffd9; }
-.collaboration-submenu a > span, .collaboration-planned > span { flex: 1; min-width: 0; }
-.collaboration-submenu a[aria-current="page"] { background: #ffffff30; color: white; }
-.collaboration-submenu small { margin-left: auto; font-size: 10px; font-weight: 500; }
-.collaboration-planned { color: #ffffffa6; }
-.collaboration-planned small { background: #ffffff12; padding: 1px 5px; border-radius: 5px; }
-.collaboration-menu-divider { border-top: 1px solid #ffffff1f; margin-top: 4px; padding-top: 4px; }
-.collaboration-submenu .collaboration-overview { font-size: 12px; }
 .collaboration-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 28px; }
 .collaboration-eyebrow { display: flex; align-items: center; gap: 8px; color: #6e678d; font-size: 12px; }
 .collaboration-heading h1 { font-size: 28px; line-height: 1.2; font-weight: 600; margin: 10px 0; }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCollaborationView } from "./navigation";
 import { Field, Input, Select } from "@/shared/ui/Field";
 import { MeetingPlanner } from "./MeetingPlanner";
 import { localInput, wallTime } from "./calendarTime";
@@ -16,12 +16,12 @@ export function CalendarPlannerPage({
     participants: number[],
   ) => void;
 }) {
-  const [start, setStart] = useState(() =>
+  const [start, setStart] = useCollaborationView("calendar", "planner-start:" + preferences.timezone, () =>
       wallTime(new Date(Date.now() + 3600000), preferences.timezone),
     ),
-    [duration, setDuration] = useState(60),
-    [days, setDays] = useState(7),
-    [participants, setParticipants] = useState<number[]>([]);
+    [duration, setDuration] = useCollaborationView("calendar", "planner-duration", 60),
+    [days, setDays] = useCollaborationView("calendar", "planner-days", 7),
+    [participants, setParticipants] = useCollaborationView<number[]>("calendar", "planner-people", []);
   const date = new Date(start),
     end = Number.isFinite(date.getTime())
       ? localInput(new Date(date.getTime() + duration * 60000))

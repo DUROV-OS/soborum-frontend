@@ -1,23 +1,9 @@
-import { createContext, useContext, useLayoutEffect, useState, type ReactNode } from 'react'
+import { useWorkspaceViewState } from '@/shared/lib/workspaceViewState'
 
 export type PurchaseTab = 'suppliers' | 'supplier-orders' | 'supplier-invoices' | 'receipts' | 'supplier-returns' | 'supplier-factures'
 
-const Context = createContext<Map<string, unknown> | null>(null)
-
-export function PurchaseViewProvider({ children }: { children: ReactNode }) {
-  const [views] = useState(() => new Map<string, unknown>())
-  return <Context.Provider value={views}>{children}</Context.Provider>
-}
-
-/** Retain list controls without caching returned records or keeping dialogs open. */
 export function usePurchaseViewState<T>(tab: PurchaseTab | null, field: string, initial: T) {
-  const views = useContext(Context)
-  const key = tab && tab + ':' + field
-  const [value, setValue] = useState<T>(() => key && views?.has(key) ? views.get(key) as T : initial)
-  useLayoutEffect(() => {
-    if (key) views?.set(key, value)
-  }, [key, value, views])
-  return [value, setValue] as const
+  return useWorkspaceViewState(tab ? 'purchasing:' + tab + ':' + field : null, initial)
 }
 
 export function usePurchaseSelection(tab: PurchaseTab | null) {

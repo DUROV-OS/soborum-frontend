@@ -1,3 +1,4 @@
+import { useCollaborationView } from '@/collaboration/navigation'
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import './chatTabs.css'
 import { MessageCircle } from 'lucide-react'
@@ -90,7 +91,7 @@ export function AllChatsPage() {
   const [chats, setChats] = useState<MaxChatSummary[]>([])
   const [chatsLoading, setChatsLoading] = useState(true)
   const [chatsError, setChatsError] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useCollaborationView('messenger', 'search', '')
   const [addContactOpen, setAddContactOpen] = useState(false)
 
   const [history, setHistory] = useState<MaxChatHistory | null>(null)
@@ -190,7 +191,7 @@ export function AllChatsPage() {
     pinnedToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
   }
 
-  const [chatFilter, setChatFilter] = useState('all')
+  const [chatFilter, setChatFilter] = useCollaborationView('messenger', 'category', 'all')
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     const visible = chats.filter(c => chatFilter === 'all' || chatKind(c.type) === chatFilter)
