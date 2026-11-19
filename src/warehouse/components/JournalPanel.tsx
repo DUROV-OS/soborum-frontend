@@ -29,7 +29,7 @@ function Dash() {
 
 /** Журнал операций склада (0088-c): все движения, менявшие остаток, — с датой
  * операции, остатком после, «куда» и «кто получил». */
-export function JournalPanel() {
+export function JournalPanel({ fixedReason }: { fixedReason?: 'receipt' | 'write_off' }) {
   const materials = useWarehouseStore((s) => s.materials)
   const operationsVersion = useWarehouseStore((s) => s.operationsVersion)
   const [direction, setDirection] = useState<'all' | 'in' | 'out'>('all')
@@ -44,7 +44,7 @@ export function JournalPanel() {
 
   const filters: JournalFilters = {
     direction: direction === 'all' ? undefined : direction,
-    reason: reason === 'all' ? undefined : reason,
+    reason: fixedReason ?? (reason === 'all' ? undefined : reason),
     material_id: materialId === 'all' ? undefined : materialId,
     date_from: dayStartIso(dateFrom),
     date_to: dayStartIso(dateTo, 1),
@@ -74,20 +74,20 @@ export function JournalPanel() {
 
   return (
     <div>
-      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={'mb-3 grid gap-2 sm:grid-cols-2 ' + (fixedReason ? 'lg:grid-cols-4' : 'lg:grid-cols-5')}>
         <Select value={direction} onChange={(e) => setDirection(e.target.value as 'all' | 'in' | 'out')}>
           <option value="all">Приход и расход</option>
           <option value="in">Только приход</option>
           <option value="out">Только расход</option>
         </Select>
-        <Select value={reason} onChange={(e) => setReason(e.target.value as MovementReason | 'all')}>
+        {!fixedReason && <Select value={reason} onChange={(e) => setReason(e.target.value as MovementReason | 'all')}>
           <option value="all">Все операции</option>
           {JOURNAL_REASONS.map((key) => (
             <option key={key} value={key}>
               {MOVEMENT_REASON_LABEL[key]}
             </option>
           ))}
-        </Select>
+        </Select>}
         <Select
           value={materialId}
           onChange={(e) => setMaterialId(e.target.value === 'all' ? 'all' : Number(e.target.value))}

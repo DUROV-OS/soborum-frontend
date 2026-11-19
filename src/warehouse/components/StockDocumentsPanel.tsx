@@ -59,19 +59,18 @@ export function StockDocumentsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Select
-          aria-label="Вид складского документа"
-          value={kind}
-          onChange={(e) => {
-            setKind(e.target.value as typeof kind)
-            setPage(0)
-          }}
-          className="w-full sm:w-56"
-        >
-          <option value="">Все документы</option>
-          <option value="transfer">Перемещения</option>
-          <option value="inventory">Инвентаризации</option>
-        </Select>
+        {!kind && (
+          <Select
+            aria-label="Вид складского документа"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as typeof kind)}
+            className="w-full sm:w-56"
+          >
+            <option value="">Все документы</option>
+            <option value="transfer">Перемещения</option>
+            <option value="inventory">Инвентаризации</option>
+          </Select>
+        )}
         <Select
           aria-label="Архив складских документов"
           value={archive}
@@ -88,13 +87,11 @@ export function StockDocumentsPanel() {
         <Button variant="secondary" onClick={() => void load()}>
           Обновить
         </Button>
-        {canEdit && (
-          <>
-            <Button onClick={() => setCreating('transfer')}>Переместить</Button>
-            <Button variant="secondary" onClick={() => setCreating('inventory')}>
-              Начать инвентаризацию
-            </Button>
-          </>
+        {canEdit && kind !== 'inventory' && <Button onClick={() => setCreating('transfer')}>Переместить</Button>}
+        {canEdit && kind !== 'transfer' && (
+          <Button variant={kind ? 'primary' : 'secondary'} onClick={() => setCreating('inventory')}>
+            Начать инвентаризацию
+          </Button>
         )}
       </div>
       <p className="text-[13px] text-muted">

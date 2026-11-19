@@ -253,6 +253,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
   const [params, setParams] = useSearchParams(),
     location = useLocation()
   const context = workflowContext(location.pathname, location.search)
+  const nomenclature = context?.group.id === 'nomenclature'
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const type = params.get('type') || ''
   const setType = (type: string) =>
@@ -355,7 +356,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
         <Database className="mt-1 text-brand" size={25} />
         <div>
           <h1 className="text-[22px] font-medium text-ink">
-            {purchaseTab ? context?.entry.label : type
+            {purchaseTab || nomenclature ? context?.entry.label : type
               ? catalog?.categories.find((c) => c.type === type)?.title ||
                 context?.entry.label ||
                 'Сохранённые документы'
@@ -368,7 +369,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
           </p>
         </div>
       </div>
-      {!purchaseTab && <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {!purchaseTab && !nomenclature && <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           ['Сохранено записей', total],
           ['В архиве', archived],
@@ -385,8 +386,8 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
           <Search size={16} className="absolute left-3 top-3 text-muted" />
           <Input
             className="pl-9"
-            placeholder="Название, код, контрагент, номер документа…"
-            aria-label="Поиск в данных МоегоСклада"
+            placeholder={nomenclature ? 'Название или код…' : 'Название, код, контрагент, номер документа…'}
+            aria-label={nomenclature ? 'Поиск в номенклатуре' : 'Поиск в данных МоегоСклада'}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
@@ -394,7 +395,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
             }}
           />
         </div>
-        {!purchaseTab && <Select
+        {!purchaseTab && !nomenclature && <Select
           aria-label="Раздел МоегоСклада"
           value={type}
           onChange={(e) => {
