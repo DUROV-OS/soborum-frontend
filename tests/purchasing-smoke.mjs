@@ -46,7 +46,8 @@ let order = {
 let created = false,
   received = false,
   paid = false,
-  archived = false
+  archived = false,
+  edited = false
 const uploads = []
 await page.route('**/api/**', async (route) => {
   const req = route.request(),
@@ -60,7 +61,10 @@ await page.route('**/api/**', async (route) => {
     body = {
       organizations: [{ id: 2, name: 'Технология' }, { id: 3, name: 'ИД Групп' }],
       suppliers: [{ id: 1, name: 'Тестовый поставщик', archived: false }],
-      materials: [{ id: 1, title: 'Тестовый брус', warehouse: 'Склад Технология', unit: 'шт', price: 20 }],
+      materials: [
+        { id: 1, title: 'Тестовый брус', warehouse: 'Склад Технология', unit: 'шт', price: 20 },
+        { id: 2, title: 'Тестовая доска', warehouse: 'Склад Технология', unit: 'шт', price: 35 },
+      ],
       accounts: [{ id: 1, name: 'Тестовый счёт' }],
     }
   else if (path === '/api/purchasing/orders' && req.method() === 'POST') {
@@ -73,6 +77,19 @@ await page.route('**/api/**', async (route) => {
     order = { ...order, organization_id: 2, organization_name: 'Технология' }
     body = order
   } else if (path === '/api/purchasing/orders') body = { total: 1, items: [order] }
+  else if (path === '/api/purchasing/orders/1' && req.method() === 'PATCH') {
+    const payload = req.postDataJSON()
+    assert.equal(url.searchParams.get('version'), '1')
+    assert.equal(payload.items.length, 1)
+    assert.equal(payload.items[0].material, 'Тестовый брус')
+    assert.equal(payload.items[0].quantity, 4)
+    assert.equal(payload.items[0].unit_price, 25.5)
+    assert.equal(payload.reason, 'Согласована новая сумма')
+    assert(!('key' in payload.items[0]))
+    edited = true
+    order = { ...order, items: payload.items, total_cost: 102, version: 2 }
+    body = order
+  }
   else if (path === '/api/purchasing/orders/1') body = order
   else if (path === '/api/purchasing/orders/1/positions') body = [{
     number: 1, name: 'Тестовый брус', quantity: 10, unit: 'шт', received_quantity: received ? 3 : 0,
@@ -97,7 +114,8 @@ await page.route('**/api/**', async (route) => {
     received = true
     order = {
       ...order,
-      version: 2,
+      version: 3,
+      has_receipts: true,
       status: 'in_transit',
       items: [{ ...order.items[0], received_quantity: 3 }],
     }
@@ -124,6 +142,9 @@ try {
   const card = page.getByRole('dialog', {name: 'Заказ № 1', exact: true})
   const positions = card.getByRole('region', {name: 'Позиции заказа'})
   await positions.getByRole('cell', {name: 'Тестовый брус'}).waitFor()
+  const material = positions.getByRole('link', { name: 'Тестовый брус', exact: true })
+  assert.equal(await material.getAttribute('href'), '/warehouse?tab=materials&material=1')
+  assert(await material.evaluate(link => getComputedStyle(link).textDecorationLine.includes('underline')))
   assert.deepEqual(await positions.getByRole('columnheader').allTextContents(),
     ['№', 'Наименование', 'Количество', 'Доступно', 'Остаток на складе', 'НДС', 'Цена', 'Сумма с НДС', 'Сумма'])
   await positions.getByRole('cell', {name: '8 шт', exact: true}).waitFor()
@@ -150,10 +171,33 @@ try {
   await form.getByLabel('Складской материал').selectOption('1')
   await form.getByLabel('Количество заказа').fill('10')
   await form.getByRole('button', { name: 'Сохранить заказ' }).click()
+  await card.getByRole('button', { name: 'Изменить', exact: true }).click()
+  const edit = card.getByRole('region', { name: 'Редактирование позиций' })
+  await edit.getByRole('button', { name: 'Тестовый брус', exact: true }).click()
+  await edit.getByLabel('Найти материал').fill('доска')
+  await edit.getByLabel('Складской материал').selectOption('2')
+  await edit.getByRole('button', { name: 'Тестовая доска', exact: true }).waitFor()
+  await edit.getByRole('button', { name: 'Удалить позицию 1', exact: true }).click()
+  await edit.getByRole('button', { name: 'Добавить позицию' }).click()
+  await edit.getByLabel('Складской материал').selectOption('1')
+  await edit.getByLabel('Количество заказа').fill('4')
+  await edit.getByLabel('Сумма позиции').fill('102,00')
+  assert.equal(await edit.getByLabel('Цена заказа').inputValue(), '25.5')
+  await card.getByRole('tab', { name: 'Файлы', exact: true }).click()
+  await card.getByRole('tab', { name: 'Позиции', exact: true }).click()
+  assert.equal(await edit.getByLabel('Количество заказа').inputValue(), '4')
+  await card.getByLabel('Причина изменения заказа').fill('Согласована новая сумма')
+  await card.getByRole('button', { name: 'Сохранить заказ' }).click()
+  await edit.waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: 'Принять материалы' }).click()
   const receipt = page.getByRole('dialog', { name: 'Приёмка заказа № 1', exact: true })
   await receipt.getByLabel('Количество приёмки').fill('3')
   await receipt.getByRole('button', { name: 'Провести приёмку' }).click()
+  await card.getByText('Частично получено / в пути', { exact: true }).waitFor()
+  await card.getByRole('button', { name: 'Изменить', exact: true }).click()
+  assert(await edit.getByRole('button', { name: 'Удалить позицию 1', exact: true }).isDisabled())
+  await edit.getByRole('link', { name: 'Тестовый брус', exact: true }).waitFor()
+  await card.getByRole('button', { name: 'Отмена', exact: true }).click()
   await page.getByRole('button', { name: 'Оплата частями' }).click()
   const payment = page.getByRole('dialog', { name: 'Оплата заказа № 1', exact: true })
   await payment.getByLabel('Сумма платежа').fill('50')
@@ -168,7 +212,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
   await mkdir('test-results', { recursive: true })
   await page.screenshot({ path: 'test-results/purchasing-mobile.png', fullPage: true })
-  assert.ok(created && received && paid && archived)
+  assert.ok(created && edited && received && paid && archived)
   assert.deepEqual(errors, [])
   console.log('PASS: native order, partial receiving, partial payment, archive and mobile layout')
 } finally {
