@@ -15,6 +15,8 @@ export type Placed<T> = {
 export function layoutDay<T extends Occurrence>(
   events: T[],
   date: Date,
+  visibleStart = 0,
+  visibleEnd = 1440,
 ): Placed<T>[] {
   const from = new Date(date);
   from.setHours(0, 0, 0, 0);
@@ -27,8 +29,9 @@ export function layoutDay<T extends Occurrence>(
       const a = new Date(event.occurrence_start),
         b = new Date(event.occurrence_end);
       if (!(a < until && b > from && b > a)) return [];
-      const start = a < from ? 0 : minutes(a),
-        end = b >= until ? 1440 : minutes(b);
+      const start = Math.max(visibleStart, a < from ? 0 : minutes(a)),
+        end = Math.min(visibleEnd, b >= until ? 1440 : minutes(b));
+      if (end <= start) return [];
       return [
         { event, start, end: Math.max(start + 1, end), lane: 0, lanes: 1 },
       ];

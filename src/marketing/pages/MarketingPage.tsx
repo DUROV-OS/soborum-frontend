@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
@@ -120,7 +121,7 @@ export function MarketingPage() {
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs
+        <ModuleNavigation label="Разделы маркетинга"><Tabs
           tabs={[
             { key: 'conversions', label: 'Конверсии' },
             { key: 'economics', label: 'Экономика рекламы' },
@@ -130,7 +131,7 @@ export function MarketingPage() {
           ]}
           activeKey={view}
           onChange={setView}
-        />
+        /></ModuleNavigation>
         {view === 'stages' && <DateFilterSelect value={dateFilter} onChange={setDateFilter} />}
       </div>
 

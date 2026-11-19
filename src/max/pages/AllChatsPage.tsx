@@ -1,3 +1,5 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
+import './chatTabs.css'
 import { MessageCircle } from 'lucide-react'
 import { chatKind, chatFilters } from '../chatFilters'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -297,9 +299,9 @@ export function AllChatsPage() {
           </div>
         </div>
 
-        <div role="group" aria-label="Категории чатов" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2 py-2">
-          {chatFilters.map(([id, label]) => <button key={id} type="button" aria-pressed={chatFilter === id} onClick={() => setChatFilter(id)} className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 text-xs ${chatFilter === id ? 'bg-brand/10 font-semibold text-brand-dark' : 'text-muted hover:bg-surface-muted'}`}>{label}</button>)}
-        </div>
+        <ModuleNavigation label="Разделы мессенджера"><div role="group" aria-label="Категории чатов" className="max-chat-tabs">
+          {chatFilters.map(([id, label]) => <button key={id} type="button" aria-pressed={chatFilter === id} onClick={() => setChatFilter(id)} data-chat-kind={id} className="max-chat-tab">{label}</button>)}
+        </div></ModuleNavigation>
         <div className="flex-1 overflow-y-auto p-2">
           {chatsLoading && chats.length === 0 && <p className="px-2 py-2 text-[12px] text-muted">Загрузка…</p>}
           {chatsError && <p className="px-2 py-2 text-[12px] text-danger">{chatsError}</p>}
@@ -318,8 +320,8 @@ export function AllChatsPage() {
                   c.id === activeId ? 'bg-brand/10' : 'hover:bg-surface-muted'
                 }`}
               >
-                <div className="flex items-baseline justify-between gap-2">
-                  <MessageCircle size={16} aria-label="MAX" className="shrink-0 text-brand" /><span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="max-chat-icon" role="img" aria-label="Мессенджер Макс"><MessageCircle size={18} strokeWidth={2} aria-hidden="true" /></span><span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{c.title ?? `Чат ${c.id}`}</span>
                   <span className="shrink-0 text-[10px] text-muted">{relTime(c.lastEventTime)}</span>
                 </div>
                 {c.phone && <span className="text-[12px] text-muted">{formatPhone(c.phone)}</span>}

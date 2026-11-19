@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -235,7 +236,7 @@ export function PurchasingPage() {
           </button>
         </div>
       )}
-      <Tabs
+      <ModuleNavigation label="Разделы закупок"><Tabs
         activeKey={tab}
         onChange={(v) => {
           setTab(v)
@@ -246,7 +247,7 @@ export function PurchasingPage() {
           { key: 'receipts', label: 'Приёмки' },
           { key: 'returns', label: 'Возвраты поставщикам' },
         ]}
-      />
+      /></ModuleNavigation>
       {tab !== 'returns' && <JournalControls query={query} onQuery={v => { setQuery(v); setOffset(0) }} filters={filters}
         onFilters={v => { setFilters(v); setOffset(0) }} archive={archive} onArchive={v => { setArchive(v); setOffset(0) }} suppliers={catalog.suppliers} receipts={tab === 'receipts'} />}
       {tab === 'orders' && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">

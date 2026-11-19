@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { useSearchParams } from 'react-router-dom'
@@ -312,7 +313,7 @@ export function AccountingPage() {
       </div>
 
       <div className="mb-4">
-        <Tabs
+        <ModuleNavigation label="Разделы бухгалтерии"><Tabs
           tabs={[
             { key: 'review', label: 'Рабочий обзор' },
             { key: 'costs', label: 'Затраты проектов' },
@@ -330,7 +331,7 @@ export function AccountingPage() {
             setTab('register')
             selectOrganization(Number(key.replace('org-', '')))
           }}
-        />
+        /></ModuleNavigation>
       </div>
 
       {tab === 'review' ? (

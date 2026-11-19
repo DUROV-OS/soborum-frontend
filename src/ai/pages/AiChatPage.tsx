@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { MouseEvent, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -112,14 +113,14 @@ export function AiChatPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Tabs
+      <ModuleNavigation label="Разделы Durov GPT"><Tabs
         tabs={[
           { key: 'chat' as MarinaTab, label: 'Чат' },
           { key: 'growth' as MarinaTab, label: 'Развитие' },
         ]}
         activeKey={tab}
         onChange={setTab}
-      />
+      /></ModuleNavigation>
 
       {tab === 'growth' && <GrowthSection />}
 

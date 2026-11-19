@@ -20,6 +20,7 @@ import {
 import { Link } from "react-router-dom";
 import { Modal } from "@/shared/ui/Modal";
 import { calendarDragType, readCalendarDrag } from './calendarDrag';
+import { CalendarCategoryIcon } from './CalendarCategory';
 import { CalendarDays } from 'lucide-react';
 type Person = { id: number; name: string; can_work_tasks?: boolean };
 type Event = {
@@ -66,6 +67,7 @@ const call = <T,>(
   apiRequest<T>({
     section: "projects",
     path: "/calendar" + path,
+    timeoutMs: 30000,
     method,
     body,
   });
@@ -372,6 +374,7 @@ function CalendarWorkspace({
       style={{ borderColor: colors[e.category] }}
     >
       <strong>
+        <CalendarCategoryIcon category={e.category} color={colors[e.category]} />
         {(mode === "schedule" || invitationsOnly) &&
           new Date(e.occurrence_start).toLocaleDateString("ru-RU") + " · "}
         {e.all_day
@@ -391,7 +394,7 @@ function CalendarWorkspace({
       {moveError && <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">Не удалось перенести событие: {moveError}</p>}
       <Modal open={!!preview} onClose={() => setPreview(null)} title={preview?.title || 'Событие'} footer={preview?.can_edit && <Button onClick={() => { setEditor({ row: preview, at: new Date(preview.start) }); setPreview(null); }}>{preview.recurrence === 'none' ? 'Редактировать' : 'Редактировать серию'}</Button>}>
         {preview && <div className="space-y-3 text-sm">
-          <p className="border-l-4 pl-3" style={{ borderColor: colors[preview.category] }}>{preferences.categories[preview.category]?.label}</p>
+          <p className="border-l-4 pl-3" style={{ borderColor: colors[preview.category] }}><CalendarCategoryIcon category={preview.category} color={colors[preview.category]} />{preferences.categories[preview.category]?.label}</p>
           <p>{new Date(preview.occurrence_start).toLocaleString('ru-RU', { timeZone: preferences.timezone })} — {new Date(preview.occurrence_end).toLocaleString('ru-RU', { timeZone: preferences.timezone })} · {preferences.timezone}</p>
           {preview.location && <p>{preview.location}</p>}{preview.description && <p className="whitespace-pre-wrap break-words">{preview.description}</p>}
           {!!preview.participants.length && <p className="text-muted">Участники: {preview.participants.map(id => people.find(p => p.id === id)?.name || 'Сотрудник').join(', ')}</p>}
@@ -728,7 +731,7 @@ function CalendarWorkspace({
                           }
                           style={{ borderColor: colors[e.category] }}
                           className="block w-full truncate rounded border-l-4 bg-surface-muted px-1 py-1 text-left text-[10px] sm:text-xs"
-                        >{e.title}</button>
+                        ><CalendarCategoryIcon category={e.category} color={colors[e.category]} />{e.title}</button>
                       ))}
                       {items.length > 3 && <button className="text-xs text-brand-dark" onClick={() => { setDate(d); setMode('day'); }}>Ещё {items.length - 3}</button>}
                     </div>
@@ -798,17 +801,25 @@ function EventForm({
   saved: () => void;
 }) {
   const zone = row?.timezone || preferences.timezone;
+  const taskAccess = useAuthStore(s => s.accessLevel('tasks'));
+  const editorRoot = useRef<HTMLDivElement>(null);
+  const [fieldErrors,setFieldErrors] = useState<Record<string,string>>({});
+  const initialAllDay = row?.all_day || (!row && initialCategory === 'anniversary');
+  const initialStart = new Date(at); if(initialAllDay) initialStart.setHours(0,0,0,0);
+  const initialEnd = until ? new Date(until) : new Date(at.getTime()+3600000);
+  if(initialAllDay) { initialEnd.setTime(initialStart.getTime()); initialEnd.setDate(initialEnd.getDate()+1); }
+  else if(!until && at.getHours()<21 && initialEnd.getHours()>=21) initialEnd.setHours(21,0,0,0);
   const colors = Object.fromEntries(
     Object.entries(preferences.categories).map(([k, v]) => [k, v.color]),
   );
   const [title, setTitle] = useState(row?.title || ""),
-    [start, setStart] = useState(row ? wallTime(row.start, zone) : local(at)),
+    [start, setStart] = useState(row ? wallTime(row.start, zone) : local(initialStart)),
     [end, setEnd] = useState(
       row
         ? wallTime(row.end, zone)
-        : local(until || new Date(at.getTime() + 3600000)),
+        : local(initialEnd),
     ),
-    [allDay, setAllDay] = useState(row?.all_day || false),
+    [allDay, setAllDay] = useState(initialAllDay),
     [reminder, setReminder] = useState<number | null>(
       row?.reminder_minutes ?? null,
     ),
@@ -916,20 +927,21 @@ function EventForm({
     readonly = !!row && !row.can_edit;
   const save = async (cancelled = false) => {
     if (busy || uploading) return;
-    if (
-      category === "work" &&
-      (!assignee || !reviewer || assignee === reviewer)
-    ) {
-      setError("Выберите исполнителя и другого сотрудника для приёмки");
-      return;
+    const invalid: Record<string,string> = {};
+    if(!title.trim()) invalid.title='Укажите тему записи';
+    if(!start || !Number.isFinite(new Date(start).getTime())) invalid.start='Укажите дату и время начала';
+    if(!end || !Number.isFinite(new Date(end).getTime())) invalid.end='Укажите дату и время окончания';
+    else if(start && new Date(end)<=new Date(start)) invalid.end='Окончание должно быть позже начала';
+    if(category==='work') {
+      if(taskAccess==='none' || taskAccess==='view') invalid.assignee='Для полноценной задачи нужны права редактирования раздела «Задачи»';
+      else if(!assignee) invalid.assignee='Выберите исполнителя задачи';
+      if(!reviewer) invalid.reviewer='Выберите сотрудника для приёмки';
+      else if(assignee===reviewer) invalid.reviewer='Исполнитель и проверяющий должны быть разными сотрудниками';
     }
-    if (
-      !start ||
-      !end ||
-      !Number.isFinite(new Date(start).getTime()) ||
-      !Number.isFinite(new Date(end).getTime())
-    ) {
-      setError("Укажите корректное начало и окончание встречи");
+    setFieldErrors(invalid);
+    if(Object.keys(invalid).length) {
+      setError(Object.values(invalid).join('. '));
+      requestAnimationFrame(()=>editorRoot.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus());
       return;
     }
     let startUTC: string, endUTC: string;
@@ -941,7 +953,7 @@ function EventForm({
       return;
     }
     const data = {
-      title,
+      title: title.trim(),
       start: startUTC,
       end: endUTC,
       timezone: zone,
@@ -1050,6 +1062,7 @@ function EventForm({
         row
           ? {
               meeting: "Встреча",
+              briefing: "Планёрка",
               work: "Задача",
               personal: "Личное",
               anniversary: "Юбилей",
@@ -1079,23 +1092,16 @@ function EventForm({
           </Button>
           {!readonly && (
             <Button
-              disabled={
-                busy ||
-                uploading ||
-                !title.trim() ||
-                !start ||
-                !end ||
-                new Date(end) <= new Date(start)
-              }
+              disabled={busy || uploading}
               onClick={() => void save()}
             >
-              Сохранить
+              {busy ? "Сохраняем…" : uploading ? "Загрузка файлов…" : "Сохранить"}
             </Button>
           )}
         </>
       }
     >
-      <div className="space-y-4">
+      <div ref={editorRoot} className="space-y-4">
         {!row && !!preferences.templates?.length && (
           <Field label="Из шаблона">
             <Select
@@ -1178,9 +1184,11 @@ function EventForm({
           disabled={readonly || busy || uploading}
           className="space-y-3"
         >
-          <Field label="Тема">
+          <Field label="Тема" required hint={fieldErrors.title}>
             <Input
               aria-label="Тема встречи"
+              aria-invalid={!!fieldErrors.title}
+              className={fieldErrors.title ? "border-danger" : ""}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
@@ -1206,9 +1214,11 @@ function EventForm({
             Весь день
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Начало">
+            <Field label="Начало" required hint={fieldErrors.start}>
               <Input
                 aria-label="Начало встречи"
+                aria-invalid={!!fieldErrors.start}
+                className={fieldErrors.start ? "border-danger" : ""}
                 type={allDay ? "date" : "datetime-local"}
                 value={allDay ? start.slice(0, 10) : start}
                 onChange={(e) =>
@@ -1222,9 +1232,12 @@ function EventForm({
             </Field>
             <Field
               label={allDay ? "Последний день (включительно)" : "Окончание"}
+              required hint={fieldErrors.end}
             >
               <Input
                 aria-label="Окончание встречи"
+                aria-invalid={!!fieldErrors.end}
+                className={fieldErrors.end ? "border-danger" : ""}
                 type={allDay ? "date" : "datetime-local"}
                 value={
                   allDay && end
@@ -1308,12 +1321,15 @@ function EventForm({
                   <Field
                     key={kind}
                     label={kind === "assignee" ? "Исполнитель" : "Проверяющий"}
+                    required hint={fieldErrors[kind]}
                   >
                     <Select
                       aria-label={
                         kind === "assignee" ? "Исполнитель" : "Проверяющий"
                       }
                       disabled={!managing}
+                      aria-invalid={!!fieldErrors[kind]}
+                      className={fieldErrors[kind] ? "border-danger" : ""}
                       value={(kind === "assignee" ? assignee : reviewer) || ""}
                       onChange={(e) => {
                         const id = Number(e.target.value) || null;

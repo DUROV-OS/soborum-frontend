@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL || undefined })
 try {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
@@ -74,12 +74,12 @@ try {
   for (const name of ['Продажи', 'Закупки', 'Склад', 'Производство', 'Бухгалтерия'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
   await sidebar.getByRole('button', { name: 'Закупки', exact: true }).click()
-  await sidebar.locator('#workflow-purchasing').getByRole('link', { name: 'Поставщики', exact: true }).waitFor()
-  assert.equal(await sidebar.locator('#workflow-crm').getByRole('link', { name: 'Поставщики', exact: true }).count(), 0)
+  await sidebar.locator('#workflow-purchasing').getByRole('link', { name: 'Контрагенты', exact: true }).waitFor()
+  assert.equal(await sidebar.locator('#workflow-crm').getByRole('link', { name: 'Контрагенты', exact: true }).count(), 0)
   await main.getByRole('link', { name: /Заказы покупателей/ }).click()
   await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).waitFor()
-  await sidebar.getByRole('link', { name: 'Отгрузки', exact: true }).click()
-  await page.getByRole('tab', { name: 'Отгрузки', exact: true }).waitFor()
+  await page.locator('[data-section-navigation]').getByRole('tab', { name: 'Отгрузки', exact: true }).click()
+  await page.locator('[data-section-navigation]').getByRole('tab', { name: 'Отгрузки', exact: true }).waitFor()
   assert.equal(
     await page.getByRole('tab', { name: 'Отгрузки', exact: true }).getAttribute('aria-selected'),
     'true',
@@ -106,6 +106,7 @@ try {
     'true',
   )
   await sidebar.getByRole('button', { name: 'Склад', exact: true }).click()
+  await sidebar.locator('#workflow-warehouse').getByRole('button', { name: /Все разделы/ }).click()
   await sidebar.getByRole('link', { name: 'Перемещения', exact: true }).click()
   await page.getByLabel('Вид складского документа').waitFor()
   assert.equal(await page.getByLabel('Вид складского документа').inputValue(), 'transfer')
@@ -116,6 +117,7 @@ try {
     'false'
   )
     await sidebar.getByRole('button', { name: 'Продажи', exact: true }).click()
+  await sidebar.locator('#workflow-sales').getByRole('button', { name: /Все разделы/ }).click()
   await sidebar.getByRole('link', { name: /Счета покупателям/ }).click()
   await page.getByRole('heading', { name: 'Счета покупателям', exact: true }).waitFor()
   assert.equal(await page.getByLabel('Раздел МоегоСклада').inputValue(), 'invoiceout')
