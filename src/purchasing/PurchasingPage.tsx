@@ -35,6 +35,7 @@ type Order = {
   supplier_name: string
   organization_id?: number | null
   organization_name?: string | null
+  source_id?: string | null
   items: Item[]
   total_cost: number
   opening_paid: number
@@ -66,6 +67,7 @@ type Receipt = {
   supplier_id: number
   occurred_at: string
   status: string
+  via_supplier_invoice?: boolean
   note: string
   lines: { title: string; unit: string; quantity: number; unit_price: number }[]
 }
@@ -441,7 +443,9 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               <h3 className="font-medium">Приёмки по заказу</h3>
               {receiptLoading ? <p className="text-muted">Загрузка документов…</p> : orderReceipts.length ? orderReceipts.map(r => (
                 <button className="flex w-full flex-wrap justify-between gap-2 rounded-lg border border-border p-4 text-left hover:bg-surface-muted" key={r.id} onClick={() => { setSelected(null); setSelectedReceipt(r) }}>
-                  <span className="font-medium text-accent">Приёмка № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{journalMoney(r.lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0), selected.currency)}</span>
+                  <span className="font-medium text-accent">Приёмка № {r.number}
+                    {r.via_supplier_invoice && <span className="ml-2 text-xs font-normal text-muted">Через счёт поставщика</span>}
+                  </span><span>{journalDate(r.occurred_at)}</span><span>{journalMoney(r.lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0), selected.currency)}</span>
                 </button>
               )) : <p className="text-muted">По этому заказу ещё нет приёмок.</p>}
               {!!linkedDocuments?.invoices?.length && <>
@@ -680,7 +684,7 @@ function OrderEditor({
         {row?.has_receipts && <p className="text-sm text-muted">По заказу есть приёмки. Можно уточнить количество до уже принятого, изменить плановую цену и добавить позиции. Фактическую поставку исправляйте в приёмке.</p>}
         <Field label="Организация">
           <Select aria-label="Организация" value={organization} required={!row}
-            disabled={!!row && (!!row.has_receipts || row.paid > 0 || row.pending_payment > 0)}
+            disabled={!!row && (!!row.source_id || !!row.has_receipts || row.paid > 0 || row.pending_payment > 0)}
             onChange={e => setOrganization(e.target.value)}>
             <option value="">Выберите организацию</option>
             {row?.organization_id && !catalog.organizations?.some(org => org.id === row.organization_id) &&
