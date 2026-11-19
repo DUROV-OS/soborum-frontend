@@ -32,7 +32,7 @@ try {
   await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5184') + '/drive')
   await page.getByRole('heading', { name: 'Диск', exact: true }).waitFor()
   await page.getByRole('button', { name: 'Смета.pdf', exact: true }).waitFor()
-  assert.equal(await page.locator('#collaboration-menu-items a[href="/drive"]').count(), 1)
+  assert.equal(await page.getByRole('navigation', { name: 'Разделы совместной работы' }).getByRole('link', { name: 'Диск', exact: true }).count(), 1)
   await page.getByRole('button', { name: 'Новая папка', exact: true }).click()
   await page.getByLabel('Название', { exact: true }).fill('Проекты')
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click()

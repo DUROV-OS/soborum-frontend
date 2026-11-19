@@ -4,7 +4,7 @@ import { chromium } from 'playwright'
 
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5177'
 const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL || undefined })
-const artifact = 'test-results/collaboration-20261118'
+const artifact = 'test-results/collaboration-tabs'
 await mkdir(artifact, { recursive: true })
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: 'Europe/Moscow' })
 await context.addInitScript(() => {
@@ -41,7 +41,13 @@ await page.route('**/api/**', async route => {
   } else if (path === '/api/max/chats') body = { count: chats.length, chats }
   else if (path === '/api/mail/status') body = { address: 'sales@durov.house', can_access: mailAccess, configured: mailConfigured, mode: 'shared' }
   else if (path === '/api/mail/folders') body = [{ id: 'SU5CT1g', name: 'Входящие', inbox: true, total: 100, unread: unread ? 42 : 41 }, { id: 'U2VudA', name: 'Отправленные', inbox: false, total: 12, unread: 0 }]
-  else if (path === '/api/mail/messages') body = { uidvalidity: '81', next_before: null, items: url.searchParams.get('folder_id') === 'U2VudA' || url.searchParams.get('q') ? [] : [{ uid: 9, subject: 'Договор дома', sender: 'Клиент', to: 'sales@durov.house', date: '2026-11-18T08:00:00Z', unread, size: 100 }] }
+  else if (path === '/api/mail/messages') {
+    const old = url.searchParams.has('before')
+    const sent = url.searchParams.get('folder_id') === 'U2VudA'
+    body = { uidvalidity: '81', next_before: sent || old ? null : 9, items: sent ? [] : [
+      { uid: old ? 8 : 9, subject: old ? 'Более ранний договор' : 'Договор дома', sender: 'Клиент', to: 'sales@durov.house', date: '2026-11-18T08:00:00Z', unread, size: 100 }
+    ] }
+  }
   else if (path === '/api/mail/messages/9') body = { uid: 9, subject: 'Договор дома', sender: 'Клиент', to: 'sales@durov.house', date: '2026-11-18T08:00:00Z', text: 'Просьба согласовать договор.', attachments: [{ part: 2, filename: 'Договор.pdf', size: 100 }] }
   else if (path === '/api/mail/messages/9/flags') { unread = !route.request().postDataJSON().read; body = { uid: 9, unread } }
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
@@ -50,11 +56,17 @@ await page.route('**/api/**', async route => {
 try {
   await page.goto(base + '/calendar')
   await page.locator('[data-work-start="480"]').first().waitFor()
-  assert.deepEqual(await page.locator('[data-section-navigation]').getByRole('link').allTextContents(), ['Мой календарь','Календари команды','Планировщик встреч','Настройки'])
-  assert.equal(await page.getByRole('navigation', { name: 'Разделы календаря' }).count(), 1)
-  const toolLabels = await page.locator('#collaboration-menu-items > li > a, #collaboration-menu-items > li > span').allTextContents()
-  assert.deepEqual(toolLabels.slice(0,8).map(t => t.replace('Скоро','')), ['Мессенджер Макс','Календарь','Почта','Durov GPT','Документы','Диск','Задачи','Совещания'])
-  assert.equal(toolLabels.some(t => /Доски|Лента/.test(t)), false)
+  const toolNavigation = page.getByRole('navigation', { name: 'Разделы совместной работы' })
+  const tool = name => toolNavigation.getByRole('link', { name, exact: true })
+  const calendarNavigation = page.getByRole('navigation', { name: 'Разделы календаря' })
+  assert.deepEqual(await calendarNavigation.getByRole('link').allTextContents(), ['Мой календарь','Календари команды','Планировщик встреч','Настройки'])
+  assert.equal(await calendarNavigation.count(), 1)
+  assert.deepEqual(await toolNavigation.getByRole('link').allTextContents(),
+    ['Обзор', 'Мессенджер Макс','Календарь','Почта','Durov GPT','Диск','Задачи','Совещания'])
+  assert.equal(await tool('Календарь').getAttribute('aria-current'), 'page')
+  const side = page.getByRole('complementary', { name: 'Главное меню' })
+  assert.equal(await side.getByRole('link', { name: 'Совместная работа', exact: true }).count(), 1)
+  assert.equal(await side.getByRole('link', { name: 'Календарь', exact: true }).count(), 0)
   await page.getByRole('navigation', { name: 'Разделы календаря' }).getByRole('link', { name: 'Настройки' }).click()
   await page.getByLabel('Начало рабочего дня').fill('08:30')
   await page.getByLabel('Цвет: Встречи').fill('#aa3344')
@@ -88,6 +100,7 @@ try {
   await page.getByRole('button', { name: 'Перенести', exact: true }).click()
   await page.getByRole('button', { name: 'Только это событие' }).click()
   await page.getByText('Время события изменено', { exact: true }).waitFor()
+  await page.getByRole('button', { name: /Планёрка отдела,/ }).waitFor()
   await page.screenshot({ path: artifact + '/calendar-desktop.png', fullPage: true })
   await page.getByRole('tab', { name: 'Месяц', exact: true }).click()
   await page.getByRole('button', { name: 'Планёрка отдела', exact: true }).waitFor()
@@ -99,7 +112,9 @@ try {
   assert.equal(moves.at(-1).scope, 'series')
   assert.equal(moves.at(-1).start, '2026-11-19T11:00:00.000Z')
   await page.screenshot({ path: artifact + '/calendar-month.png', fullPage: true })
-  await page.goto(base + '/chats')
+  await page.getByLabel('Поиск событий').fill('Планёрка')
+  await page.evaluate(() => { window.collaborationSpa = true })
+  await tool('Мессенджер Макс').click()
   await page.getByRole('button', { name: /Мессенджер Макс Производство/ }).waitFor()
   const before = requests.filter(p => p === '/api/max/chats').length
   await page.getByRole('button', { name: 'Группы', exact: true }).click()
@@ -108,16 +123,36 @@ try {
   await page.getByRole('button', { name: 'Личные чаты', exact: true }).click()
   assert.equal(await page.getByRole('button', { name: /Юлия/ }).count(), 1)
   assert.equal(requests.filter(p => p === '/api/max/chats').length, before)
-  await page.getByRole('button', { name: 'Все', exact: true }).click()
+  await page.getByRole('button', { name: 'Группы', exact: true }).click()
+  await page.getByPlaceholder('Поиск по чатам').fill('Производство')
   await page.screenshot({ path: artifact + '/max-desktop.png', fullPage: true })
-  await page.goto(base + '/mail')
+  await tool('Календарь').click()
+  await page.getByRole('tab', { name: 'Месяц', exact: true }).waitFor()
+  assert.equal(await page.getByRole('tab', { name: 'Месяц', exact: true }).getAttribute('aria-selected'), 'true')
+  assert.equal(await page.getByLabel('Поиск событий').inputValue(), 'Планёрка')
+  await tool('Мессенджер Макс').click()
+  await page.getByRole('button', { name: 'Группы', exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Группы', exact: true }).getAttribute('aria-pressed'), 'true')
+  assert.equal(await page.getByPlaceholder('Поиск по чатам').inputValue(), 'Производство')
+  assert.equal(await page.evaluate(() => window.collaborationSpa), true)
+  await tool('Почта').click()
   await page.getByRole('button', { name: /Договор дома/ }).waitFor()
   await page.getByRole('button', { name: /Договор дома/ }).click()
   await page.getByText('Просьба согласовать договор.').waitFor()
   await page.waitForFunction(() => document.querySelector('[aria-label="Почтовые папки"]')?.textContent.includes('41'))
   await page.screenshot({ path: artifact + '/mail-desktop.png', fullPage: true })
+  await page.getByRole('button', { name: 'Более ранние письма' }).click()
+  await page.getByRole('button', { name: /Более ранний договор/ }).waitFor()
+  await tool('Календарь').click()
+  await tool('Почта').click()
+  await page.getByRole('button', { name: /Более ранний договор/ }).waitFor()
   await page.getByRole('button', { name: 'Отправленные', exact: true }).click()
   await page.getByText('В этой папке пока нет писем.').waitFor()
+  await side.getByRole('link', { name: 'Разделы', exact: true }).click()
+  await side.getByRole('link', { name: 'Совместная работа', exact: true }).click()
+  await page.getByText('В этой папке пока нет писем.').waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Отправленные', exact: true }).getAttribute('aria-current'), 'page')
+  assert.equal(await tool('Почта').getAttribute('aria-current'), 'page')
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: /Входящие/ }).click()
   await page.getByRole('button', { name: /Договор дома/ }).click()

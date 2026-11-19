@@ -46,7 +46,7 @@ const checkbox = key => page.getByRole('checkbox', { name: 'Выделить с�
 const sidebar = page.getByRole('complementary', { name: 'Главное меню' })
 const table = page.getByRole('table')
 const visible = async index => {
-  await link(index).waitFor()
+  await link(index).and(nav.locator('[aria-current="page"]')).waitFor()
   assert.equal(await link(index).getAttribute('aria-current'), 'page')
   assert.deepEqual(await nav.getByRole('link').allTextContents(), labels)
   assert.equal(await page.getByRole('navigation', { name: 'Разделы закупок' }).count(), 1)
@@ -135,7 +135,17 @@ try {
     }
   }
 
-  assert.equal(await sidebar.getByRole('link', { name: 'Контрагенты', exact: true }).count(), 0)
+  const shortcuts = sidebar.getByRole('list', { name: 'Быстрые ссылки закупок' })
+  assert.deepEqual(await shortcuts.getByRole('link').allTextContents(), ['Контрагенты', 'Счета-фактуры полученные'])
+  const counterparties = shortcuts.getByRole('link', { name: 'Контрагенты', exact: true })
+  await counterparties.click()
+  await visible(0)
+  assert.equal(await counterparties.getAttribute('aria-current'), 'page')
+  const received = sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true })
+  await received.click()
+  await visible(5)
+  assert.equal(await received.getAttribute('aria-current'), 'page')
+  assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры оплаченные', exact: true }).count(), 0)
   await page.getByRole('button', { name: 'Свернуть боковое меню' }).click()
   await sidebar.waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: 'Развернуть боковое меню' }).click()
@@ -160,10 +170,12 @@ try {
   await visible(5)
   await page.goto(base + '/purchasing')
   await visible(5)
+  await page.setViewportSize({ width: 1440, height: 1000 })
   actor = { ...actor, role: 'worker', module_access: { warehouse: 'view' } }
   await page.goto(base + '/suppliers')
   await page.getByRole('heading', { name: 'Контрагенты', exact: true }).waitFor()
   assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Контрагенты'])
+  assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
   assert.deepEqual(errors, [])
   console.log('Purchasing tabs passed: six consistent tabs, SPA switching, independent sort/filter/page/selection, last tab, mobile and role gates.')
 } finally {

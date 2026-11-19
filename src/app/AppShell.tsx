@@ -1,4 +1,4 @@
-import { PurchaseViewProvider } from '@/purchasing/PurchaseViewState'
+import { WorkspaceViewProvider } from '@/shared/lib/workspaceViewState'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { NotificationToasts } from '@/notifications/components/NotificationToasts'
@@ -40,7 +40,7 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
-    <BrowserPhoneProvider><SectionNavigationProvider><div className="workspace-shell flex h-dvh w-full">
+    <BrowserPhoneProvider><WorkspaceViewProvider key={userId}><SectionNavigationProvider><div className="workspace-shell flex h-dvh w-full">
       <Sidebar open={sidebarOpen} desktopCollapsed={desktopCollapsed} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
@@ -55,11 +55,11 @@ export function AppShell() {
         <SectionNavigationHost />
         <main ref={mainRef} id="main-content" className="workspace-content mobile-safe-content flex-1 overflow-y-auto">
           <CalendarReminders />
-          <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><PurchaseViewProvider key={userId}><Outlet /></PurchaseViewProvider></RouteBoundary></div>
+          <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><Outlet /></RouteBoundary></div>
         </main>
       </div>
       {!salesManager && <MeetingPanel />}
       {!salesManager && <NotificationToasts />}
-    </div></SectionNavigationProvider></BrowserPhoneProvider>
+    </div></SectionNavigationProvider></WorkspaceViewProvider></BrowserPhoneProvider>
   )
 }

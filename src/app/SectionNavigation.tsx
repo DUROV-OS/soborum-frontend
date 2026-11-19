@@ -1,3 +1,5 @@
+import { useCollaborationNavigation, useRememberCollaborationTab } from '@/collaboration/navigation'
+import { WorkspaceTabs } from '@/shared/ui/WorkspaceTabs'
 import { createContext, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { PrimaryNavigation } from './PrimaryNavigation'
@@ -14,7 +16,10 @@ export function SectionNavigationProvider({ children }: { children: ReactNode })
 
 export function SectionNavigationHost() {
   const context = useContext(Context)!
-  return <div data-section-navigation className="min-w-0 shrink-0 px-4 pt-2 sm:px-6">
+  const { active, entries } = useCollaborationNavigation()
+  useRememberCollaborationTab(active?.id)
+  return <div data-section-navigation className="min-w-0 shrink-0 space-y-2 px-4 pt-2 sm:px-6">
+    {active && <WorkspaceTabs label="Разделы совместной работы" entries={entries} activeId={active.id} /> }
     <div ref={context.setTarget} />
     {!context.custom && <PrimaryNavigation />}
   </div>
