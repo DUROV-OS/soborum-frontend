@@ -18,7 +18,7 @@ import { AutomaticReview } from './AutomaticReview'
 import { ReceiptEditor } from './ReceiptEditor'
 import { OrderFiles } from './OrderFiles'
 import { OrderPositions } from './OrderPositions'
-import { JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
+import { JournalAmount, JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
 
 type Item = {
   material: string
@@ -35,6 +35,7 @@ type Order = {
   number: string
   supplier_id: number
   supplier_name: string
+  counterparty_id?: number | null
   organization_id?: number | null
   organization_name?: string | null
   source_id?: string | null
@@ -236,18 +237,27 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const orderColumns: DataTableColumn<Order>[] = [
     { header: '№', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
-    { header: 'Контрагент', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
+    { header: 'Контрагент', accessor: r => r.counterparty_id
+      ? <Link to={`/suppliers?counterparty=${r.counterparty_id}`} onClick={event => event.stopPropagation()}
+        className="font-medium text-accent underline underline-offset-2 hover:text-brand-dark">{r.supplier_name}</Link>
+      : r.supplier_name, className: 'min-w-[180px]' },
     { header: 'Организация', accessor: r => r.organization_name || '—', className: 'whitespace-nowrap' },
-    { header: 'Сумма', accessor: r => journalMoney(r.net_total ?? r.total_cost, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Сумма', accessor: r => <JournalAmount value={r.net_total ?? r.total_cost} target={r.total_cost}
+      currency={r.currency} label="Сумма после возвратов" />, align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Выставлено счетов', accessor: r => (
-      <div>
-        {r.invoice_totals?.map(({ currency, amount }) => <div key={currency}>{journalMoney(Number(amount), currency)}</div>)}
+      <div className="space-y-1">
+        {r.invoice_totals?.map(({ currency, amount }) => <JournalAmount key={currency} value={Number(amount)}
+          target={currency === r.currency ? r.total_cost : undefined} currency={currency} label="Выставлено счетов" />)}
         {r.invoice_missing_currency && <div className="text-xs text-muted">Уточните валюту</div>}
-        {!r.invoice_totals?.length && !r.invoice_missing_currency && '—'}
+        {!r.invoice_totals?.length && !r.invoice_missing_currency && <JournalAmount value={null}
+          target={r.invoice_totals ? r.total_cost : undefined} currency={r.currency} label="Выставлено счетов" />}
       </div>
     ), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Принято', accessor: r => r.received_amount === undefined ? '—' : journalMoney(Number(r.received_amount), r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Оплачено', accessor: r => <JournalAmount value={r.paid} target={r.net_total ?? r.total_cost}
+      currency={r.currency} label="Оплачено" />, align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Принято', accessor: r => <JournalAmount value={r.received_amount === undefined ? null : Number(r.received_amount)}
+      target={r.received_amount === undefined ? undefined : r.total_cost} currency={r.currency} label="Принято" />,
+      align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
     { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
   ]
