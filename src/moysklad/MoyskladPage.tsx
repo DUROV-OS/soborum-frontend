@@ -10,6 +10,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Chip } from '@/shared/ui/Chip'
+import { invoiceColumns, InvoiceStatusSettings, type InvoiceFields, type InvoiceStatus } from './SupplierInvoiceRegister'
 
 type Category = { type: string; title: string; count: number; archived: number }
 type Catalog = {
@@ -29,7 +30,9 @@ type Row = {
   sum_rub?: number | null
   applicable?: boolean
   agent?: string
+  invoice?: InvoiceFields
 }
+type ListResult = { total: number; items: Row[]; invoice_statuses?: InvoiceStatus[]; can_edit_invoice_statuses?: boolean }
 type Detail = Row & { payload: Record<string, unknown>; working_links?: { title: string; url: string }[] }
 const money = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
 const date = (s?: string | null) =>
@@ -266,7 +269,10 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
   const [sort, setSort] = usePurchaseViewState(purchaseTab, 'sort', 'name')
   const selection = usePurchaseSelection(purchaseTab)
   useEffect(() => { setStoredArchive(archive) }, [archive, setStoredArchive])
-  const [result, setResult] = useState<{ total: number; items: Row[] }>({ total: 0, items: [] })
+  const [result, setResult] = useState<ListResult>({ total: 0, items: [] })
+  const [statusSettings, setStatusSettings] = useState(false)
+  const [savingStatus, setSavingStatus] = useState<number | null>(null)
+  const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -292,7 +298,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
     const timer = window.setTimeout(() => {
       setLoading(true)
       setError('')
-      apiRequest<{ total: number; items: Row[] }>({
+      apiRequest<ListResult>({
         section: 'moysklad',
         path: '/records',
         query: { query, entity_type: type || undefined, archive, offset, sort: purchaseTab ? sort : undefined },
@@ -316,12 +322,29 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
       current = false
       window.clearTimeout(timer)
     }
-  }, [type, query, archive, offset, sort, purchaseTab, setOffset])
+  }, [type, query, archive, offset, sort, purchaseTab, setOffset, revision])
   const open = (row: Row) => {
     setError('')
     apiRequest<Detail>({ section: 'moysklad', path: `/records/${row.id}` })
       .then(setDetail)
       .catch((e) => setError(e.message))
+  }
+  async function changeStatus(row: Row, statusId: number | null) {
+    if (savingStatus !== null || !row.invoice?.can_change_status) return
+    setSavingStatus(row.id)
+    setError('')
+    try {
+      const invoice = await apiRequest<InvoiceFields>({
+        section: 'moysklad', path: `/supplier-invoices/${row.id}/status`, method: 'PATCH',
+        body: { status_id: statusId, version: row.invoice.status_version },
+      })
+      setResult(current => ({ ...current, items: current.items.map(item => item.id === row.id ? { ...item, invoice } : item) }))
+      setRevision(n => n + 1)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSavingStatus(null)
+    }
   }
   const total = catalog?.categories.reduce((n, c) => n + c.count, 0) ?? 0
   const archived = catalog?.categories.reduce((n, c) => n + c.archived, 0) ?? 0
@@ -409,6 +432,8 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
           <option value="newest">Сначала новые</option>
           <option value="oldest">Сначала старые</option>
         </Select>}
+        {purchaseTab === 'supplier-invoices' && result.can_edit_invoice_statuses &&
+          <Button variant="secondary" disabled={loading || savingStatus !== null} onClick={() => setStatusSettings(true)}>Статусы</Button>}
       </div>
       {catalog?.warnings.map((w, i) => (
         <p key={i} className="mb-3 rounded-lg border border-warning bg-warning-bg p-3 text-sm">
@@ -427,7 +452,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
         loading={loading}
         onRowClick={open}
         emptyLabel="Записей по этим условиям нет"
-        columns={[
+        columns={purchaseTab === 'supplier-invoices' ? invoiceColumns(result.invoice_statuses || [], open, changeStatus, savingStatus) : [
           {
             header: 'Название',
             accessor: (r) => (
@@ -464,6 +489,8 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
           },
         ]}
       />
+      {statusSettings && <InvoiceStatusSettings statuses={result.invoice_statuses || []} close={() => setStatusSettings(false)}
+        saved={() => { setStatusSettings(false); setRevision(n => n + 1) }} />}
       <div className="mt-4 flex items-center justify-between gap-2 text-sm">
         <span className="text-muted">
           {result.total ? offset + 1 : 0}–{Math.min(offset + 50, result.total)} из{' '}
