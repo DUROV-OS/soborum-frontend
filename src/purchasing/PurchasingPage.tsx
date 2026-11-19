@@ -16,7 +16,9 @@ import { Tabs } from '@/shared/ui/Tabs'
 import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 import { AutomaticReview } from './AutomaticReview'
 import { ReceiptEditor } from './ReceiptEditor'
-import { JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
+import { OrderFiles } from './OrderFiles'
+import { OrderPositions } from './OrderPositions'
+import { JournalAmount, JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
 
 type Item = {
   material: string
@@ -33,6 +35,7 @@ type Order = {
   number: string
   supplier_id: number
   supplier_name: string
+  counterparty_id?: number | null
   organization_id?: number | null
   organization_name?: string | null
   source_id?: string | null
@@ -234,18 +237,27 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const orderColumns: DataTableColumn<Order>[] = [
     { header: '№', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
-    { header: 'Контрагент', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
+    { header: 'Контрагент', accessor: r => r.counterparty_id
+      ? <Link to={`/suppliers?counterparty=${r.counterparty_id}`} onClick={event => event.stopPropagation()}
+        className="font-medium text-accent underline underline-offset-2 hover:text-brand-dark">{r.supplier_name}</Link>
+      : r.supplier_name, className: 'min-w-[180px]' },
     { header: 'Организация', accessor: r => r.organization_name || '—', className: 'whitespace-nowrap' },
-    { header: 'Сумма', accessor: r => journalMoney(r.net_total ?? r.total_cost, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Сумма', accessor: r => <JournalAmount value={r.net_total ?? r.total_cost} target={r.total_cost}
+      currency={r.currency} label="Сумма после возвратов" />, align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Выставлено счетов', accessor: r => (
-      <div>
-        {r.invoice_totals?.map(({ currency, amount }) => <div key={currency}>{journalMoney(Number(amount), currency)}</div>)}
+      <div className="space-y-1">
+        {r.invoice_totals?.map(({ currency, amount }) => <JournalAmount key={currency} value={Number(amount)}
+          target={currency === r.currency ? r.total_cost : undefined} currency={currency} label="Выставлено счетов" />)}
         {r.invoice_missing_currency && <div className="text-xs text-muted">Уточните валюту</div>}
-        {!r.invoice_totals?.length && !r.invoice_missing_currency && '—'}
+        {!r.invoice_totals?.length && !r.invoice_missing_currency && <JournalAmount value={null}
+          target={r.invoice_totals ? r.total_cost : undefined} currency={r.currency} label="Выставлено счетов" />}
       </div>
     ), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Принято', accessor: r => r.received_amount === undefined ? '—' : journalMoney(Number(r.received_amount), r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Оплачено', accessor: r => <JournalAmount value={r.paid} target={r.net_total ?? r.total_cost}
+      currency={r.currency} label="Оплачено" />, align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Принято', accessor: r => <JournalAmount value={r.received_amount === undefined ? null : Number(r.received_amount)}
+      target={r.received_amount === undefined ? undefined : r.total_cost} currency={r.currency} label="Принято" />,
+      align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
     { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
   ]
@@ -357,7 +369,8 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
         </div>
       )}
       <Drawer
-        width="max-w-5xl"
+        width="max-w-[88rem]"
+        bodyClassName="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5"
         open={!!selected}
         onClose={() => { setSelected(null); receiptGeneration.current++ }}
         title={selected ? 'Заказ № ' + selected.number : ''}
@@ -400,12 +413,16 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
                 </Button>
               )}
             </div>
-            <div className="rounded-md bg-surface-muted p-4">
-              <p className="text-lg font-medium">{money(selected.total_cost)}</p>
-              <p className="mt-1">{status[selected.status]}</p>
-              {selected.source_state && (
-                <p className="text-muted">Статус источника: {selected.source_state}</p>
-              )}
+            <div className="grid gap-4 rounded-xl border border-border bg-surface-muted p-4 md:grid-cols-[1fr_1fr_auto]">
+              <dl className="grid content-start grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                <dt className="text-muted">Контрагент</dt><dd className="font-medium">{selected.supplier_name}</dd>
+                <dt className="text-muted">Организация</dt><dd>{selected.organization_name || '—'}</dd>
+                <dt className="text-muted">Дата заказа</dt><dd>{journalDate(selected.created_at)}</dd>
+                <dt className="text-muted">Поставка</dt><dd>{journalDate(selected.expected_at)}</dd>
+              </dl>
+              <div>
+              <p className="font-medium">{status[selected.status]}</p>
+              {selected.source_state && <p className="text-xs text-muted">Статус источника: {selected.source_state}</p>}
               <p className="mt-2">
                 Оплачено: {money(selected.paid)} · На согласовании: {money(selected.pending_payment)}
               </p>
@@ -418,26 +435,18 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               )}
               {!!selected.refund_received && <p>Получено обратно: {money(selected.refund_received)}</p>}
               {!!selected.overpaid && <p>Переплата: {money(selected.overpaid)}</p>}
-              {selected.expected_at && (
-                <p>Плановая поставка: {new Date(selected.expected_at).toLocaleDateString('ru-RU')}</p>
-              )}
+              </div>
+              <div className="border-t border-border pt-3 md:border-l md:border-t-0 md:pl-5 md:pt-0">
+                <p className="text-xs text-muted">Сумма заказа</p>
+                <p className="mt-1 whitespace-nowrap text-xl font-semibold tabular-nums">{journalMoney(selected.total_cost, selected.currency)}</p>
+              </div>
             </div>
-            <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.invoices?.length || 0) + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'control', label: 'Проверка закупки' }]} />
+            <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.invoices?.length || 0) + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'files', label: 'Файлы' }, { key: 'control', label: 'Проверка закупки' }]} />
             {cardTab === 'positions' && <>
-            <DataTable
-              rows={selected.items}
-              keyOf={(r) => String(selected.items.indexOf(r))}
-              columns={[
-                { header: 'Материал', accessor: (r) => r.material },
-                { header: 'Заказано', accessor: (r) => qty(r.quantity) + ' ' + r.unit },
-                { header: 'Получено', accessor: (r) => qty(r.received_quantity || 0) },
-                { header: 'Цена', accessor: (r) => journalMoney(r.unit_price, selected.currency) },
-                { header: 'Осталось получить', accessor: r => qty(Math.max(0, r.quantity - (r.received_quantity || 0))) + ' ' + r.unit },
-                { header: 'Сумма', accessor: r => journalMoney(r.quantity * r.unit_price, selected.currency), align: 'right' },
-              ]}
-            />
-            {selected.comment && <p className="mt-4 whitespace-pre-wrap">{selected.comment}</p>}
+              <OrderPositions key={selected.id} orderId={selected.id} version={selected.version} currency={selected.currency} />
+              {selected.comment && <p className="mt-4 whitespace-pre-wrap">{selected.comment}</p>}
             </>}
+            {cardTab === 'files' && <OrderFiles key={selected.id} orderId={selected.id} canUpload={canEdit && !selected.archived} />}
             {cardTab === 'control' && <AutomaticReview key={selected.id} orderId={selected.id} orderVersion={selected.version} canEdit={canEdit} />}
             {cardTab === 'documents' && <div className="space-y-3">
               <h3 className="font-medium">Приёмки по заказу</h3>

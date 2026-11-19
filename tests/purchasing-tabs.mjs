@@ -19,7 +19,7 @@ await page.route('**/api/**', async route => {
     created_at: '2026-11-19T07:00:00Z', supplier_id: 1, supplier_name: 'Тестовый поставщик', total_cost: 100,
     paid: 0, unpaid: 100, status: 'received', currency: 'RUB', amount: 100, refunded: 0, receipt_number: 'Р-01', lines: [],
     invoice_totals: [{ currency: 'RUB', amount: '1234.50' }], received_amount: '76.15',
-    organization_id: 1, organization_name: 'Технология' }
+    organization_id: 1, organization_name: 'Технология', counterparty_id: 10 }
   const titles = { invoicein: 'Счёт поставщику', facturein: 'Полученный счёт-фактура' }
   let body = []
   switch (url.pathname) {
@@ -77,6 +77,12 @@ try {
   await table.getByRole('cell', { name: 'Технология', exact: true }).waitFor()
   await table.getByRole('cell', { name: /1\s*234,50/ }).waitFor()
   await table.getByRole('cell', { name: /76,15/ }).waitFor()
+  assert.equal(await table.getByRole('link', { name: 'Тестовый поставщик', exact: true }).getAttribute('href'), '/suppliers?counterparty=10')
+  const receivedBar = table.getByRole('img', { name: /Принято.*76,15/ })
+  await receivedBar.waitFor()
+  assert.equal(await receivedBar.locator('div').evaluate(bar => bar.style.width), '76.15%')
+  assert.equal(await table.getByRole('img', { name: /Оплачено/ }).locator('div').evaluate(bar => bar.style.width), '0%')
+  assert.equal(await table.getByRole('img', { name: /Выставлено счетов/ }).locator('div').evaluate(bar => bar.style.width), '100%')
   await page.getByRole('button', {name: 'Заказ поставщику', exact: true}).click()
   const editor = page.getByRole('dialog', {name: 'Заказ поставщику', exact: true})
   const organization = editor.getByRole('combobox', {name: 'Организация', exact: true})

@@ -8,6 +8,24 @@ export type JournalSummary = { currency: string; total: number; paid: number; pe
 export const journalMoney = (value: number, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 export const journalDate = (value?: string | null) => value ? new Date(value.length === 10 ? value + 'T12:00:00+03:00' : value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—'
 
+export function JournalAmount({ value, target, currency, label }: {
+  value: number | null
+  target?: number
+  currency: string
+  label: string
+}) {
+  const progress = target && target > 0 ? Math.min(100, Math.max(0, (value ?? 0) / target * 100)) : null
+  const description = progress === null ? undefined :
+    `${label} — ${journalMoney(value ?? 0, currency)} из ${journalMoney(target!, currency)}`
+  return <div>
+    <div>{value === null ? '—' : journalMoney(value, currency)}</div>
+    {progress !== null && <div role="img" aria-label={description} title={description}
+      className="ml-auto mt-1 h-1 min-w-12 max-w-28 overflow-hidden rounded-full bg-danger">
+      <div className="h-full bg-success" style={{ width: `${progress}%` }} />
+    </div>}
+  </div>
+}
+
 export function JournalControls({ query, onQuery, filters, onFilters, archive, onArchive, suppliers, receipts, expanded, onExpanded }: {
   query: string; onQuery: (value: string) => void; filters: JournalFilters; onFilters: (value: JournalFilters) => void;
   archive: string; onArchive: (value: string) => void; suppliers: { id: number; name: string }[]; receipts: boolean; expanded: boolean; onExpanded: (value: boolean) => void;
