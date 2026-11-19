@@ -6,6 +6,7 @@ import {
   Wallet,
   Package,
   Building2,
+  Handshake,
   ShoppingBag,
   Calculator,
   type LucideIcon,
@@ -24,7 +25,7 @@ export type WorkEntry = {
   signal?: boolean
   category?: string
 }
-export type WorkGroup = { id: string; label: string; note: string; icon: LucideIcon; entries: WorkEntry[] }
+export type WorkGroup = { id: string; label: string; note: string; icon: LucideIcon; entries: WorkEntry[]; standalone?: boolean }
 
 // One process tree for the sidebar, work hub and the current section's sub-menu.
 // Route/query values are UI state; module grants and API scopes remain unchanged.
@@ -92,13 +93,6 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     note: 'Заказы поставщикам, счета, приёмки, оплата и возвраты',
     entries: [
       {
-        id: 'suppliers',
-        label: 'Контрагенты',
-        to: '/suppliers',
-        section: 'suppliers',
-        note: 'Контакты поставщиков, прайс-листы и закупки',
-      },
-      {
         id: 'supplier-orders',
         label: 'Заказы поставщикам',
         to: '/purchasing?tab=orders',
@@ -136,6 +130,22 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
         gate: 'accounting',
         readOnly: true,
         note: 'Сохранённые счета-фактуры поставщиков',
+      },
+    ],
+  },
+  {
+    id: 'counterparties',
+    label: 'Контрагенты',
+    icon: Handshake,
+    standalone: true,
+    note: 'Карточки поставщиков и клиентов, реквизиты и документы',
+    entries: [
+      {
+        id: 'suppliers',
+        label: 'Реестр контрагентов',
+        to: '/suppliers',
+        section: 'suppliers',
+        note: 'Контакты, реквизиты, история и связанные документы',
       },
     ],
   },

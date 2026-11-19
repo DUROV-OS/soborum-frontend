@@ -65,6 +65,10 @@ await page.route('**/api/**', async route => {
     case '/api/counterparties':
       body = { total: 62, can_create: actor.role === 'admin', items: [{ id: offset + 1, card: { name: 'Тестовый поставщик ' + sample.id, inn: '7707083893', kpp: '773601001' }, status: 'supplier', phone: '+7 900 101-00-01', comment: 'Доставка по вторникам', active: true, can_edit: true }] }
       break
+    case '/api/counterparties/10':
+      body = { id: 10, card: { name: 'Тестовый поставщик', inn: '7707083893', legal_type: 'legal_entity', accounts: [], contacts: [] },
+        supplier_id: 1, complete: true, bank_verification: { verified: false, can_verify: false } }
+      break
     case '/api/purchasing/orders':
     case '/api/purchasing/receipts':
     case '/api/purchasing/returns':
@@ -83,7 +87,7 @@ await page.route('**/api/**', async route => {
   await route.fulfill({ json: body })
 })
 
-const labels = ['Контрагенты', 'Заказы поставщикам', 'Счета поставщиков', 'Приёмки', 'Возвраты поставщикам', 'Счета-фактуры полученные']
+const labels = ['Заказы поставщикам', 'Счета поставщиков', 'Приёмки', 'Возвраты поставщикам', 'Счета-фактуры полученные']
 const nav = page.getByRole('navigation', { name: 'Разделы закупок' })
 const link = index => nav.getByRole('link', { name: labels[index], exact: true })
 const select = name => page.getByRole('combobox', { name, exact: true })
@@ -92,6 +96,11 @@ const next = () => page.getByRole('button', { name: 'Далее', exact: true })
 const checkbox = key => page.getByRole('checkbox', { name: 'Выделить строку ' + key, exact: true })
 const sidebar = page.getByRole('complementary', { name: 'Главное меню' })
 const table = page.getByRole('table')
+const visibleCounterparties = async () => {
+  await page.getByRole('heading', { name: 'Контрагенты', exact: true }).waitFor()
+  assert.equal(await page.locator('[data-section-navigation]').getByRole('navigation').count(), 0)
+  await table.waitFor()
+}
 const visible = async index => {
   await link(index).and(nav.locator('[aria-current="page"]')).waitFor()
   assert.deepEqual(await nav.getByRole('link').allTextContents(), labels)
@@ -101,16 +110,19 @@ const visible = async index => {
 
 try {
   await page.goto(base + '/suppliers')
-  await visible(0)
-  await page.evaluate(() => { window.purchaseTestNavigation = true })
+  await visibleCounterparties()
+  await page.evaluate(() => {
+    window.purchaseTestNavigation = true
+    localStorage.setItem('durov.purchasing.last-tab.1', 'suppliers')
+  })
   await page.getByText('Фильтры', { exact: true }).click()
   await search('Контрагент').fill('Тестовый')
   await table.getByRole('button', { name: 'Контрагент', exact: true }).click()
   await next()
   await checkbox('Тестовый поставщик 21').check()
 
-  await link(1).click()
-  await visible(1)
+  await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
+  await visible(0)
   assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
     ['№', 'Дата', 'Контрагент', 'Организация', 'Сумма', 'Выставлено счетов', 'Оплачено', 'Принято'])
   await table.getByRole('cell', { name: 'Технология', exact: true }).waitFor()
@@ -123,6 +135,11 @@ try {
     const [red, green, blue] = style.color.match(/\d+/g).map(Number)
     return blue > red && blue > green && style.textDecorationLine.includes('underline')
   }))
+  await counterparty.click()
+  await visibleCounterparties()
+  await page.getByRole('dialog', { name: 'Тестовый поставщик', exact: true }).waitFor()
+  await page.goBack()
+  await visible(0)
   const receivedBar = table.getByRole('img', { name: /Принято.*76,15/ })
   await receivedBar.waitFor()
   assert.equal(await receivedBar.locator('div').evaluate(bar => bar.style.width), '76.15%')
@@ -142,13 +159,18 @@ try {
   await next()
   await checkbox('51').check()
 
-  await link(2).click()
-  await visible(2)
+  await link(1).click()
+  await visible(1)
   assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
     ['№ счета', 'Дата', 'Контрагент', 'На склад', 'Сумма', 'Оплачено', 'Принято', 'Плановая дата оплаты',
       'Входящий номер', 'Входящая дата', 'Статус', 'Комментарий'])
   await table.getByText('Вх-42', {exact: true}).waitFor()
   await table.getByRole('cell', {name: /225,00/}).waitFor()
+  await table.getByRole('link', { name: 'Тестовый поставщик', exact: true }).click()
+  await visibleCounterparties()
+  await page.getByRole('dialog', { name: 'Тестовый поставщик', exact: true }).waitFor()
+  await page.goBack()
+  await visible(1)
   const settings = page.getByRole('button', {name: 'Статусы', exact: true})
   await settings.click()
   const modal = page.getByRole('dialog', {name: 'Статусы счетов поставщиков'})
@@ -168,23 +190,23 @@ try {
   await next()
   await checkbox('51').check()
 
-  await link(3).click()
-  await visible(3)
+  await link(2).click()
+  await visible(2)
   assert.equal(await search('Поиск закупок').inputValue(), '')
   await search('Поиск закупок').fill('приход')
   await select('Порядок приёмок').selectOption('oldest')
   await next()
   await checkbox('51').check()
 
-  await link(4).click()
-  await visible(4)
+  await link(3).click()
+  await visible(3)
   await select('Архив возвратов').selectOption('all')
   await select('Порядок возвратов').selectOption('number')
   await next()
   await checkbox('51').check()
 
-  await link(5).click()
-  await visible(5)
+  await link(4).click()
+  await visible(4)
   assert.equal(await search('Поиск в данных МоегоСклада').inputValue(), '')
   await search('Поиск в данных МоегоСклада').fill('фактура')
   await select('Порядок документов').selectOption('newest')
@@ -195,31 +217,27 @@ try {
   for (let index = 0; index < labels.length; index++) {
     await link(index).click()
     await visible(index)
-    const row = checkbox(index === 0 ? 'Тестовый поставщик 21' : '51')
+    const row = checkbox('51')
     await row.waitFor()
     assert(await row.isChecked(), 'Selection was lost on ' + labels[index])
     if (index === 0) {
-      assert.equal(await search('Контрагент').inputValue(), 'Тестовый')
-      assert.equal(await table.getByRole('columnheader', { name: 'Контрагент' }).getAttribute('aria-sort'), 'descending')
-    }
-    if (index === 1) {
       assert.equal(await search('Поиск закупок').inputValue(), 'заказ')
       assert.equal(await select('Порядок заказов').inputValue(), 'number')
     }
-    if (index === 2) {
+    if (index === 1) {
       assert.equal(await search('Поиск в данных МоегоСклада').inputValue(), 'счёт')
       assert.equal(await select('Архив').inputValue(), 'archived')
       assert.equal(await select('Порядок документов').inputValue(), 'oldest')
     }
-    if (index === 3) {
+    if (index === 2) {
       assert.equal(await search('Поиск закупок').inputValue(), 'приход')
       assert.equal(await select('Порядок приёмок').inputValue(), 'oldest')
     }
-    if (index === 4) {
+    if (index === 3) {
       assert.equal(await select('Архив возвратов').inputValue(), 'all')
       assert.equal(await select('Порядок возвратов').inputValue(), 'number')
     }
-    if (index === 5) {
+    if (index === 4) {
       assert.equal(await search('Поиск в данных МоегоСклада').inputValue(), 'фактура')
       assert.equal(await select('Порядок документов').inputValue(), 'newest')
     }
@@ -233,11 +251,15 @@ try {
     ['Закупки', 'Контрагенты'])
   const counterparties = sidebar.getByRole('link', { name: 'Контрагенты', exact: true })
   await counterparties.click()
-  await visible(0)
+  await visibleCounterparties()
+  assert(await checkbox('Тестовый поставщик 21').isChecked())
+  assert.equal(await search('Контрагент').inputValue(), 'Тестовый')
+  assert.equal(await table.getByRole('columnheader', { name: 'Контрагент' }).getAttribute('aria-sort'), 'descending')
   assert.equal(await counterparties.getAttribute('aria-current'), 'page')
+  assert.equal(await sidebar.getByRole('link', { name: 'Закупки', exact: true }).getAttribute('aria-current'), null)
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
-  await link(5).click()
-  await visible(5)
+  await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
+  await visible(4)
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры оплаченные', exact: true }).count(), 0)
   await page.getByRole('button', { name: 'Свернуть боковое меню' }).click()
   await sidebar.waitFor({ state: 'hidden' })
@@ -245,7 +267,7 @@ try {
   await sidebar.waitFor()
   await sidebar.getByRole('link', { name: 'Разделы', exact: true }).click()
   await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
-  await visible(5)
+  await visible(4)
   assert(await checkbox('51').isChecked())
   await mkdir('test-results/purchasing-tabs', { recursive: true })
   await page.screenshot({ path: 'test-results/purchasing-tabs/desktop.png' })
@@ -254,23 +276,27 @@ try {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await page.getByRole('button', { name: 'Открыть меню' }).click()
   const drawer = page.getByRole('dialog', { name: 'Главное меню' })
+  await drawer.getByRole('link', { name: 'Контрагенты', exact: true }).click()
+  await drawer.waitFor({ state: 'hidden' })
+  await visibleCounterparties()
+  await page.getByRole('button', { name: 'Открыть меню' }).click()
   await drawer.getByRole('link', { name: 'Закупки', exact: true }).click()
   await drawer.waitFor({ state: 'hidden' })
-  await visible(5)
+  await visible(4)
   await page.screenshot({ path: 'test-results/purchasing-tabs/mobile.png' })
 
   await page.reload()
-  await visible(5)
+  await visible(4)
   await page.goto(base + '/purchasing')
-  await visible(5)
+  await visible(4)
   await page.setViewportSize({ width: 1440, height: 1000 })
   actor = { ...actor, role: 'worker', module_access: { warehouse: 'view' } }
   await page.goto(base + '/suppliers')
-  await page.getByRole('heading', { name: 'Контрагенты', exact: true }).waitFor()
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Контрагенты'])
+  await visibleCounterparties()
+  assert.equal(await sidebar.getByRole('link', { name: 'Контрагенты', exact: true }).getAttribute('aria-current'), 'page')
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
   assert.deepEqual(errors, [])
-  console.log('Purchasing tabs passed: six identical top tabs, standalone sidebar counterparty link, SPA switching, independent sort/filter/page/selection, last tab, mobile and role gates.')
+  console.log('Purchasing tabs passed: five tabs, independent counterparties, direct card links, saved views, mobile and role gates.')
 } finally {
   await browser.close()
 }
