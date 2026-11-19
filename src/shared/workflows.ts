@@ -215,18 +215,27 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     ],
   },
   {
-    id: 'goods',
-    label: 'Товары',
+    id: 'nomenclature',
+    label: 'Номенклатура',
     icon: Package,
-    note: 'Номенклатура, карточки, модификации и услуги',
+    standalone: true,
+    note: 'Каталог товаров и материалов',
     entries: [
       {
         id: 'materials',
-        label: 'Номенклатура',
+        label: 'Каталог товаров и материалов',
         to: '/warehouse?tab=materials&view=catalog',
         section: 'warehouse',
         note: 'Рабочие карточки товаров и материалов на складах',
       },
+    ],
+  },
+  {
+    id: 'goods',
+    label: 'Товары',
+    icon: Package,
+    note: 'Карточки, модификации и услуги из МойСклада',
+    entries: [
       {
         id: 'source-products',
         label: 'Карточки из МойСклада',
