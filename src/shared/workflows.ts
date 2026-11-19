@@ -107,7 +107,7 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
       },
       {
         id: 'supplier-invoices',
-        label: 'Счета поставщикам',
+        label: 'Счета поставщиков',
         to: '/moysklad?type=invoicein',
         section: 'moysklad',
         gate: 'accounting',

@@ -4,7 +4,7 @@ import { useMobileNavigation } from './useMobileNavigation'
 import { BitrixIcon } from '@/shared/ui/BitrixIcon'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, FileText, Handshake, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager, salesHome } from '@/auth/salesNavigation'
 import { useFeedbackStore } from '@/feedback/store'
@@ -104,23 +104,26 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
           const active = context?.group.id === group.id
           const shortcuts = group.entries.filter(entry => entry.id === 'suppliers' || entry.id === 'supplier-factures')
           const activeShortcut = active && shortcuts.some(entry => entry.id === context.entry.id)
-          return <li key="workflow-purchasing">
-            <Link to={active ? context.entry.to : target.to} aria-current={active && !activeShortcut ? 'page' : undefined} onClick={onClose}
-              className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
-                (active ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
-              <Icon size={19} /><span>{group.label}</span>
-            </Link>
-            {shortcuts.length > 0 && <ul aria-label="Быстрые ссылки закупок" className="ml-6 mt-1 border-l border-white/15 pl-2">
-              {shortcuts.map(entry => {
-                const selected = active && context.entry.id === entry.id
-                return <li key={entry.id}><Link to={entry.to} onClick={onClose} aria-current={selected ? 'page' : undefined}
-                  className={'flex min-h-11 items-center rounded-lg px-3 py-2 text-[13px] ' +
-                    (selected ? 'bg-white font-medium text-sidebar' : 'text-white/70 hover:bg-sidebar-accent hover:text-white')}>
-                  {entry.label}
-                </Link></li>
-              })}
-            </ul>}
-          </li>
+          return <Fragment key="workflow-purchasing">
+            <li>
+              <Link to={active ? context.entry.to : target.to} aria-current={active && !activeShortcut ? 'page' : undefined} onClick={onClose}
+                className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
+                  (active && !activeShortcut ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
+                <Icon size={19} className="shrink-0" aria-hidden /><span>{group.label}</span>
+              </Link>
+            </li>
+            {shortcuts.map(entry => {
+              const selected = active && context.entry.id === entry.id
+              const ShortcutIcon = entry.id === 'suppliers' ? Handshake : FileText
+              return <li key={entry.id}>
+                <Link to={entry.to} onClick={onClose} aria-current={selected ? 'page' : undefined}
+                  className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
+                    (selected ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
+                  <ShortcutIcon size={19} className="shrink-0" aria-hidden /><span>{entry.label}</span>
+                </Link>
+              </li>
+            })}
+          </Fragment>
         }
         return (
           <li key={'workflow-' + group.id}>
