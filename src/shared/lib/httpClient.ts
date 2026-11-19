@@ -57,7 +57,7 @@ export interface RequestOptions {
   section: string
   path: string
   body?: unknown
-  query?: Record<string, string | number | boolean | undefined>
+  query?: Record<string, string | number | boolean | string[] | undefined>
   form?: FormData
   timeoutMs?: number
 }
@@ -66,7 +66,9 @@ function buildUrl(section: string, path: string, query?: RequestOptions['query']
   const url = new URL(`${API_BASE}/${section}${path}`, window.location.origin)
   if (query) {
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined) url.searchParams.set(key, String(value))
+      if (Array.isArray(value)) {
+        for (const item of value) url.searchParams.append(key, item)
+      } else if (value !== undefined) url.searchParams.set(key, String(value))
     }
   }
   return url.toString()
