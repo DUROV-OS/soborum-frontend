@@ -1,28 +1,48 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Field'
-import { DataTable } from '@/shared/ui/DataTable'
 import { Modal } from '@/shared/ui/Modal'
-import { Chip } from '@/shared/ui/Chip'
 import { CounterpartyCard } from '@/counterparties/CounterpartyCard'
-import { call, message, Preview, Row, types } from '@/counterparties/api'
+import { call, message, type Preview, type Row, type RegistryStatus } from '@/counterparties/api'
+import { RegistryFilters, RegistryTable, defaultSort, emptyFilters, type Sort, type TextFilters } from './CounterpartyRegistry'
+import { RegistryEditor, type RegistryEdit } from './RegistryEditor'
 import { SupplierDetailDrawer } from '../components/SupplierDetailDrawer'
 import { useSuppliersStore } from '../store'
 
 type Batch = {id:number;preview?:Preview;error?:unknown}
 export function SuppliersPage() {
-  const [params,setParams]=useSearchParams(),[query,setQuery]=useState(''),[offset,setOffset]=useState(0),[revision,setRevision]=useState(0)
+  const [params,setParams]=useSearchParams(),[offset,setOffset]=useState(0),[revision,setRevision]=useState(0)
+  const { pathname } = useLocation()
+  const [filters, setFilters] = useState<TextFilters>(emptyFilters)
+  const [statuses, setStatuses] = useState<RegistryStatus[]>([])
+  const [sort, setSort] = useState<Sort>(defaultSort)
+  const [edit, setEdit] = useState<RegistryEdit | null>(null)
   const [data,setData]=useState<{items:Row[];total:number;can_create:boolean}>({items:[],total:0,can_create:false})
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(false),[profile,setProfile]=useState<number|null>(null)
   const [batch,setBatch]=useState<Batch[]|null>(null),[busy,setBusy]=useState(false),[report,setReport]=useState('')
   const selected=params.get('counterparty'),selectedId=selected&&/^\d+$/.test(selected)?Number(selected):null
   const loadSuppliers=useSuppliersStore(s=>s.load)
   useEffect(()=>{let active=true;setLoading(true);setError('');const timer=setTimeout(()=>{
-    call<typeof data>('','GET',undefined,{q:query,offset,limit:20}).then(r=>{if(active)setData(r)}).catch(e=>{if(active)setError(message(e))}).finally(()=>{if(active)setLoading(false)})
-  },200);return()=>{active=false;clearTimeout(timer)}},[query,offset,revision])
+    call<typeof data>('', 'GET', undefined, { ...filters, status: statuses, sort: sort.key, direction: sort.direction, offset, limit: 20 }).then(r => {
+      if (!active) return
+      if (offset > 0 && offset >= r.total) {
+        setOffset(Math.max(0, Math.floor((r.total - 1) / 20) * 20))
+        return
+      }
+      setData(r)
+    }).catch(e=>{if(active)setError(message(e))}).finally(()=>{if(active)setLoading(false)})
+  },200);return()=>{active=false;clearTimeout(timer)}},[filters,statuses,sort,offset,revision])
   const select=(id:number|null)=>setParams(previous=>{const p=new URLSearchParams(previous);if(id)p.set('counterparty',String(id));else p.delete('counterparty');return p})
+  const cardUrl = (row: Row) => {
+    const search = new URLSearchParams(params)
+    search.set('counterparty', String(row.id))
+    return pathname + '?' + search
+  }
+  const sortBy = (key: Sort['key']) => {
+    setSort(previous => ({ key, direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc' }))
+    setOffset(0)
+  }
   async function openProfile(id:number){setBusy(true);await loadSuppliers();const state=useSuppliersStore.getState();setBusy(false);if(state.loadError){setError(state.loadError);return}setCreating(false);select(null);setProfile(id)}
   async function previewBatch(){
     setBusy(true);setError('');setReport('');const items:Batch[]=[]
@@ -41,13 +61,18 @@ export function SuppliersPage() {
     }setReport(`Обновлено: ${updated}. Без изменений: ${unchanged}. Требуют проверки: ${failed.length}.`);setBatch(failed.length?failed:null);setRevision(v=>v+1)}finally{setBusy(false)}
   }
   return <div className="space-y-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-semibold text-ink">Контрагенты</h1><p className="mt-1 text-sm text-muted">Реквизиты, контакты, документы и история изменений.</p></div>{data.can_create&&<Button onClick={()=>setCreating(true)}><Plus size={16}/>Добавить</Button>}</div>
-    <div className="flex flex-wrap gap-3"><Input aria-label="Поиск контрагентов" placeholder="Название или ИНН" className="sm:max-w-sm" value={query} onChange={e=>{setQuery(e.target.value);setOffset(0)}}/><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(v=>v+1)}>Обновить список</Button>{data.can_create&&<Button variant="secondary" disabled={busy||loading||!data.items.length} onClick={()=>void previewBatch()}>Заполнить пустые поля на этой странице</Button>}</div>
+    <div className="flex flex-wrap gap-3"><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(v=>v+1)}>Обновить список</Button>{data.can_create&&<Button variant="secondary" disabled={busy||loading||!data.items.length} onClick={()=>void previewBatch()}>Заполнить пустые поля на этой странице</Button>}</div>
+    <RegistryFilters values={filters} selected={statuses}
+      onText={(key, value) => { setFilters(previous => ({ ...previous, [key]: value })); setOffset(0) }}
+      onStatus={status => { setStatuses(previous => previous.includes(status) ? previous.filter(value => value !== status) : [...previous, status]); setOffset(0) }}
+      onReset={() => { setFilters(emptyFilters); setStatuses([]); setOffset(0) }} />
     {error&&<p role="alert" className="text-sm text-danger">{error}</p>}{report&&<p role="status" className="text-sm">{report}</p>}
-    {!error&&<DataTable rows={data.items} keyOf={r=>String(r.id)} loading={loading} onRowClick={r=>select(r.id)} emptyLabel="Контрагенты не найдены" columns={[
-      {header:'Контрагент',accessor:r=><span className="font-medium">{r.card.name}</span>},{header:'ИНН',accessor:r=>r.card.inn||'Не заполнен'},
-      {header:'Тип',accessor:r=>types[r.card.legal_type]||'Нужно уточнить'},{header:'Роль',accessor:r=>r.supplier_id?'Поставщик':r.client_id?'Клиент':'Другой контрагент'},
-      {header:'Карточка',accessor:r=><Chip tone={!r.active?'neutral':r.complete?'success':'warning'}>{!r.active?'Архив':r.complete?'Заполнена':'Нужно дополнить'}</Chip>}
-    ]}/>}
+    {!error && <RegistryTable rows={data.items} loading={loading || busy} sort={sort} onSort={sortBy} cardUrl={cardUrl}
+      onComment={row => setEdit({ row })} onStatus={(row, status) => setEdit({ row, status })} />}
+    {edit && <RegistryEditor edit={edit} close={() => setEdit(null)} saved={() => {
+      setEdit(null)
+      setRevision(value => value + 1)
+    }} />}
     <div className="flex items-center gap-3"><Button variant="ghost" disabled={!offset||loading} onClick={()=>setOffset(v=>Math.max(0,v-20))}>Назад</Button><span className="text-sm">{data.total?`${offset+1}–${Math.min(offset+20,data.total)} из ${data.total}`:'0'}</span><Button variant="ghost" disabled={offset+20>=data.total||loading} onClick={()=>setOffset(v=>v+20)}>Далее</Button></div>
     {(creating||selectedId!==null)&&<CounterpartyCard key={creating?'new':selectedId} id={creating?null:selectedId} close={()=>{setCreating(false);select(null)}} saved={()=>setRevision(v=>v+1)} openProfile={id=>void openProfile(id)}/>}
     <SupplierDetailDrawer supplierId={profile} onClose={()=>{setProfile(null);setRevision(v=>v+1)}}/>

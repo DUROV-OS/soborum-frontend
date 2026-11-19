@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError } from '@/shared/lib/httpClient'
+import { ApiError, downloadFile } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
@@ -8,11 +8,13 @@ import { CardForm } from './CardForm'
 import { Documents } from './Documents'
 import { HistoryChanges } from './HistoryChanges'
 import { useAuthStore } from '@/auth/store'
-import { blank, call, Card, labels, message, Preview, Row, types } from './api'
+import { blank, call, Card, labels, message, Preview, Row, statusLabels, types } from './api'
 
-type History = { id:number;actor_id:number;created_at:string;before:Row|null;after:Row;source:{kind:string};kind?:string }
+type History = { id:number;actor_id:number;created_at:string;before:Row|null;after:Row;source:{kind:string;proof?:{role:'supplier'|'client';filename:string;locator:string}};kind?:string }
 export function CounterpartyCard({ id, close, saved, openProfile }: { id:number|null; close:()=>void; saved:()=>void; openProfile:(id:number)=>void }) {
   const canOpenProfile=useAuthStore(s=>s.hasAccess('warehouse'))
+  const canReadClient=useAuthStore(s=>s.hasAccess('clients'))
+  const canReadAccounting=useAuthStore(s=>s.hasAccess('accounting'))
   const [row,setRow]=useState<Row|null>(null), [form,setForm]=useState<Card>(blank), [supplier,setSupplier]=useState(true)
   const [tab,setTab]=useState<'requisites'|'documents'|'history'>('requisites'), [history,setHistory]=useState<History[]>([]), [historyOffset,setHistoryOffset]=useState(0)
   const [loading,setLoading]=useState(id!==null), [busy,setBusy]=useState(false), [error,setError]=useState(''), [errors,setErrors]=useState<Record<string,string>>({})
@@ -48,7 +50,14 @@ export function CounterpartyCard({ id, close, saved, openProfile }: { id:number|
         </section>}
       </>}
       {tab==='documents'&&row&&<Documents id={row.id}/>}
-      {tab==='history'&&<><div className="space-y-3">{history.map(h=><article key={h.id} className="rounded-lg border border-border p-3"><p className="font-medium">{h.kind==='bank_verification'?'Проверка банковских реквизитов':h.before?'Изменение карточки':'Создание карточки'}</p><p className="text-xs text-muted">{new Date(h.created_at).toLocaleString('ru-RU')} · сотрудник №{h.actor_id} · {h.source.kind==='manual'?'Введено вручную':h.source.kind==='document'?'Документ':h.source.kind==='moysklad_live'?'МойСклад':'Снимок МойСклада'}</p><details className="mt-2 text-sm"><summary>Значения до и после</summary><HistoryChanges before={h.before?.card} after={h.after.card}/></details></article>)}</div>{!loading&&!history.length&&<p className="text-sm text-muted">Новых изменений реквизитов ещё нет. Старая история учётных документов сохранена отдельно.</p>}<div className="flex gap-2"><Button variant="ghost" disabled={!historyOffset||loading} onClick={()=>setHistoryOffset(v=>Math.max(0,v-50))}>Назад</Button><Button variant="ghost" disabled={history.length<50||loading} onClick={()=>setHistoryOffset(v=>v+50)}>Далее</Button></div></>}
+      {tab==='history'&&<><div className="space-y-3">{history.map(h=><article key={h.id} className="rounded-lg border border-border p-3"><p className="font-medium">{h.kind==='bank_verification'?'Проверка банковских реквизитов':h.kind==='registry_edit'?'Изменение реестра':h.before?'Изменение карточки':'Создание карточки'}</p><p className="text-xs text-muted">{new Date(h.created_at).toLocaleString('ru-RU')} · сотрудник №{h.actor_id} · {h.source.kind==='manual'?'Введено вручную':h.source.kind==='document'?'Документ':h.source.kind==='moysklad_live'?'МойСклад':'Снимок МойСклада'}</p><details className="mt-2 text-sm"><summary>Значения до и после</summary>{h.before?.status !== h.after.status && <p className="mt-2">Статус · {h.before?.status ? statusLabels[h.before.status] : '—'} → {h.after.status ? statusLabels[h.after.status] : '—'}</p>}
+        {h.before?.comment !== h.after.comment && h.after.comment !== undefined && <div className="mt-2 space-y-1 whitespace-pre-wrap break-words"><p>Комментарий до: {h.before?.comment || '—'}</p><p>Комментарий после: {h.after.comment || '—'}</p></div>}
+        {h.kind !== 'registry_edit' && <HistoryChanges before={h.before?.card} after={h.after.card}/>}
+        </details>
+        {h.source.proof && (h.source.proof.role === 'supplier' ? canReadAccounting : canReadClient) &&
+          <Button variant="ghost" onClick={() => void downloadFile('counterparties', `/${id}/history/${h.id}/document`, h.source.proof!.filename).catch(fail)}>
+            Скачать основание · {h.source.proof.locator}
+          </Button>}</article>)}</div>{!loading&&!history.length&&<p className="text-sm text-muted">Новых изменений реквизитов ещё нет. Старая история учётных документов сохранена отдельно.</p>}<div className="flex gap-2"><Button variant="ghost" disabled={!historyOffset||loading} onClick={()=>setHistoryOffset(v=>Math.max(0,v-50))}>Назад</Button><Button variant="ghost" disabled={history.length<50||loading} onClick={()=>setHistoryOffset(v=>v+50)}>Далее</Button></div></>}
     </>}</div>
   </Modal>
 }
