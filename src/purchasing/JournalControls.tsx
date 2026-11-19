@@ -1,5 +1,4 @@
 import { Filter, RotateCcw, Search } from 'lucide-react'
-import { useState } from 'react'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select } from '@/shared/ui/Field'
 
@@ -9,19 +8,18 @@ export type JournalSummary = { currency: string; total: number; paid: number; pe
 export const journalMoney = (value: number, currency = 'RUB') => new Intl.NumberFormat('ru-RU', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 export const journalDate = (value?: string | null) => value ? new Date(value.length === 10 ? value + 'T12:00:00+03:00' : value).toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow' }) : '—'
 
-export function JournalControls({ query, onQuery, filters, onFilters, archive, onArchive, suppliers, receipts }: {
+export function JournalControls({ query, onQuery, filters, onFilters, archive, onArchive, suppliers, receipts, expanded, onExpanded }: {
   query: string; onQuery: (value: string) => void; filters: JournalFilters; onFilters: (value: JournalFilters) => void;
-  archive: string; onArchive: (value: string) => void; suppliers: { id: number; name: string }[]; receipts: boolean;
+  archive: string; onArchive: (value: string) => void; suppliers: { id: number; name: string }[]; receipts: boolean; expanded: boolean; onExpanded: (value: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(false)
   const count = Object.entries(filters).filter(([key, value]) => key !== 'sort' && value !== '' && value !== 'all' && (!receipts || !['payment', 'delivery'].includes(key))).length + (!receipts && archive !== 'active' ? 1 : 0)
   const set = (key: keyof JournalFilters, value: string) => onFilters({ ...filters, [key]: value })
   return <div className="my-4 rounded-xl border border-border bg-surface p-3">
     <div className="flex flex-wrap items-center gap-3">
-      <Button variant="secondary" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><Filter size={16} />Фильтр{count ? ` · ${count}` : ''}</Button>
+      <Button variant="secondary" aria-expanded={expanded} onClick={() => onExpanded(!expanded)}><Filter size={16} />Фильтр{count ? ` · ${count}` : ''}</Button>
       <div className="relative min-w-[180px] flex-1"><Search size={16} className="absolute left-3 top-2.5 text-muted" /><Input className="pl-9" aria-label="Поиск закупок" placeholder="Номер, поставщик, товар или комментарий" value={query} onChange={e => onQuery(e.target.value)} /></div>
-      {!receipts && <Select className="sm:!w-auto" aria-label="Порядок заказов" value={filters.sort} onChange={e => set('sort', e.target.value)}>
-        <option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="number">По номеру</option><option value="supplier">По поставщику</option><option value="amount_desc">По убыванию суммы</option><option value="expected">По сроку поставки</option>
+      {<Select className="sm:!w-auto" aria-label={receipts ? 'Порядок приёмок' : 'Порядок заказов'} value={filters.sort} onChange={e => set('sort', e.target.value)}>
+        <option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="number">По номеру</option>{!receipts && <><option value="supplier">По поставщику</option><option value="amount_desc">По убыванию суммы</option><option value="expected">По сроку поставки</option></>}
       </Select>}
     </div>
     {expanded && <div className="mt-4 grid gap-4 border-t border-border pt-4 sm:grid-cols-2 lg:grid-cols-3">

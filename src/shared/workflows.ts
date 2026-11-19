@@ -107,7 +107,7 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
       },
       {
         id: 'supplier-invoices',
-        label: 'Счета поставщиков',
+        label: 'Счета поставщикам',
         to: '/moysklad?type=invoicein',
         section: 'moysklad',
         gate: 'accounting',
@@ -127,6 +127,15 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
         to: '/purchasing?tab=returns',
         section: 'purchasing',
         note: 'Возврат по приёмке, уменьшение долга и история',
+      },
+      {
+        id: 'supplier-factures',
+        label: 'Счета-фактуры полученные',
+        to: '/moysklad?type=facturein',
+        section: 'moysklad',
+        gate: 'accounting',
+        readOnly: true,
+        note: 'Сохранённые счета-фактуры поставщиков',
       },
     ],
   },
@@ -493,16 +502,23 @@ export function visibleWorkflows(hasAccess: (section: SectionId) => boolean): Wo
   })).filter((g) => g.entries.length > 0)
 }
 
+export function purchaseJournalTab(query: URLSearchParams) {
+  const tab = query.get('tab')
+  if (tab === 'returns' || (!tab && query.has('return'))) return 'returns'
+  if (tab === 'receipts' || (!tab && query.has('receipt'))) return 'receipts'
+  return 'orders'
+}
+
 export function workflowContext(pathname: string, search: string, groups: WorkGroup[] = WORKFLOWS) {
   const query = new URLSearchParams(search)
   if (pathname.startsWith('/costing/catalog/') || pathname.startsWith('/costing/models/')) {
     pathname = '/costing'
     query.set('tab', 'catalog')
   }
+  if (pathname === '/purchasing') query.set('tab', purchaseJournalTab(query))
   if (!query.has('tab')) {
     const defaults: Record<string, string> = {
       '/sales': query.has('shipment') ? 'shipments' : 'orders',
-      '/purchasing': query.has('return') ? 'returns' : 'orders',
       '/warehouse': 'materials',
       '/crm': 'deal',
       '/accounting': 'review',

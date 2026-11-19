@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL || undefined })
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }),
     errors = []
@@ -108,7 +108,7 @@ try {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
   })
   await page.goto(base + '/purchasing', { waitUntil: 'networkidle' })
-  await page.getByRole('tab', { name: 'Приёмки', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Разделы закупок' }).getByRole('link', { name: 'Приёмки', exact: true }).click()
   await page.getByText('№ ПР-10', { exact: true }).click()
   await page.getByRole('button', { name: 'Вернуть поставщику', exact: true }).click()
   let dialog = page.getByRole('dialog', { name: 'Возврат по приёмке № ПР-10', exact: true })

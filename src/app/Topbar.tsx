@@ -1,4 +1,4 @@
-import { Menu } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { RoleSwitcher } from '@/auth/pages/RoleSwitcher'
 import { FeedbackButton } from '@/feedback/components/FeedbackButton'
@@ -10,8 +10,11 @@ import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { useCollaborationTools } from '@/collaboration/useCollaborationTools'
 
-export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; menuOpen: boolean }) {
+export function Topbar({ onMenuClick, menuOpen, desktopCollapsed, toggleDesktopMenu }: {
+  onMenuClick: () => void; menuOpen: boolean; desktopCollapsed: boolean; toggleDesktopMenu: () => void
+}) {
   const location = useLocation()
+  const DesktopMenuIcon = desktopCollapsed ? PanelLeftOpen : PanelLeftClose
   const section = SECTIONS.find((s) => location.pathname.startsWith(s.path))
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
@@ -30,6 +33,12 @@ export function Topbar({ onMenuClick, menuOpen }: { onMenuClick: () => void; men
           className="-ml-1 flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg p-2 text-ink hover:bg-surface-muted lg:hidden"
         >
           <Menu size={20} />
+        </button>
+        <button type="button" onClick={toggleDesktopMenu}
+          aria-label={desktopCollapsed ? 'Развернуть боковое меню' : 'Свернуть боковое меню'}
+          aria-controls="main-navigation" aria-expanded={!desktopCollapsed}
+          className="-ml-1 hidden min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-inherit hover:bg-white/10 lg:flex">
+          <DesktopMenuIcon size={19} />
         </button>
         <span className="truncate text-[13px] font-medium text-muted">
           {collaborationTool ? 'Совместная работа · ' + collaborationTool.label : context ? context.group.label + ' · ' + context.entry.label : (section?.label ?? 'Durov OS')}

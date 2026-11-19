@@ -1,3 +1,4 @@
+import { RowSelectionCheckbox, type RowSelection } from '@/shared/ui/DataTable'
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Input, Select } from '@/shared/ui/Field'
@@ -23,7 +24,9 @@ export type Sort = { key: typeof columns[number][0]; direction: 'asc' | 'desc' }
 export const defaultSort: Sort = { key: 'name', direction: 'asc' }
 export const statuses = Object.entries(statusLabels) as [RegistryStatus, string][]
 
-export function RegistryFilters({ values, selected, onText, onStatus, onReset }: {
+export function RegistryFilters({ open, onOpen, values, selected, onText, onStatus, onReset }: {
+  open: boolean
+  onOpen: (open: boolean) => void
   values: TextFilters
   selected: RegistryStatus[]
   onText: (key: keyof TextFilters, value: string) => void
@@ -31,7 +34,7 @@ export function RegistryFilters({ values, selected, onText, onStatus, onReset }:
   onReset: () => void
 }) {
   const count = Object.values(values).filter(value => value.trim()).length + selected.length
-  return <details className="rounded-md border border-border bg-surface">
+  return <details open={open} onToggle={event => onOpen(event.currentTarget.open)} className="rounded-md border border-border bg-surface">
     <summary className="min-h-11 cursor-pointer px-3 py-3 text-sm font-semibold">
       Фильтры{count > 0 && ` · ${count}`}
     </summary>
@@ -56,8 +59,9 @@ export function RegistryFilters({ values, selected, onText, onStatus, onReset }:
   </details>
 }
 
-export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment, onStatus }: {
+export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment, onStatus, selection }: {
   rows: Row[]
+  selection: RowSelection
   loading: boolean
   sort: Sort
   onSort: (key: Sort['key']) => void
@@ -87,11 +91,14 @@ export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment,
         </tr>
       </thead>
       <tbody className="divide-y divide-border">
-        {rows.map(row => <tr key={row.id} className="hover:bg-surface-muted/60">
+        {rows.map(row => <tr key={row.id} className={selection.keys.includes(String(row.id)) ? 'bg-brand/5' : 'hover:bg-surface-muted/60'}>
           <td className="px-3 py-1.5">
+            <div className="flex items-center gap-1">
+            <RowSelectionCheckbox label={row.card.name} rowKey={String(row.id)} selection={selection} />
             <Link to={cardUrl(row)} className="inline-flex min-h-8 items-center break-words font-medium text-brand-dark hover:underline">
               <span className="min-w-0 break-words">{row.card.name}</span>
             </Link>
+            </div>
             {!row.active && <span className="block text-xs text-muted">В архиве</span>}
           </td>
           <td className="px-3 py-1.5 tabular-nums">{[row.card.inn, row.card.kpp].filter(Boolean).join(' / ') || '—'}</td>
