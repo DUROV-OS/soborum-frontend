@@ -19,6 +19,7 @@ export function Topbar({ onMenuClick, menuOpen, desktopCollapsed, toggleDesktopM
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
   const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
+  const workTitle = context && (context.group.standalone ? context.group.label : context.group.label + ' · ' + context.entry.label)
   const collaborationTool = useCollaborationTools().find(tool => tool.to && (location.pathname === tool.to || location.pathname.startsWith(tool.to + '/')))
 
   return (
@@ -41,7 +42,7 @@ export function Topbar({ onMenuClick, menuOpen, desktopCollapsed, toggleDesktopM
           <DesktopMenuIcon size={19} />
         </button>
         <span className="truncate text-[13px] font-medium text-muted">
-          {collaborationTool ? 'Совместная работа · ' + collaborationTool.label : context ? context.group.label + ' · ' + context.entry.label : (section?.label ?? 'Durov OS')}
+          {collaborationTool ? 'Совместная работа · ' + collaborationTool.label : workTitle ?? section?.label ?? 'Durov OS'}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">

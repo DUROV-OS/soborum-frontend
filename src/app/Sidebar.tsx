@@ -4,7 +4,7 @@ import { useMobileNavigation } from './useMobileNavigation'
 import { BitrixIcon } from '@/shared/ui/BitrixIcon'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, Handshake, X } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, X } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager, salesHome } from '@/auth/salesNavigation'
 import { useFeedbackStore } from '@/feedback/store'
@@ -99,27 +99,16 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
       {groups.map((group) => {
         const Icon = group.icon,
           opened = expanded.includes(group.id)
-        if (group.id === 'purchasing') {
-          const target = lastPurchaseEntry(group.entries, current?.id)
+        if (group.id === 'purchasing' || group.standalone) {
           const active = context?.group.id === group.id
-          const counterparties = group.entries.find(entry => entry.id === 'suppliers')
-          const counterpartiesActive = active && context.entry.id === 'suppliers'
-          return <Fragment key="workflow-purchasing">
-            <li>
-              <Link to={active ? context.entry.to : target.to} aria-current={active && !counterpartiesActive ? 'page' : undefined} onClick={onClose}
-                className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
-                  (active && !counterpartiesActive ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
-                <Icon size={19} className="shrink-0" aria-hidden /><span>{group.label}</span>
-              </Link>
-            </li>
-            {counterparties && <li>
-              <Link to={counterparties.to} onClick={onClose} aria-current={counterpartiesActive ? 'page' : undefined}
-                className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
-                  (counterpartiesActive ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
-                <Handshake size={19} className="shrink-0" aria-hidden /><span>{counterparties.label}</span>
-              </Link>
-            </li>}
-          </Fragment>
+          const target = group.standalone ? group.entries[0] : lastPurchaseEntry(group.entries, current?.id)
+          return <li key={'workflow-' + group.id}>
+            <Link to={active ? context.entry.to : target.to} aria-current={active ? 'page' : undefined} onClick={onClose}
+              className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
+                (active ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
+              <Icon size={19} className="shrink-0" aria-hidden /><span>{group.label}</span>
+            </Link>
+          </li>
         }
         return (
           <li key={'workflow-' + group.id}>
