@@ -1,9 +1,8 @@
-import { ModuleNavigation } from '@/app/SectionNavigation'
 import { WarehouseReturns } from '../WarehouseControl'
 import { WarehouseQueue } from '../WarehouseQueue'
-import { getMaterial } from '../api'
+import { getMaterial, listWarehouses } from '../api'
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { ClipboardList, PackageMinus, PackagePlus, Plus, Send, Truck } from 'lucide-react'
 import { AskAiButton } from '@/ai/components/AskAiButton'
@@ -12,7 +11,7 @@ import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
-import { DataTable } from '@/shared/ui/DataTable'
+import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { HelpButton } from '@/shared/ui/HelpButton'
 import { OnboardingDialog, OnboardingPage } from '@/shared/ui/OnboardingDialog'
@@ -31,7 +30,15 @@ import { ManualIssueModal } from '../components/ManualIssueModal'
 import { StockDocumentsPanel } from '../components/StockDocumentsPanel'
 import { ReservationsPanel } from '../ReservationsPanel'
 
-type Tab = 'queue' | 'returns' | 'materials' | 'requests' | 'history' | 'documents' | 'reservations'
+const STOCK_VIEWS = [
+  { key: 'materials', label: 'По товарам' },
+  { key: 'queue', label: 'Очередь выдачи' },
+  { key: 'returns', label: 'Возвраты' },
+  { key: 'reservations', label: 'Резервы' },
+  { key: 'history', label: 'Журнал операций' },
+]
+
+type Tab = 'queue' | 'returns' | 'materials' | 'requests' | 'history' | 'documents' | 'reservations' | 'warehouses'
 
 type SortKey = 'name' | 'stock_desc' | 'stock_asc' | 'threshold_desc'
 
@@ -42,14 +49,36 @@ const SORT_LABEL: Record<SortKey, string> = {
   threshold_desc: 'По порогу (убыв.)',
 }
 
+const catalogColumns: DataTableColumn<Material>[] = [
+  { header: 'Ед. изм.', accessor: m => m.unit },
+  { header: 'Статус', accessor: m => m.is_archived ? <Chip tone="neutral">Архив</Chip> : <Chip tone="success">Действует</Chip> },
+]
+
+const balanceColumns: DataTableColumn<Material>[] = [
+  { header: 'На складе', align: 'right', accessor: m => `${m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
+  { header: 'В резерве', align: 'right', accessor: m => `${m.reserved_quantity ?? 0} ${m.unit}`, className: 'tabular' },
+  { header: 'Свободно', align: 'right', accessor: m => `${m.available_quantity ?? m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
+  { header: 'Запрошено', align: 'right', accessor: m => `${m.total_requested} ${m.unit}`, className: 'tabular' },
+  { header: 'Порог', align: 'right', accessor: m => `${m.threshold} ${m.unit}`, className: 'tabular' },
+  {
+    header: 'Статус',
+    accessor: m => {
+      if (m.is_archived) return <Chip tone="neutral">Архив</Chip>
+      if ((m.reservation_shortage ?? 0) > 0) return <Chip tone="danger">Резерв не обеспечен</Chip>
+      if (m.needs_supply) return <Chip tone="danger">Нужна поставка</Chip>
+      return <Chip tone="success">В норме</Chip>
+    },
+  },
+]
+
 const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     title: 'Работа со складом',
     body: (
       <p>
-        «Материалы» — остатки на складе, «Заявки на проверку» — запросы от производства, ожидающие вашего
-        решения, «Журнал операций» — все приходы и расходы: когда, куда, кто получил и сколько осталось на
-        складе после операции. «Перемещения и пересчёт» хранит документы перемещения между складами и инвентаризации.
+        В «Остатках» доступны очередь выдачи, возвраты, резервы и журнал операций.
+        Для пересчёта откройте «Инвентаризацию», для передачи товара между складами — «Перемещения».
+        Заявки на материалы находятся в разделе «Производство».
       </p>
     ),
   },
@@ -57,7 +86,7 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
     title: 'Приход и расход материала',
     body: (
       <p>
-        Кнопка «Материал» создаёт новую позицию на складе. Кнопка «Оформить поставку» фиксирует приход
+        Новую позицию создают в «Номенклатуре». Кнопка «Оформить поставку» фиксирует приход
         материала — остатки на складе обновятся автоматически. «Отпуск по техкарте» выдаёт материалы дома по
         нормативам КР, «Отпуск на объект / в цех» — вручную, без техкарты. «Оприходование» и «Списание» — для
         контроля остатков: излишки и недостачи, найденные при пересчёте.
@@ -85,15 +114,31 @@ const ONBOARDING_PAGES: OnboardingPage[] = [
 ]
 
 export function WarehousePage() {
+  const [params] = useSearchParams()
+  const tab = params.get('tab')
+  const view = params.get('view')
+  const workspace = tab === 'requests' ? 'requests' : tab === 'materials' && (view === 'catalog' || view === 'filter') ? 'catalog' : 'warehouse'
+  return <WarehouseWorkspace key={workspace} />
+}
+
+function WarehouseWorkspace() {
   const navigate = useNavigate()
   const accountingLevel = useAccessLevel('accounting')
   const materials = useWarehouseStore((s) => s.materials)
   const loading = useWarehouseStore((s) => s.loading)
   const load = useWarehouseStore((s) => s.load)
   const [params, setParams] = useSearchParams()
-  const [tab, setTab] = useQueryChoice<Tab>(
-    'tab', ['queue', 'materials', 'requests', 'returns', 'history', 'documents', 'reservations'], 'queue',
+  const [tab] = useQueryChoice<Tab>(
+    'tab', ['queue', 'materials', 'requests', 'returns', 'history', 'documents', 'reservations', 'warehouses'], 'queue',
   )
+  const view = params.get('view')
+  const filterView = tab === 'materials' && view === 'filter'
+  const catalogView = tab === 'materials' && (view === 'catalog' || filterView)
+  const reason = params.get('reason')
+  const operationKind = tab === 'history' && (reason === 'receipt' || reason === 'write_off') ? reason : undefined
+  const stockView = !catalogView && !operationKind && STOCK_VIEWS.some(entry => entry.key === tab)
+  const warehouse = params.get('warehouse') || ''
+  const title = tab === 'requests' ? 'Заявки производства' : filterView ? 'Фильтр номенклатуры' : catalogView ? 'Товары и материалы' : 'Склад'
   const [creatingMaterial, setCreatingMaterial] = useState(false)
   const [supplying, setSupplying] = useState(false)
   const [selected, setSelected] = useState<Material | null>(null)
@@ -111,7 +156,7 @@ export function WarehousePage() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [archiveFilter, setArchiveFilter] = useState('active')
   const [page, setPage] = useState(0)
-  useEffect(() => setPage(0), [query, sortKey, onlyNeedsSupply, categoryFilter, archiveFilter])
+  useEffect(() => setPage(0), [query, sortKey, onlyNeedsSupply, categoryFilter, archiveFilter, warehouse])
   const onboarding = useSectionOnboarding('warehouse')
   const accessLevel = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(accessLevel, 'edit')
@@ -135,8 +180,11 @@ export function WarehousePage() {
     new Set(materials.map((m) => (m.catalog_path || m.category || '').trim()).filter(Boolean)),
   ).sort((a, b) => a.localeCompare(b, 'ru'))
 
+  const warehouseOptions = [...new Set([...materials.map(m => m.warehouse), warehouse].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ru'))
   const q = query.trim().toLowerCase()
   const visibleMaterials = materials
+    .filter(m => !warehouse || m.warehouse === warehouse)
     .filter((m) => archiveFilter === 'all' || Boolean(m.is_archived) === (archiveFilter === 'archived'))
     .filter((m) => !onlyNeedsSupply || m.needs_supply)
     .filter((m) => categoryFilter === 'all' || (m.catalog_path || m.category || '').trim() === categoryFilter)
@@ -156,23 +204,22 @@ export function WarehousePage() {
 
   return (
     <div>
-      <SectionAnalyticsCard section="warehouse" />
+      {stockView && <SectionAnalyticsCard section="warehouse" />}
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-[20px] font-medium text-ink">
-            {params.get('view') === 'catalog' && tab === 'materials' ? 'Товары и материалы' : 'Склад'}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted">Материалы, заявки от производства и журнал операций</p>
+          <h1 className="text-[20px] font-medium text-ink">{title}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <AskAiButton domain="warehouse" />
-          {canEdit && (
+          {stockView && <AskAiButton domain="warehouse" />}
+          {canEdit && catalogView && (
+            <Button variant="secondary" onClick={() => setCreatingMaterial(true)}>
+              <Plus size={16} />
+              Материал
+            </Button>
+          )}
+          {canEdit && stockView && (
             <>
-              <Button variant="secondary" onClick={() => setCreatingMaterial(true)}>
-                <Plus size={16} />
-                Материал
-              </Button>
               <Button onClick={() => accessLevelAtLeast(accountingLevel,'view') ? navigate('/purchasing?receive=1') : setSupplying(true)}>
                 <Truck size={16} />
                 Оформить поставку
@@ -187,37 +234,25 @@ export function WarehousePage() {
               </Button>
             </>
           )}
-          {canFull && (
-            <>
-              <Button variant="secondary" onClick={() => setInventoryKind('receipt')}>
-                <PackagePlus size={16} />
-                Оприходование
-              </Button>
-              <Button variant="secondary" onClick={() => setInventoryKind('write_off')}>
-                <PackageMinus size={16} />
-                Списание
-              </Button>
-            </>
+          {canFull && operationKind === 'receipt' && (
+            <Button onClick={() => setInventoryKind('receipt')}>
+              <PackagePlus size={16} />
+              Оприходование
+            </Button>
           )}
-          <HelpButton onClick={onboarding.show} />
+          {canFull && operationKind === 'write_off' && (
+            <Button onClick={() => setInventoryKind('write_off')}>
+              <PackageMinus size={16} />
+              Списание
+            </Button>
+          )}
+          {stockView && <HelpButton onClick={onboarding.show} />}
         </div>
       </div>
 
-      <div className="mb-4">
-        <ModuleNavigation label="Разделы склада"><Tabs
-          tabs={[
-            { key: 'queue', label: 'Очередь выдачи' },
-            { key: 'returns', label: 'Возвраты' },
-            { key: 'materials', label: 'Материалы' },
-            { key: 'requests', label: 'Заявки на проверку' },
-            { key: 'history', label: 'Журнал операций' },
-            { key: 'documents', label: 'Перемещения и пересчёт' },
-            { key: 'reservations', label: 'Резервы' },
-          ]}
-          activeKey={tab}
-          onChange={setTab}
-        /></ModuleNavigation>
-      </div>
+      {stockView && <div className="mb-4">
+        <Tabs tabs={STOCK_VIEWS} activeKey={tab} onChange={next => setParams({ tab: next })} />
+      </div>}
 
       {tab === 'materials' && (
         <>
@@ -234,6 +269,7 @@ export function WarehousePage() {
             <Select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label="Категория товара"
               className="w-full sm:w-56"
             >
               <option value="all">Все категории</option>
@@ -243,6 +279,19 @@ export function WarehousePage() {
                 </option>
               ))}
             </Select>
+            {(filterView || stockView) && <Select
+              value={warehouse}
+              aria-label="Склад"
+              className="w-full sm:w-56"
+              onChange={(e) => setParams(q => {
+                if (e.target.value) q.set('warehouse', e.target.value)
+                else q.delete('warehouse')
+                return q
+              })}
+            >
+              <option value="">Все склады</option>
+              {warehouseOptions.map(name => <option key={name} value={name}>{name}</option>)}
+            </Select>}
             <Select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="w-full sm:w-56">
               {Object.entries(SORT_LABEL).map(([key, label]) => (
                 <option key={key} value={key}>
@@ -250,16 +299,16 @@ export function WarehousePage() {
                 </option>
               ))}
             </Select>
-            <Button
+            {stockView && <Button
               variant={onlyNeedsSupply ? 'primary' : 'secondary'}
               size="sm"
               className="shrink-0"
               onClick={() => setOnlyNeedsSupply((v) => !v)}
             >
               Нужна поставка
-            </Button>
+            </Button>}
           </div>
-          <DataTable
+          <DataTable<Material>
             columns={[
               {
                 header: 'Категория',
@@ -272,16 +321,9 @@ export function WarehousePage() {
                   )
                 },
               },
-              { header: 'Материал', accessor: (m) => <MaterialCell material={m} /> },
-              { header: 'На складе', align: 'right', accessor: (m) => `${m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
-              { header: 'В резерве', align: 'right', accessor: (m) => `${m.reserved_quantity??0} ${m.unit}`, className: 'tabular' },
-              { header: 'Свободно', align: 'right', accessor: (m) => `${m.available_quantity??m.quantity_in_stock} ${m.unit}`, className: 'tabular' },
-              { header: 'Запрошено', align: 'right', accessor: (m) => `${m.total_requested} ${m.unit}`, className: 'tabular' },
-              { header: 'Порог', align: 'right', accessor: (m) => `${m.threshold} ${m.unit}`, className: 'tabular' },
-              {
-                header: 'Статус',
-                accessor: (m) => (m.is_archived ? <Chip tone="neutral">Архив</Chip> : (m.reservation_shortage??0)>0 ? <Chip tone="danger">Резерв не обеспечен</Chip> : m.needs_supply ? <Chip tone="danger">Нужна поставка</Chip> : <Chip tone="success">В норме</Chip>),
-              },
+              { header: catalogView ? 'Товар' : 'Материал', accessor: (m) => <MaterialCell material={m} /> },
+              { header: 'Склад', accessor: (m) => m.warehouse },
+              ...(catalogView ? catalogColumns : balanceColumns),
             ]}
             rows={visibleMaterials.slice(page * 100, (page + 1) * 100)}
             keyOf={(m) => String(m.id)}
@@ -293,9 +335,10 @@ export function WarehousePage() {
       )}
 
       {tab === 'requests' && <RequestApprovalQueue />}
-      {tab === 'history' && <JournalPanel />}
+      {tab === 'history' && <JournalPanel key={operationKind ?? 'journal'} fixedReason={operationKind} />}
       {tab === 'documents' && <StockDocumentsPanel />}
-      {tab === 'queue' && <WarehouseQueue onIssue={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} onRequests={()=>setTab('requests')} onCount={()=>setParams({tab:'documents',kind:'inventory'})} onMaterial={async id=>{
+      {tab === 'warehouses' && <WarehousesPanel />}
+      {tab === 'queue' && <WarehouseQueue onIssue={id=>{setIssuingHouseId(id);setIssuingByTechcard(true)}} onRequests={()=>setParams({tab:'requests'})} onCount={()=>setParams({tab:'documents',kind:'inventory'})} onMaterial={async id=>{
         const material = await getMaterial(id)
         useWarehouseStore.setState(state => ({ materials: state.materials.map(row => row.id === id ? material : row) }))
         setSelected(material)
@@ -311,14 +354,41 @@ export function WarehousePage() {
       {cardError && <p role="alert" className="text-danger">{cardError}</p>}
       <MaterialDetailDrawer material={selectedMaterial} onClose={() => { setSelected(null); if (linkedMaterialId) setParams(p => { p.delete('material'); return p }) }} onReserves={create=>{if(selectedMaterial){setParams({tab:'reservations',material:String(selectedMaterial.id),...(create?{reserve:String(selectedMaterial.id)}:{})});setSelected(null)}}}/>
 
-      <OnboardingDialog
+      {stockView && <OnboardingDialog
         open={onboarding.open}
         onClose={onboarding.close}
         title="Раздел «Склад»"
         pages={ONBOARDING_PAGES}
-      />
+      />}
     </div>
   )
+}
+
+function WarehousesPanel() {
+  const [names, setNames] = useState<string[]>([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    listWarehouses()
+      .then(rows => { if (active) setNames(rows) })
+      .catch(e => { if (active) setError(e.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+  return error ? <p role="alert" className="text-danger">{error}</p> : <DataTable
+    columns={[
+      { header: 'Склад', accessor: name => (
+        <Link className="text-accent underline" to={'/warehouse?' + new URLSearchParams({ tab: 'materials', warehouse: name })}>
+          {name}
+        </Link>
+      ) },
+    ]}
+    rows={names}
+    keyOf={name => name}
+    loading={loading}
+    emptyLabel="Склады не найдены"
+  />
 }
 
 function MaterialCell({ material }: { material: Material }) {

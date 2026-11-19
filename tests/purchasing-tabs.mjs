@@ -71,9 +71,15 @@ await page.route('**/api/**', async route => {
         supplier_id: 1, complete: true, bank_verification: { verified: false, can_verify: false } }
       break
     case '/api/purchasing/orders':
-    case '/api/purchasing/receipts':
     case '/api/purchasing/returns':
       body = { total: 102, items: [sample] }
+      break
+    case '/api/purchasing/receipts':
+      body = { total: 102, items: [{
+        ...sample, warehouse: 'Склад приёмки', status: 'posted', status_label: 'Сверено',
+        amount: '125.50', paid: '75.05', incoming_date: '2026-11-17', incoming_number: 'ВХ-11',
+        note: 'Разгрузка подтверждена',
+      }] }
       break
     case '/api/moysklad/catalog': body = { categories: [], warnings: [] }; break
     case '/api/moysklad/records':
@@ -193,6 +199,16 @@ try {
   await checkbox('51').check()
 
   await link(2).click()
+  await visible(2)
+  assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
+    ['Номер', 'Дата', 'На склад', 'Контрагент', 'Организация', 'Сумма', 'Оплачено', 'Входящая дата', 'Входящий номер', 'Статус', 'Комментарий'])
+  for (const name of ['Склад приёмки', 'Технология', '17.11.2026', 'ВХ-11', 'Сверено', 'Разгрузка подтверждена', /125,50/, /75,05/])
+    await table.getByRole('cell', { name, exact: typeof name === 'string' }).waitFor()
+  const receiptCounterparty = table.getByRole('link', { name: 'Тестовый поставщик', exact: true })
+  assert.equal(await receiptCounterparty.getAttribute('href'), '/suppliers?counterparty=10')
+  await receiptCounterparty.click()
+  await page.getByRole('dialog', { name: 'Тестовый поставщик', exact: true }).waitFor()
+  await page.goBack()
   await visible(2)
   assert.equal(await search('Поиск закупок').inputValue(), '')
   await search('Поиск закупок').fill('приход')

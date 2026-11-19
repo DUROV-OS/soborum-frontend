@@ -8,6 +8,7 @@ import { apiRequest } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { Button } from '@/shared/ui/Button'
+import { Chip } from '@/shared/ui/Chip'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
@@ -74,6 +75,16 @@ type Receipt = {
   status: string
   via_supplier_invoice?: boolean
   note: string
+  counterparty_id?: number | null
+  supplier_name?: string | null
+  warehouse?: string | null
+  organization_name?: string | null
+  amount?: string | null
+  paid?: string | null
+  currency?: string | null
+  incoming_date?: string | null
+  incoming_number?: string | null
+  status_label?: string | null
   lines: { title: string; unit: string; quantity: number; unit_price: number }[]
 }
 type LinkedDocuments = {
@@ -91,8 +102,16 @@ type Catalog = {
   accounts: { id: number; name: string }[]
 }
 const money = (n: number) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
+function receiptMoney(value: string | number | null | undefined, currency?: string | null) {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  return currency ? journalMoney(Number(value), currency) : Number(value).toLocaleString('ru-RU', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
 const qty = (n: number) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 6 })
 const orderColumnsKey = 'durov.purchasing.columns.v2'
+const registerLink = 'font-medium text-brand-dark underline underline-offset-2 hover:text-brand'
 const status: Record<string, string> = {
   ordered: 'Заказано',
   in_transit: 'Частично получено / в пути',
@@ -258,7 +277,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
     { header: 'Контрагент', accessor: r => r.counterparty_id
       ? <Link to={`/suppliers?counterparty=${r.counterparty_id}`} onClick={event => event.stopPropagation()}
-        className="font-medium text-brand-dark underline underline-offset-2 hover:text-brand">{r.supplier_name}</Link>
+        className={registerLink}>{r.supplier_name}</Link>
       : r.supplier_name, className: 'min-w-[180px]' },
     { header: 'Организация', accessor: r => r.organization_name || '—', className: 'whitespace-nowrap' },
     { header: 'Сумма', accessor: r => <JournalAmount value={r.net_total ?? r.total_cost} target={r.total_cost}
@@ -279,6 +298,32 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
       align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
     { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
+  ]
+  const receiptColumns: DataTableColumn<Receipt>[] = [
+    { header: 'Номер', className: 'whitespace-nowrap', accessor: r => (
+      <button type="button" className={registerLink} onClick={event => {
+        event.stopPropagation()
+        setSelectedReceipt(r)
+      }}>{r.number}</button>
+    ) },
+    { header: 'Дата', accessor: r => journalDate(r.occurred_at), className: 'whitespace-nowrap' },
+    { header: 'На склад', accessor: r => r.warehouse || '—', className: 'min-w-32' },
+    { header: 'Контрагент', className: 'min-w-[170px]', accessor: r => {
+      const name = r.supplier_name || catalog.suppliers.find(s => s.id === r.supplier_id)?.name || '—'
+      return r.counterparty_id ? (
+        <Link to={`/suppliers?counterparty=${r.counterparty_id}`} className={registerLink}
+          onClick={event => event.stopPropagation()}>{name}</Link>
+      ) : name
+    } },
+    { header: 'Организация', accessor: r => r.organization_name || '—', className: 'min-w-32' },
+    { header: 'Сумма', align: 'right', className: 'whitespace-nowrap tabular-nums', accessor: r => (
+      receiptMoney(r.amount ?? r.lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price), 0), r.currency)
+    ) },
+    { header: 'Оплачено', align: 'right', className: 'whitespace-nowrap tabular-nums', accessor: r => receiptMoney(r.paid, r.currency) },
+    { header: 'Входящая дата', accessor: r => journalDate(r.incoming_date), className: 'whitespace-nowrap' },
+    { header: 'Входящий номер', accessor: r => r.incoming_number || '—', className: 'whitespace-nowrap' },
+    { header: 'Статус', accessor: r => <Chip tone={r.status === 'posted' ? 'success' : 'neutral'}>{r.status_label || status[r.status] || r.status}</Chip>, className: 'whitespace-nowrap' },
+    { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.note || ''}>{r.note || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
   ]
   const total = tab === 'orders' ? orders.total : receipts.total
   return (
@@ -348,19 +393,8 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           keyOf={(r) => String(r.id)}
           onRowClick={setSelectedReceipt}
           loading={loading}
-          columns={[
-            { header: 'Приёмка', accessor: (r) => '№ ' + r.number },
-            { header: 'Дата', accessor: (r) => new Date(r.occurred_at).toLocaleDateString('ru-RU') },
-            {
-              header: 'Поставщик',
-              accessor: (r) => catalog.suppliers.find((s) => s.id === r.supplier_id)?.name || '—',
-            },
-            {
-              header: 'Сумма',
-              accessor: (r) => money(r.lines.reduce((s, l) => s + l.quantity * l.unit_price, 0)),
-            },
-            { header: 'Статус', accessor: (r) => status[r.status] || r.status },
-          ]}
+          columns={receiptColumns}
+          emptyLabel="Приёмки не найдены"
         />
       )}
       {tab === 'orders' && <JournalTotals rows={orders.summary || []} loading={loading} />}

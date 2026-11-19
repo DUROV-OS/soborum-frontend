@@ -153,21 +153,36 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     id: 'warehouse',
     label: 'Склад',
     icon: Boxes,
-    note: 'Наличие товара, резервы и движение между складами',
+    standalone: true,
+    note: 'Инвентаризация, остатки и движение между складами',
     entries: [
       {
-        id: 'warehouse-queue',
-        label: 'Очередь выдачи',
-        to: '/warehouse?tab=queue',
+        id: 'inventories',
+        label: 'Инвентаризация',
+        to: '/warehouse?tab=documents&kind=inventory',
         section: 'warehouse',
-        note: 'Согласование норматива, комплектация и нехватка материалов',
+        note: 'Пересчёт и сверка фактического наличия',
       },
       {
-        id: 'production-returns',
-        label: 'Возвраты из производства',
-        to: '/warehouse?tab=returns',
+        id: 'write-offs',
+        label: 'Списания',
+        to: '/warehouse?tab=history&reason=write_off',
         section: 'warehouse',
-        note: 'Возврат по исходной выдаче с документом-основанием',
+        note: 'Операции списания и причины уменьшения остатков',
+      },
+      {
+        id: 'stock-receipts',
+        label: 'Оприходования',
+        to: '/warehouse?tab=history&reason=receipt',
+        section: 'warehouse',
+        note: 'Операции оприходования и причины увеличения остатков',
+      },
+      {
+        id: 'transfers',
+        label: 'Перемещения',
+        to: '/warehouse?tab=documents&kind=transfer',
+        section: 'warehouse',
+        note: 'Передача товара с одного склада на другой',
       },
       {
         id: 'stock',
@@ -178,39 +193,11 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
         note: 'Фактический и свободный остаток, пороги и потребность',
       },
       {
-        id: 'reservations',
-        label: 'Резервы',
-        to: '/warehouse?tab=reservations',
+        id: 'warehouses',
+        label: 'Склады',
+        to: '/warehouse?tab=warehouses',
         section: 'warehouse',
-        note: 'Товар, закреплённый за домом или заказом',
-      },
-      {
-        id: 'transfers',
-        label: 'Перемещения',
-        to: '/warehouse?tab=documents&kind=transfer',
-        section: 'warehouse',
-        note: 'Передача товара с одного склада на другой',
-      },
-      {
-        id: 'inventories',
-        label: 'Инвентаризации',
-        to: '/warehouse?tab=documents&kind=inventory',
-        section: 'warehouse',
-        note: 'Пересчёт и сверка фактического наличия',
-      },
-      {
-        id: 'stock-journal',
-        label: 'Журнал операций',
-        to: '/warehouse?tab=history',
-        section: 'warehouse',
-        note: 'Приход, расход, списания и история движения',
-      },
-      {
-        id: 'material-requests',
-        label: 'Заявки производства',
-        to: '/warehouse?tab=requests',
-        section: 'warehouse',
-        note: 'Проверка и частичная выдача материалов по заявкам',
+        note: 'Список складов и переход к их остаткам',
       },
     ],
   },
@@ -223,36 +210,10 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
     entries: [
       {
         id: 'materials',
-        label: 'Каталог товаров и материалов',
+        label: 'Товары',
         to: '/warehouse?tab=materials&view=catalog',
         section: 'warehouse',
         note: 'Рабочие карточки товаров и материалов на складах',
-      },
-    ],
-  },
-  {
-    id: 'goods',
-    label: 'Товары',
-    icon: Package,
-    note: 'Карточки, модификации и услуги из МойСклада',
-    entries: [
-      {
-        id: 'source-products',
-        label: 'Карточки из МойСклада',
-        to: '/moysklad?type=product',
-        section: 'moysklad',
-        gate: 'warehouse',
-        readOnly: true,
-        note: 'Сохранённые реквизиты, цены и характеристики товаров',
-      },
-      {
-        id: 'source-variants',
-        label: 'Модификации',
-        to: '/moysklad?type=variant',
-        section: 'moysklad',
-        gate: 'warehouse',
-        readOnly: true,
-        note: 'Варианты товаров по характеристикам',
       },
       {
         id: 'source-services',
@@ -274,12 +235,28 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
       },
       {
         id: 'source-folders',
-        label: 'Группы товаров',
+        label: 'Группы',
         to: '/moysklad?type=productfolder',
         section: 'moysklad',
         gate: 'warehouse',
         readOnly: true,
         note: 'Исходные группы и папки номенклатуры',
+      },
+      {
+        id: 'catalog-filter',
+        label: 'Фильтр',
+        to: '/warehouse?tab=materials&view=filter',
+        section: 'warehouse',
+        note: 'Поиск и отбор товаров по категории, складу и архиву',
+      },
+      {
+        id: 'source-variants',
+        label: 'Модификации',
+        to: '/moysklad?type=variant',
+        section: 'moysklad',
+        gate: 'warehouse',
+        readOnly: true,
+        note: 'Варианты товаров по характеристикам',
       },
     ],
   },
@@ -296,6 +273,13 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
         section: 'production',
         signal: true,
         note: 'Этапы, материалы, задачи и готовность домов',
+      },
+      {
+        id: 'material-requests',
+        label: 'Заявки производства',
+        to: '/warehouse?tab=requests',
+        section: 'warehouse',
+        note: 'Проверка и частичная выдача материалов по заявкам',
       },
       { id: 'house-techcards', label: 'Техкарты домов', to: '/production-library?tab=cards', section: 'production', note: 'Черновики по моделям, нормы материалов и источники' },
       { id: 'house-projects', label: 'Проекты АР и КР', to: '/production-library?tab=projects', section: 'production', note: 'Рабочие чертежи и редакции по каждому дому' },
@@ -490,7 +474,7 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
 const groupById = Object.fromEntries(WORKFLOW_DEFINITIONS.map(group => [group.id, group]))
 const withCategory = (entries: WorkEntry[], category: string) => entries.map(entry => ({ ...entry, category }))
 export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
-  .filter(group => !['costing', 'crm', 'goods'].includes(group.id))
+  .filter(group => !['costing', 'crm'].includes(group.id))
   .map(group => {
     if (group.id === 'sales') return { ...group, entries: [
       { ...groupById.crm.entries[0], label: 'CRM', to: '/crm', note: 'Сделки, обращения, контакты и компании', category: 'Работа с клиентами' },
@@ -502,7 +486,6 @@ export const WORKFLOWS: WorkGroup[] = WORKFLOW_DEFINITIONS
       ...withCategory(groupById.company.entries.filter(entry => entry.id === 'house-models'), 'Каталог и цены · внутренние справочники'),
       ...withCategory(groupById.costing.entries.filter(entry => entry.id === 'costing-help'), 'Помощь'),
     ] }
-    if (group.id === 'warehouse') return { ...group, entries: [...withCategory(group.entries, 'Складские операции'), ...withCategory(groupById.goods.entries, 'Справочники')] }
     if (group.id === 'production') return { ...group, entries: group.entries.map(entry => ({ ...entry, category: ['house-techcards', 'house-projects', 'production-standards', 'recipes'].includes(entry.id) ? 'Внутренние справочники' : 'Рабочие документы' })).sort((a, b) => Number(a.category === 'Внутренние справочники') - Number(b.category === 'Внутренние справочники')) }
     if (group.id === 'money') return { ...group, label: 'Бухгалтерия' }
     if (group.id === 'company') return { ...group, entries: group.entries.filter(entry => entry.id === 'marketing') }
@@ -535,10 +518,16 @@ export function workflowContext(pathname: string, search: string, groups: WorkGr
     query.set('tab', 'catalog')
   }
   if (pathname === '/purchasing') query.set('tab', purchaseJournalTab(query))
+  if (pathname === '/warehouse') {
+    const tab = query.get('tab') || 'queue'
+    const reason = query.get('reason')
+    if (tab === 'queue' || tab === 'returns' || tab === 'reservations' ||
+      (tab === 'history' && reason !== 'receipt' && reason !== 'write_off')) query.set('tab', 'materials')
+    if (tab === 'documents' && !query.get('kind')) query.set('kind', 'inventory')
+  }
   if (!query.has('tab')) {
     const defaults: Record<string, string> = {
       '/sales': query.has('shipment') ? 'shipments' : 'orders',
-      '/warehouse': 'materials',
       '/crm': 'deal',
       '/accounting': 'review',
       '/production-library': 'cards',

@@ -22,7 +22,10 @@ export function PrimaryNavigation() {
   if (pathname === '/calendar') return <nav aria-label="Разделы календаря" className="collaboration-tabs calendar-section-tabs">
     {calendarSections.map(([id, label]) => <Link key={id} to={'/calendar?section=' + id} aria-current={calendarSection(search) === id ? 'page' : undefined}>{label}</Link>)}
   </nav>
-  if (!context || context.group.standalone) return null
+  if (!context) return null
+  if (context.group.standalone) return context.group.entries.length > 1
+    ? <WorkspaceTabs label={'Раздел «' + context.group.label + '»'} entries={context.group.entries} activeId={context.entry.id} />
+    : null
   return <nav aria-label={'Раздел ' + context.group.label} className="collaboration-tabs">
     {context.group.entries.map(entry => <Link key={entry.id} to={entry.to} aria-current={entry.id === context.entry.id ? 'page' : undefined}>{entry.label}</Link>)}
   </nav>

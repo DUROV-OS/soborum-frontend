@@ -39,6 +39,7 @@ try {
     else if (path === '/api/notifications/unread-count') body = { count: 0 }
     else if (path === '/api/sales/catalog') body = { counterparties: [], organizations: [], materials: [] }
     else if (path === '/api/purchasing/catalog') body = { suppliers: [], materials: [], accounts: [] }
+    else if (path === '/api/warehouse/warehouses') body = ['Склад проверки']
     else if (path === '/api/moysklad/catalog')
       body = {
         categories: [
@@ -105,26 +106,54 @@ try {
     await link.click()
     assert.equal(await link.getAttribute('aria-current'), 'page')
   }
-  await sidebar.getByRole('button', { name: 'Склад', exact: true }).click()
-  await sidebar.locator('#workflow-warehouse').getByRole('button', { name: /Все разделы/ }).click()
+  const warehouse = sidebar.getByRole('link', { name: 'Склад', exact: true })
+  const warehouseTabs = page.getByRole('navigation', { name: 'Раздел «Склад»' })
+  const catalogTabs = page.getByRole('navigation', { name: 'Раздел «Номенклатура»' })
+  await warehouse.click()
+  assert.deepEqual(await warehouseTabs.getByRole('link').allTextContents(),
+    ['Инвентаризация', 'Списания', 'Оприходования', 'Перемещения', 'Остатки', 'Склады'])
+  for (const [label, path, parameter, value] of [
+    ['Перемещения', '/api/warehouse/documents', 'kind', 'transfer'],
+    ['Инвентаризация', '/api/warehouse/documents', 'kind', 'inventory'],
+    ['Списания', '/api/warehouse/journal', 'reason', 'write_off'],
+    ['Оприходования', '/api/warehouse/journal', 'reason', 'receipt'],
+  ]) {
+    const link = warehouseTabs.getByRole('link', { name: label, exact: true })
+    await Promise.all([
+      page.waitForRequest(r => new URL(r.url()).pathname === path && new URL(r.url()).searchParams.get(parameter) === value),
+      link.click(),
+    ])
+    assert.equal(await link.getAttribute('aria-current'), 'page')
+  }
+  await warehouseTabs.getByRole('link', { name: 'Склады', exact: true }).click()
+  await main.getByRole('link', { name: 'Склад проверки', exact: true }).click()
+  assert.equal(await main.getByLabel('Склад', { exact: true }).inputValue(), 'Склад проверки')
+  assert.equal(await warehouseTabs.getByRole('link', { name: 'Остатки', exact: true }).getAttribute('aria-current'), 'page')
+  await main.getByRole('tab', { name: 'Очередь выдачи', exact: true }).click()
+  assert.equal(await warehouseTabs.getByRole('link', { name: 'Остатки', exact: true }).getAttribute('aria-current'), 'page')
   const nomenclature = sidebar.getByRole('link', { name: 'Номенклатура', exact: true })
-  const catalogPath = '/warehouse?tab=materials&view=catalog'
-  assert.equal(await nomenclature.getAttribute('href'), catalogPath)
-  assert.equal(await sidebar.locator('#workflow-warehouse').locator(`a[href="${catalogPath}"]`).count(), 0)
   await nomenclature.click()
   await main.getByRole('heading', { name: 'Товары и материалы', exact: true }).waitFor()
   assert.equal(await nomenclature.getAttribute('aria-current'), 'page')
-  const stock = sidebar.locator('#workflow-warehouse').getByRole('link', { name: 'Остатки', exact: true })
-  if (!(await stock.isVisible()))
-    await sidebar.getByRole('button', { name: 'Склад', exact: true }).click()
-  await stock.click()
-  assert.equal(await stock.getAttribute('aria-current'), 'page')
-  assert.equal(await nomenclature.getAttribute('aria-current'), null)
-  await sidebar.getByRole('link', { name: 'Перемещения', exact: true }).click()
-  await page.getByLabel('Вид складского документа').waitFor()
-  assert.equal(await page.getByLabel('Вид складского документа').inputValue(), 'transfer')
-  await sidebar.getByRole('link', { name: 'Инвентаризации', exact: true }).click()
-  assert.equal(await page.getByLabel('Вид складского документа').inputValue(), 'inventory')
+  assert.deepEqual(await catalogTabs.getByRole('link').allTextContents(),
+    ['Товары', 'Услуги', 'Комплекты', 'Группы', 'Фильтр', 'Модификации'])
+  for (const [label, type] of [['Услуги', 'service'], ['Комплекты', 'bundle'], ['Группы', 'productfolder'], ['Модификации', 'variant']]) {
+    const link = catalogTabs.getByRole('link', { name: label, exact: true })
+    await Promise.all([
+      page.waitForRequest(r => new URL(r.url()).pathname === '/api/moysklad/records' && new URL(r.url()).searchParams.get('entity_type') === type),
+      link.click(),
+    ])
+    assert.equal(await link.getAttribute('aria-current'), 'page')
+    assert.equal(await nomenclature.getAttribute('aria-current'), 'page')
+  }
+  await catalogTabs.getByRole('link', { name: 'Фильтр', exact: true }).click()
+  await main.getByRole('heading', { name: 'Фильтр номенклатуры', exact: true }).waitFor()
+  await main.getByLabel('Склад', { exact: true }).waitFor()
+  await sidebar.getByRole('button', { name: 'Производство', exact: true }).click()
+  await sidebar.locator('#workflow-production').getByRole('link', { name: 'Заявки производства', exact: true }).click()
+  await main.getByRole('heading', { name: 'Заявки производства', exact: true }).waitFor()
+  assert.equal(await page.getByRole('navigation', { name: 'Раздел Производство' }).getByRole('link', { name: 'Заявки производства', exact: true }).getAttribute('aria-current'), 'page')
+  assert.equal(await warehouseTabs.count(), 0)
   if (
     (await sidebar.getByRole('button', { name: 'Продажи', exact: true }).getAttribute('aria-expanded')) ===
     'false'
@@ -174,6 +203,7 @@ try {
   await mobileMenu.getByRole('link', { name: 'Номенклатура', exact: true }).click()
   await mobileMenu.waitFor({ state: 'hidden' })
   await page.getByRole('heading', { name: 'Товары и материалы', exact: true }).waitFor()
+  assert.equal(await catalogTabs.getByRole('link').count(), 6)
   assert.deepEqual(errors, [])
   console.log(
     'Workflow navigation passed: process groups, correct register links, same-page switching, reload/back, archive, mobile and module grants',
