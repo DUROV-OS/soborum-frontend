@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { DataTable } from '@/shared/ui/DataTable'
+import { Modal } from '@/shared/ui/Modal'
 import { journalMoney } from './JournalControls'
 
 type Position = {
@@ -26,7 +28,33 @@ function quantity(value: number | string | null, unit?: string | null) {
   return unit ? `${number} ${unit}` : number
 }
 
-export function OrderPositions({ orderId, version, currency }: { orderId: number; version: number; currency: string }) {
+const materialLinkStyle = 'text-left font-medium text-brand-dark underline underline-offset-2 hover:text-brand'
+
+export function OrderMaterialLink({ materialId, name, amount, unit, canOpenMaterial }: {
+  materialId: number | null
+  name: string
+  amount: number
+  unit: string
+  canOpenMaterial: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  if (materialId && canOpenMaterial) return <Link className={materialLinkStyle}
+    to={`/warehouse?tab=materials&material=${materialId}`} target="_blank" rel="noopener">{name}</Link>
+  return <>
+    <button type="button" className={materialLinkStyle} onClick={() => setOpen(true)}>{name}</button>
+    {open && <Modal open title={name} onClose={() => setOpen(false)}>
+      <p>Количество в заказе {quantity(amount, unit)}</p>
+    </Modal>}
+  </>
+}
+
+export function OrderPositions({ orderId, version, currency, materialIds, canOpenMaterial }: {
+  orderId: number
+  version: number
+  currency: string
+  materialIds: (number | null)[]
+  canOpenMaterial: boolean
+}) {
   const [items, setItems] = useState<Position[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,7 +79,8 @@ export function OrderPositions({ orderId, version, currency }: { orderId: number
       emptyLabel="В заказе нет позиций."
       columns={[
         { header: '№', accessor: row => row.number, align: 'right' },
-        { header: 'Наименование', accessor: row => <span className="font-medium text-ink">{row.name}</span>, className: 'min-w-[180px]' },
+        { header: 'Наименование', accessor: row => <OrderMaterialLink materialId={materialIds[row.number - 1] ?? null}
+          name={row.name} amount={row.quantity} unit={row.unit} canOpenMaterial={canOpenMaterial} />, className: 'min-w-[180px]' },
         { header: 'Количество', accessor: row => <div>
           {quantity(row.quantity, row.unit)}
           {row.received_quantity > 0 && <p className="mt-0.5 text-xs text-muted">Принято {quantity(row.received_quantity)}</p>}

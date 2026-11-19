@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { lastPurchaseEntry, usePurchaseSelection, usePurchaseViewState } from './PurchaseViewState'
 import { purchaseJournalTab, visibleWorkflows } from '@/shared/workflows'
 import { useAuthStore } from '@/auth/store'
-import { Plus, PackageCheck, Archive, Pencil } from 'lucide-react'
+import { Plus, PackageCheck, Archive, Pencil, Trash2 } from 'lucide-react'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
@@ -17,7 +17,7 @@ import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 import { AutomaticReview } from './AutomaticReview'
 import { ReceiptEditor } from './ReceiptEditor'
 import { OrderFiles } from './OrderFiles'
-import { OrderPositions } from './OrderPositions'
+import { OrderMaterialLink, OrderPositions } from './OrderPositions'
 import { JournalAmount, JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
 
 type Item = {
@@ -29,6 +29,8 @@ type Item = {
   unit: string
   stock_tracked: boolean
 }
+type DraftItem = Item & { key: string }
+type EditorStatus = { dirty: boolean; busy: boolean }
 type Order = {
   has_receipts?: boolean
   id: number
@@ -169,6 +171,23 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const [editing, setEditing] = useState<{ row?: Order } | null>(null),
     [receiving, setReceiving] = useState<{ row?: Order } | null>(null),
     [paying, setPaying] = useState<Order | null>(null)
+  const editorStatus = useRef<EditorStatus>({ dirty: false, busy: false })
+  const editingPositions = !!editing?.row
+  const closeOrder = () => {
+    if (editingPositions && (editorStatus.current.busy ||
+        (editorStatus.current.dirty && !window.confirm('Закрыть заказ без сохранения изменений?')))) return false
+    if (editingPositions) setEditing(null)
+    setSelected(null)
+    receiptGeneration.current++
+    return true
+  }
+  const orderSaved = (order: Order) => {
+    setEditing(null)
+    setSelected(order)
+    setCardTab('positions')
+    setRevision(value => value + 1)
+    void loadReceipts(order.id)
+  }
   const accounting = useAccessLevel('accounting'),
     warehouse = useAccessLevel('warehouse')
   const canEdit = accessLevelAtLeast(accounting, 'edit'),
@@ -372,28 +391,28 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
         width="max-w-[88rem]"
         bodyClassName="min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5"
         open={!!selected}
-        onClose={() => { setSelected(null); receiptGeneration.current++ }}
+        onClose={closeOrder}
         title={selected ? 'Заказ № ' + selected.number : ''}
         subtitle={selected ? [selected.supplier_name, selected.organization_name].filter(Boolean).join(' · ') : undefined}
       >
         {selected && (
           <div className="space-y-5 text-sm">
             <div className="flex flex-wrap gap-2">
-              {canReceive && !selected.archived && selected.status !== 'received' && (
+              {!editingPositions && canReceive && !selected.archived && selected.status !== 'received' && (
                 <Button onClick={() => setReceiving({ row: selected })}>Принять материалы</Button>
               )}
-              {canEdit && !selected.archived && (
-                <Button variant="secondary" onClick={() => setEditing({ row: selected })}>
+              {!editingPositions && canEdit && !selected.archived && (
+                <Button variant="secondary" onClick={() => { setCardTab('positions'); setEditing({ row: selected }) }}>
                   <Pencil size={14} />
                   Изменить
                 </Button>
               )}
-              {canEdit && !selected.archived && selected.available_payment > 0 && (
+              {!editingPositions && canEdit && !selected.archived && selected.available_payment > 0 && (
                 <Button variant="secondary" onClick={() => setPaying(selected)}>
                   Оплата частями
                 </Button>
               )}
-              {canArchive && (
+              {!editingPositions && canArchive && (
                 <Button
                   variant="secondary"
                   onClick={async () => {
@@ -442,8 +461,14 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               </div>
             </div>
             <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.invoices?.length || 0) + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'files', label: 'Файлы' }, { key: 'control', label: 'Проверка закупки' }]} />
-            {cardTab === 'positions' && <>
-              <OrderPositions key={selected.id} orderId={selected.id} version={selected.version} currency={selected.currency} />
+            {editing?.row && <div hidden={cardTab !== 'positions'}>
+              <OrderEditor key={editing.row.id} row={editing.row} catalog={catalog}
+                editorStatus={editorStatus} onClose={() => setEditing(null)} onSaved={orderSaved} />
+            </div>}
+            {cardTab === 'positions' && !editingPositions && <>
+              <OrderPositions key={selected.id} orderId={selected.id} version={selected.version}
+                currency={selected.currency} materialIds={selected.items.map(item => item.warehouse_material_id)}
+                canOpenMaterial={accessLevelAtLeast(warehouse, 'view')} />
               {selected.comment && <p className="mt-4 whitespace-pre-wrap">{selected.comment}</p>}
             </>}
             {cardTab === 'files' && <OrderFiles key={selected.id} orderId={selected.id} canUpload={canEdit && !selected.archived} />}
@@ -451,7 +476,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
             {cardTab === 'documents' && <div className="space-y-3">
               <h3 className="font-medium">Приёмки по заказу</h3>
               {receiptLoading ? <p className="text-muted">Загрузка документов…</p> : orderReceipts.length ? orderReceipts.map(r => (
-                <button className="flex w-full flex-wrap justify-between gap-2 rounded-lg border border-border p-4 text-left hover:bg-surface-muted" key={r.id} onClick={() => { setSelected(null); setSelectedReceipt(r) }}>
+                <button className="flex w-full flex-wrap justify-between gap-2 rounded-lg border border-border p-4 text-left hover:bg-surface-muted" key={r.id} onClick={() => { if (closeOrder()) setSelectedReceipt(r) }}>
                   <span className="font-medium text-accent">Приёмка № {r.number}
                     {r.via_supplier_invoice && <span className="ml-2 text-xs font-normal text-muted">Через счёт поставщика</span>}
                   </span><span>{journalDate(r.occurred_at)}</span><span>{journalMoney(r.lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0), selected.currency)}</span>
@@ -460,6 +485,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               {!!linkedDocuments?.invoices?.length && <>
                 <h3 className="pt-3 font-medium">Счета поставщика</h3>
                 {linkedDocuments.invoices.map(invoice => <Link key={invoice.id} to={`/moysklad?type=invoicein&record=${invoice.id}`}
+                  onClick={event => { if (!closeOrder()) event.preventDefault() }}
                   className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted">
                   <span className="text-accent">Счёт № {invoice.number}</span>
                   {invoice.date && <span>{journalDate(invoice.date)}</span>}
@@ -468,7 +494,9 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               </>}
               {!!linkedDocuments?.returns.length && <>
                 <h3 className="pt-3 font-medium">Возвраты поставщику</h3>
-                {linkedDocuments.returns.map(r => <Link key={r.id} to={`/purchasing?tab=returns&return=${r.id}`} onClick={() => setSelected(null)} className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted"><span className="text-accent">Возврат № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{r.cancelled ? 'Отменён' : journalMoney(r.amount, r.currency)}</span></Link>)}
+                {linkedDocuments.returns.map(r => <Link key={r.id} to={`/purchasing?tab=returns&return=${r.id}`}
+                  onClick={event => { if (!closeOrder()) event.preventDefault() }}
+                  className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted"><span className="text-accent">Возврат № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{r.cancelled ? 'Отменён' : journalMoney(r.amount, r.currency)}</span></Link>)}
               </>}
               {!!linkedDocuments?.payments.length && <>
                 <h3 className="pt-3 font-medium">Платежи и заявки</h3>
@@ -477,7 +505,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
               {!!linkedDocuments?.opening_paid && <p className="rounded-lg bg-surface-muted p-3 text-muted">Перенесённая оплата: {journalMoney(linkedDocuments.opening_paid, selected.currency)}. Это начальный остаток, а не отдельный платёжный документ нашей системы.</p>}
 
             </div>}
-            <Link className="text-accent underline" to="/accounting">
+            <Link className="text-accent underline" to="/accounting" onClick={event => { if (!closeOrder()) event.preventDefault() }}>
               Открыть бухгалтерию
             </Link>
           </div>
@@ -533,16 +561,8 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           }}
         />
       )}
-      {editing && (
-        <OrderEditor
-          row={editing.row}
-          catalog={catalog}
-          onClose={() => setEditing(null)}
-          onSaved={async (id) => {
-            setEditing(null)
-            await reload(id)
-          }}
-        />
+      {editing && !editing.row && (
+        <OrderEditor catalog={catalog} onClose={() => setEditing(null)} onSaved={orderSaved} />
       )}
       {receiving && (
         <ReceiveEditor
@@ -617,28 +637,27 @@ function MaterialPicker({
 function OrderEditor({
   row,
   catalog,
+  editorStatus,
   onClose,
   onSaved,
 }: {
   row?: Order
   catalog: Catalog
+  editorStatus?: MutableRefObject<EditorStatus>
   onClose: () => void
-  onSaved: (id: number) => Promise<void>
+  onSaved: (order: Order) => void
 }) {
+  const canOpenMaterial = accessLevelAtLeast(useAccessLevel('warehouse'), 'view')
+  const newItem = (): DraftItem => ({
+    key: crypto.randomUUID(), material: '', quantity: 1, unit_price: 0,
+    received_quantity: 0, warehouse_material_id: null, unit: '', stock_tracked: true,
+  })
   const [supplier, setSupplier] = useState(String(row?.supplier_id || '')),
-    [items, setItems] = useState<Item[]>(
-      row?.items || [
-        {
-          material: '',
-          quantity: 1,
-          unit_price: 0,
-          received_quantity: 0,
-          warehouse_material_id: null,
-          unit: '',
-          stock_tracked: true,
-        },
-      ],
-    )
+    [items, setItems] = useState<DraftItem[]>(() => row
+      ? row.items.map(item => ({ ...item, key: crypto.randomUUID() }))
+      : [newItem()])
+  const [picking, setPicking] = useState<string | null>(() => row ? null : items[0].key)
+  const originalCount = row?.items.length ?? 0
   const [date, setDate] = useState(row?.expected_at || ''),
     [organization, setOrganization] = useState(String(row?.organization_id || '')),
     [number, setNumber] = useState(row?.number || ''),
@@ -646,51 +665,46 @@ function OrderEditor({
     [comment, setComment] = useState(row?.comment || ''),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false)
-  const patch = (index: number, data: Partial<Item>) =>
-    setItems((v) => v.map((item, i) => (i === index ? { ...item, ...data } : item)))
+  const lines = items.map(({ key, ...item }) => item)
+  const total = items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0)
+  const dirty = !!row && (JSON.stringify(lines) !== JSON.stringify(row.items) || reason !== '' ||
+    supplier !== String(row.supplier_id) || organization !== String(row.organization_id || '') ||
+    number !== row.number || date !== (row.expected_at || '') || comment !== (row.comment || ''))
+  useEffect(() => {
+    if (!editorStatus) return
+    editorStatus.current = { dirty, busy }
+    return () => { editorStatus.current = { dirty: false, busy: false } }
+  }, [editorStatus, dirty, busy])
+  const valid = !!supplier && (!!row || !!organization) && !!items.length &&
+    (!row || (!!number.trim() && !!reason.trim())) && items.every(item =>
+      item.material.trim() && Number.isFinite(item.quantity) && item.quantity > 0 &&
+      item.quantity >= (item.received_quantity || 0) && Number.isFinite(item.unit_price) && item.unit_price > 0)
+  const patch = (key: string, data: Partial<Item>) =>
+    setItems(current => current.map(item => item.key === key ? { ...item, ...data } : item))
   const save = async () => {
+    if (!valid || busy) return
     setBusy(true)
     setError('')
     try {
-      const body = { supplier_id: Number(supplier), organization_id: Number(organization) || undefined, items, expected_at: date || null, comment }
+      const body = { supplier_id: Number(supplier), organization_id: Number(organization) || undefined, items: lines, expected_at: date || null, comment }
       const result = await call<Order>(
         row ? `/orders/${row.id}?version=${row.version}` : '/orders',
         row ? 'PATCH' : 'POST',
         row ? { ...body, number, reason } : body,
       )
-      await onSaved(result.id)
+      onSaved(result)
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setBusy(false)
     }
   }
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={row ? 'Изменить заказ' : 'Заказ поставщику'}
-      width="max-w-3xl"
-      footer={
-        <>
-          {row && !reason.trim() && <p className="w-full self-center text-xs text-muted sm:mr-auto sm:w-auto">Для сохранения заполните причину изменения.</p>}
-          <Button variant="secondary" onClick={onClose}>
-            Отмена
-          </Button>
-          <Button disabled={busy || !supplier || (!row && !organization) || !items.length || (!!row && !reason.trim())} onClick={save}>
-            Сохранить заказ
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        {error && (
-          <p role="alert" className="text-danger">
-            {error}
-          </p>
-        )}
+  const footer = <>
+    <Button variant="secondary" disabled={busy} onClick={onClose}>Отмена</Button>
+    <Button disabled={busy || !valid} onClick={save}>{busy ? 'Сохраняем…' : 'Сохранить заказ'}</Button>
+  </>
+  const fields = <fieldset disabled={busy} className="grid min-w-0 gap-3 md:grid-cols-2">
         {row && <Field label="Номер заказа"><Input aria-label="Номер заказа" value={number} maxLength={255} onChange={e => setNumber(e.target.value)} /></Field>}
-        {row?.has_receipts && <p className="text-sm text-muted">По заказу есть приёмки. Можно уточнить количество до уже принятого, изменить плановую цену и добавить позиции. Фактическую поставку исправляйте в приёмке.</p>}
         <Field label="Организация">
           <Select aria-label="Организация" value={organization} required={!row}
             disabled={!!row && (!!row.source_id || !!row.has_receipts || row.paid > 0 || row.pending_payment > 0)}
@@ -718,108 +732,113 @@ function OrderEditor({
               ))}
           </Select>
         </Field>
-        {items.map((item, i) => (
-          <div key={i} className="space-y-2 rounded-md border border-border p-3">
-            <label className="flex gap-2 text-sm">
-              <input
-                type="checkbox"
-                disabled={!!row?.has_receipts && i < row.items.length}
-                checked={!item.stock_tracked}
-                onChange={(e) => patch(i, { stock_tracked: !e.target.checked, warehouse_material_id: null })}
-              />
-              Услуга без складского учёта
-            </label>
-            {row?.has_receipts && i < row.items.length ? <p className="font-medium">{item.material} · {item.unit} <span className="text-sm font-normal text-muted">Принято: {qty(item.received_quantity || 0)}</span></p> : item.stock_tracked ? (
-              <MaterialPicker
-                catalog={catalog}
-                value={item.warehouse_material_id}
-                onChange={(id) => {
-                  const m = catalog.materials.find((m) => m.id === id)
-                  patch(i, {
-                    warehouse_material_id: id,
-                    material: m?.title || '',
-                    unit: m?.unit || '',
-                    unit_price: m?.price || 0,
-                  })
-                }}
-              />
-            ) : (
-              <Input
-                aria-label="Название услуги"
-                value={item.material}
-                placeholder="Название услуги"
-                onChange={(e) => patch(i, { material: e.target.value })}
-              />
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Количество">
-                <Input
-                  aria-label="Количество заказа"
-                  type="number"
-                  min="0.000001"
-                  step="any"
-                  value={item.quantity}
-                  onChange={(e) => patch(i, { quantity: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Цена за единицу, ₽">
-                <Input
-                  aria-label="Цена заказа"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={item.unit_price}
-                  onChange={(e) => patch(i, { unit_price: Number(e.target.value) })}
-                />
-              </Field>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={items.length === 1 || (!!row?.has_receipts && i < row.items.length)}
-              onClick={() => setItems((v) => v.filter((_, n) => i !== n))}
-            >
-              Убрать позицию
-            </Button>
+      <Field label="Ожидаемая поставка">
+        <Input aria-label="Ожидаемая поставка" type="date" value={date} onChange={e => setDate(e.target.value)} />
+      </Field>
+      <div className="md:col-span-2"><Field label="Комментарий">
+        <Textarea value={comment} onChange={e => setComment(e.target.value)} />
+      </Field></div>
+    </fieldset>
+  const currency = row?.currency || 'RUB'
+  const table = <section className="space-y-3" aria-label="Редактирование позиций">
+    {row?.has_receipts && <p className="text-sm text-muted">
+      После приёмки состав исходных строк фиксируется. Можно уточнить количество и цену заказа или добавить товар.
+    </p>}
+    <DataTable rows={items.map((item, index) => ({ ...item, index }))} keyOf={item => item.key}
+      emptyLabel="Добавьте позицию в заказ."
+      columns={[
+        { header: '№', accessor: item => item.index + 1 },
+        { header: 'Наименование', className: 'min-w-[230px]', accessor: item => {
+          const locked = !!row?.has_receipts && item.index < originalCount
+          if (locked) return <div className="space-y-1">
+            <OrderMaterialLink materialId={item.warehouse_material_id} name={item.material}
+              amount={item.quantity} unit={item.unit} canOpenMaterial={canOpenMaterial} />
+            <p className="text-xs text-muted">Принято {qty(item.received_quantity || 0)} {item.unit}</p>
           </div>
-        ))}
-        <Button
-          variant="secondary"
-          onClick={() =>
-            setItems((v) => [
-              ...v,
-              {
-                material: '',
-                quantity: 1,
-                unit_price: 0,
-                received_quantity: 0,
-                warehouse_material_id: null,
-                unit: '',
-                stock_tracked: true,
-              },
-            ])
-          }
-        >
-          Добавить позицию
-        </Button>
-        <p className="font-medium">
-          Итого: {money(items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0))}
-        </p>
-        <Field label="Ожидаемая поставка">
-          <Input
-            aria-label="Ожидаемая поставка"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </Field>
-        <Field label="Комментарий">
-          <Textarea value={comment} onChange={(e) => setComment(e.target.value)} />
-        </Field>
-        {row && <Field label="Причина изменения" required><Textarea aria-label="Причина изменения заказа" maxLength={1000} value={reason} onChange={e => setReason(e.target.value)} /></Field>}
-      </div>
-    </Modal>
-  )
+          return <div className="space-y-2">
+            <button type="button" disabled={busy} aria-expanded={picking === item.key}
+              className="text-left font-medium text-brand-dark underline underline-offset-2 hover:text-brand"
+              onClick={() => setPicking(picking === item.key ? null : item.key)}>
+              {item.material || 'Выбрать товар'}
+            </button>
+            {picking === item.key && <>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input type="checkbox" checked={!item.stock_tracked} disabled={busy} onChange={e => patch(item.key, {
+                  stock_tracked: !e.target.checked, warehouse_material_id: null, material: '', unit: '', unit_price: 0,
+                })} />
+                Услуга без складского учёта
+              </label>
+              {item.stock_tracked ? <MaterialPicker catalog={catalog} value={item.warehouse_material_id} onChange={id => {
+                const material = catalog.materials.find(entry => entry.id === id)
+                patch(item.key, { warehouse_material_id: id, material: material?.title || '',
+                  unit: material?.unit || '', unit_price: material?.price || 0 })
+                if (material) setPicking(null)
+              }} /> : <Input aria-label="Название услуги" placeholder="Название услуги" value={item.material}
+                onChange={e => patch(item.key, { material: e.target.value })} />}
+            </>}
+          </div>
+        } },
+        { header: 'Количество', className: 'w-28', align: 'right', accessor: item => <div>
+          <OrderNumberCell label="Количество заказа" value={item.quantity} disabled={busy}
+            onChange={quantity => patch(item.key, { quantity })} />
+          {item.unit && <span className="text-xs text-muted">{item.unit}</span>}
+        </div> },
+        { header: 'Цена', className: 'w-32', align: 'right', accessor: item => <OrderNumberCell
+          label="Цена заказа" value={item.unit_price} disabled={busy} onChange={unit_price => patch(item.key, { unit_price })} /> },
+        { header: 'Сумма', className: 'w-36', align: 'right', accessor: item => <OrderNumberCell label="Сумма позиции"
+          value={Number((item.quantity * item.unit_price).toFixed(2))}
+          disabled={busy || !(item.quantity > 0)} onChange={sum => patch(item.key, { unit_price: sum / item.quantity })} /> },
+        { header: '', accessor: item => <Button type="button" variant="ghost" size="sm"
+          aria-label={'Удалить позицию ' + (item.index + 1)} title="Удалить позицию"
+          disabled={busy || (!!row?.has_receipts && item.index < originalCount)}
+          onClick={() => {
+            if (picking === item.key) setPicking(null)
+            setItems(current => current.filter(line => line.key !== item.key))
+          }}><Trash2 size={16} /></Button> },
+      ]}
+    />
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <Button variant="secondary" disabled={busy} onClick={() => {
+        const item = newItem()
+        setItems(current => [...current, item])
+        setPicking(item.key)
+      }}><Plus size={16} />Добавить позицию</Button>
+      <p className="font-medium tabular-nums">Итого: {Number.isFinite(total) ? journalMoney(total, currency) : '—'}</p>
+    </div>
+  </section>
+  const feedback = error && <p role="alert" className="rounded-lg bg-danger-bg p-3 text-danger">{error}</p>
+  if (!row) return <Modal open onClose={() => { if (!busy) onClose() }} title="Заказ поставщику" width="max-w-4xl" footer={footer}>
+    <div className="space-y-4">{feedback}{fields}{table}</div>
+  </Modal>
+  return <div className="space-y-4">
+    {feedback}
+    {table}
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer font-medium text-ink">Реквизиты заказа</summary>
+      <div className="pt-3">{fields}</div>
+    </details>
+    <Field label="Причина изменения" required><Input aria-label="Причина изменения заказа" maxLength={1000}
+      value={reason} onChange={e => setReason(e.target.value)} disabled={busy} /></Field>
+    <div className="flex justify-end gap-2">{footer}</div>
+  </div>
+}
+
+function OrderNumberCell({ label, value, disabled, onChange }: {
+  label: string
+  value: number
+  disabled: boolean
+  onChange: (value: number) => void
+}) {
+  const [input, setInput] = useState<string | null>(null)
+  return <Input aria-label={label} inputMode="decimal" disabled={disabled} className="min-w-[5.25rem] text-right tabular-nums"
+    value={input ?? (Number.isFinite(value) ? String(value) : '')}
+    onChange={e => {
+      const text = e.target.value
+      setInput(text)
+      const parsed = text.trim().replace(',', '.')
+      onChange(/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(parsed) ? Number(parsed) : NaN)
+    }}
+    onBlur={() => setInput(null)} />
 }
 
 function ReceiveEditor({

@@ -60,7 +60,8 @@ await page.route('**/api/**', async route => {
     case '/api/auth/me': body = actor; break
     case '/api/purchasing/catalog': body = {
       organizations: [{ id: 1, name: 'Технология' }, { id: 2, name: 'ИД Групп' }],
-      suppliers: [{ id: 1, name: 'Тестовый поставщик' }], materials: [], accounts: [],
+      suppliers: [{ id: 1, name: 'Тестовый поставщик' }],
+      materials: [{ id: 1, title: 'Брус', warehouse: 'Технология', unit: 'шт', price: 20 }], accounts: [],
     }; break
     case '/api/counterparties':
       body = { total: 62, can_create: actor.role === 'admin', items: [{ id: offset + 1, card: { name: 'Тестовый поставщик ' + sample.id, inn: '7707083893', kpp: '773601001' }, status: 'supplier', phone: '+7 900 101-00-01', comment: 'Доставка по вторникам', active: true, can_edit: true }] }
@@ -150,6 +151,7 @@ try {
   const organization = editor.getByRole('combobox', {name: 'Организация', exact: true})
   assert.deepEqual(await organization.getByRole('option').allTextContents(), ['Выберите организацию', 'Технология', 'ИД Групп'])
   await editor.getByRole('combobox', {name: 'Поставщик', exact: true}).selectOption('1')
+  await editor.getByLabel('Складской материал').selectOption('1')
   assert(await editor.getByRole('button', {name: 'Сохранить заказ', exact: true}).isDisabled())
   await organization.selectOption({label: 'ИД Групп'})
   assert(await editor.getByRole('button', {name: 'Сохранить заказ', exact: true}).isEnabled())
