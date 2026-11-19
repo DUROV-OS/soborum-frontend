@@ -33,6 +33,8 @@ type Order = {
   number: string
   supplier_id: number
   supplier_name: string
+  organization_id?: number | null
+  organization_name?: string | null
   items: Item[]
   total_cost: number
   opening_paid: number
@@ -40,6 +42,7 @@ type Order = {
   pending_payment: number
   available_payment: number
   unpaid: number
+  received_amount?: string
   invoice_totals?: { currency: string; amount: string }[]
   invoice_missing_currency?: boolean
   net_total?: number
@@ -75,12 +78,14 @@ type LinkedDocuments = {
 }
 type Material = { id: number; title: string; warehouse: string; unit: string; price: number }
 type Catalog = {
+  organizations?: { id: number; name: string }[]
   suppliers: { id: number; name: string; archived: boolean }[]
   materials: Material[]
   accounts: { id: number; name: string }[]
 }
 const money = (n: number) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
 const qty = (n: number) => Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 6 })
+const orderColumnsKey = 'durov.purchasing.columns.v2'
 const status: Record<string, string> = {
   ordered: 'Заказано',
   in_transit: 'Частично получено / в пути',
@@ -130,11 +135,16 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocuments | null>(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
   const receiptGeneration = useRef(0)
-  const columnNames = ['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Выставлено счетов', 'Приёмка', 'Ожидаемая поставка', 'Комментарий']
+  const columnNames = ['Дата', 'Контрагент', 'Организация', 'Сумма', 'Выставлено счетов', 'Оплачено', 'Принято', 'Ожидаемая поставка', 'Комментарий']
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('durov.purchasing.columns') || 'null')
-      if (Array.isArray(saved)) return saved.map(name => name === 'Не оплачено' ? 'Выставлено счетов' : name).filter(name => columnNames.includes(name))
+      const current = localStorage.getItem(orderColumnsKey)
+      const saved = JSON.parse(current ?? localStorage.getItem('durov.purchasing.columns') ?? 'null')
+      if (Array.isArray(saved)) {
+        const renamed: Record<string, string> = {'Поставщик': 'Контрагент', 'Не оплачено': 'Выставлено счетов', 'Приёмка': 'Принято'}
+        const columns = saved.map(name => renamed[name] ?? name).filter(name => columnNames.includes(name))
+        return current ? columns : [...new Set([...columns, 'Организация'])]
+      }
     } catch { /* Use defaults when browser storage is unavailable. */ }
     return columnNames.filter(v => v !== 'Комментарий')
   })
@@ -220,11 +230,11 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   }
   const open = (row: Order) => { setSelected(row); setCardTab('positions'); void loadReceipts(row.id) }
   const orderColumns: DataTableColumn<Order>[] = [
-    { header: 'Заказ', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
+    { header: '№', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
-    { header: 'Поставщик', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
+    { header: 'Контрагент', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
+    { header: 'Организация', accessor: r => r.organization_name || '—', className: 'whitespace-nowrap' },
     { header: 'Сумма', accessor: r => journalMoney(r.net_total ?? r.total_cost, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Выставлено счетов', accessor: r => (
       <div>
         {r.invoice_totals?.map(({ currency, amount }) => <div key={currency}>{journalMoney(Number(amount), currency)}</div>)}
@@ -232,7 +242,8 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
         {!r.invoice_totals?.length && !r.invoice_missing_currency && '—'}
       </div>
     ), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Приёмка', accessor: r => <span className={`inline-block rounded-full px-2 py-1 text-xs ${r.status === 'received' ? 'bg-success-bg text-success' : 'bg-surface-muted text-muted'}`}>{status[r.status] || r.status}</span>, className: 'min-w-[160px]' },
+    { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Принято', accessor: r => r.received_amount === undefined ? '—' : journalMoney(Number(r.received_amount), r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
     { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
   ]
@@ -275,7 +286,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-border bg-surface p-3 shadow-xl">
             {columnNames.map(name => <label className="flex gap-2 py-2" key={name}><input type="checkbox" checked={visibleColumns.includes(name)} onChange={e => {
               const next = e.target.checked ? [...visibleColumns, name] : visibleColumns.filter(v => v !== name)
-              setVisibleColumns(next); try { localStorage.setItem('durov.purchasing.columns', JSON.stringify(next)) } catch { /* Selection still applies to this session. */ }
+              setVisibleColumns(next); try { localStorage.setItem(orderColumnsKey, JSON.stringify(next)) } catch { /* Selection still applies to this session. */ }
             }} />{name}</label>)}
           </div>
         </details>
@@ -294,7 +305,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           keyOf={(r) => String(r.id)}
           onRowClick={open}
           loading={loading}
-          columns={orderColumns.filter(c => c.header === 'Заказ' || visibleColumns.includes(c.header))}
+          columns={orderColumns.filter(c => c.header === '№' || visibleColumns.includes(c.header))}
           emptyLabel="Заказы не найдены. Измените фильтр или создайте заказ поставщику."
         />
       ) : (
@@ -348,7 +359,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
         open={!!selected}
         onClose={() => { setSelected(null); receiptGeneration.current++ }}
         title={selected ? 'Заказ № ' + selected.number : ''}
-        subtitle={selected?.supplier_name}
+        subtitle={selected ? [selected.supplier_name, selected.organization_name].filter(Boolean).join(' · ') : undefined}
       >
         {selected && (
           <div className="space-y-5 text-sm">
@@ -616,6 +627,7 @@ function OrderEditor({
       ],
     )
   const [date, setDate] = useState(row?.expected_at || ''),
+    [organization, setOrganization] = useState(String(row?.organization_id || '')),
     [number, setNumber] = useState(row?.number || ''),
     [reason, setReason] = useState(''),
     [comment, setComment] = useState(row?.comment || ''),
@@ -627,7 +639,7 @@ function OrderEditor({
     setBusy(true)
     setError('')
     try {
-      const body = { supplier_id: Number(supplier), items, expected_at: date || null, comment }
+      const body = { supplier_id: Number(supplier), organization_id: Number(organization) || undefined, items, expected_at: date || null, comment }
       const result = await call<Order>(
         row ? `/orders/${row.id}?version=${row.version}` : '/orders',
         row ? 'PATCH' : 'POST',
@@ -652,7 +664,7 @@ function OrderEditor({
           <Button variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button disabled={busy || !supplier || !items.length || (!!row && !reason.trim())} onClick={save}>
+          <Button disabled={busy || !supplier || (!row && !organization) || !items.length || (!!row && !reason.trim())} onClick={save}>
             Сохранить заказ
           </Button>
         </>
@@ -666,6 +678,16 @@ function OrderEditor({
         )}
         {row && <Field label="Номер заказа"><Input aria-label="Номер заказа" value={number} maxLength={255} onChange={e => setNumber(e.target.value)} /></Field>}
         {row?.has_receipts && <p className="text-sm text-muted">По заказу есть приёмки. Можно уточнить количество до уже принятого, изменить плановую цену и добавить позиции. Фактическую поставку исправляйте в приёмке.</p>}
+        <Field label="Организация">
+          <Select aria-label="Организация" value={organization} required={!row}
+            disabled={!!row && (!!row.has_receipts || row.paid > 0 || row.pending_payment > 0)}
+            onChange={e => setOrganization(e.target.value)}>
+            <option value="">Выберите организацию</option>
+            {row?.organization_id && !catalog.organizations?.some(org => org.id === row.organization_id) &&
+              <option value={row.organization_id}>{row.organization_name}</option>}
+            {catalog.organizations?.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
+          </Select>
+        </Field>
         <Field label="Поставщик">
           <Select
             aria-label="Поставщик"

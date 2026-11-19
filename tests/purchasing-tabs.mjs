@@ -10,7 +10,7 @@ let actor = { id: 1, full_name: 'Бухгалтер проверки', role: 'ad
 page.on('pageerror', error => errors.push(error.message))
 await page.addInitScript(() => {
   localStorage.setItem('soborbum.auth.token', 'synthetic-purchases')
-  localStorage.setItem('durov.purchasing.columns', JSON.stringify(['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Не оплачено']))
+  localStorage.setItem('durov.purchasing.columns', JSON.stringify(['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Не оплачено', 'Приёмка']))
 })
 await page.route('**/api/**', async route => {
   const url = new URL(route.request().url())
@@ -18,12 +18,16 @@ await page.route('**/api/**', async route => {
   const sample = { id: offset + 1, number: String(offset + 1), occurred_at: '2026-11-19T07:00:00Z',
     created_at: '2026-11-19T07:00:00Z', supplier_id: 1, supplier_name: 'Тестовый поставщик', total_cost: 100,
     paid: 0, unpaid: 100, status: 'received', currency: 'RUB', amount: 100, refunded: 0, receipt_number: 'Р-01', lines: [],
-    invoice_totals: [{ currency: 'RUB', amount: '1234.50' }] }
+    invoice_totals: [{ currency: 'RUB', amount: '1234.50' }], received_amount: '76.15',
+    organization_id: 1, organization_name: 'Технология' }
   const titles = { invoicein: 'Счёт поставщику', facturein: 'Полученный счёт-фактура' }
   let body = []
   switch (url.pathname) {
     case '/api/auth/me': body = actor; break
-    case '/api/purchasing/catalog': body = { suppliers: [{ id: 1, name: 'Тестовый поставщик' }], materials: [], accounts: [] }; break
+    case '/api/purchasing/catalog': body = {
+      organizations: [{ id: 1, name: 'Технология' }, { id: 2, name: 'ИД Групп' }],
+      suppliers: [{ id: 1, name: 'Тестовый поставщик' }], materials: [], accounts: [],
+    }; break
     case '/api/counterparties':
       body = { total: 62, can_create: actor.role === 'admin', items: [{ id: offset + 1, card: { name: 'Тестовый поставщик ' + sample.id, inn: '7707083893', kpp: '773601001' }, status: 'supplier', phone: '+7 900 101-00-01', comment: 'Доставка по вторникам', active: true, can_edit: true }] }
       break
@@ -68,9 +72,20 @@ try {
 
   await link(1).click()
   await visible(1)
-  await table.getByRole('columnheader', { name: 'Выставлено счетов', exact: true }).waitFor()
-  assert.equal(await table.getByRole('columnheader', { name: 'Не оплачено', exact: true }).count(), 0)
+  assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
+    ['№', 'Дата', 'Контрагент', 'Организация', 'Сумма', 'Выставлено счетов', 'Оплачено', 'Принято'])
+  await table.getByRole('cell', { name: 'Технология', exact: true }).waitFor()
   await table.getByRole('cell', { name: /1\s*234,50/ }).waitFor()
+  await table.getByRole('cell', { name: /76,15/ }).waitFor()
+  await page.getByRole('button', {name: 'Заказ поставщику', exact: true}).click()
+  const editor = page.getByRole('dialog', {name: 'Заказ поставщику', exact: true})
+  const organization = editor.getByRole('combobox', {name: 'Организация', exact: true})
+  assert.deepEqual(await organization.getByRole('option').allTextContents(), ['Выберите организацию', 'Технология', 'ИД Групп'])
+  await editor.getByRole('combobox', {name: 'Поставщик', exact: true}).selectOption('1')
+  assert(await editor.getByRole('button', {name: 'Сохранить заказ', exact: true}).isDisabled())
+  await organization.selectOption({label: 'ИД Групп'})
+  assert(await editor.getByRole('button', {name: 'Сохранить заказ', exact: true}).isEnabled())
+  await editor.getByRole('button', {name: 'Отмена', exact: true}).click()
   await search('Поиск закупок').fill('заказ')
   await select('Порядок заказов').selectOption('number')
   await next()

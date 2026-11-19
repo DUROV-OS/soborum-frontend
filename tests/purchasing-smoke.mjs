@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL })
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const errors = []
 page.on('pageerror', (e) => errors.push(e.message))
@@ -57,6 +57,7 @@ await page.route('**/api/**', async (route) => {
   else if (path.includes('/unread')) body = { count: 0, unread_count: 0 }
   else if (path === '/api/purchasing/catalog')
     body = {
+      organizations: [{ id: 2, name: 'Технология' }, { id: 3, name: 'ИД Групп' }],
       suppliers: [{ id: 1, name: 'Тестовый поставщик', archived: false }],
       materials: [{ id: 1, title: 'Тестовый брус', warehouse: 'Склад Технология', unit: 'шт', price: 20 }],
       accounts: [{ id: 1, name: 'Тестовый счёт' }],
@@ -64,12 +65,15 @@ await page.route('**/api/**', async (route) => {
   else if (path === '/api/purchasing/orders' && req.method() === 'POST') {
     const b = req.postDataJSON()
     assert.equal(b.supplier_id, 1)
+    assert.equal(b.organization_id, 2)
     assert.equal(b.items[0].warehouse_material_id, 1)
     assert.equal(b.items[0].quantity, 10)
     created = true
+    order = { ...order, organization_id: 2, organization_name: 'Технология' }
     body = order
   } else if (path === '/api/purchasing/orders') body = { total: 1, items: [order] }
   else if (path === '/api/purchasing/orders/1') body = order
+  else if (path === '/api/purchasing/orders/1/documents') body = { receipts: [], payments: [], returns: [], opening_paid: 0 }
   else if (path === '/api/purchasing/receipts' && req.method() === 'POST') {
     const b = req.postDataJSON()
     assert.equal(b.lines[0].quantity, '3')
@@ -98,10 +102,11 @@ await page.route('**/api/**', async (route) => {
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 })
 try {
-  await page.goto('http://127.0.0.1:5173/purchasing')
-  await page.getByRole('heading', { name: 'Закупки и приёмки', exact: true }).waitFor()
+  await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173') + '/purchasing?tab=orders')
+  await page.getByRole('heading', { name: 'Заказы поставщикам', exact: true }).waitFor()
   await page.getByRole('button', { name: 'Заказ поставщику', exact: true }).click()
   const form = page.getByRole('dialog', { name: 'Заказ поставщику', exact: true })
+  await form.getByLabel('Организация', { exact: true }).selectOption({ label: 'Технология' })
   await form.getByLabel('Поставщик', { exact: true }).selectOption('1')
   await form.getByLabel('Складской материал').selectOption('1')
   await form.getByLabel('Количество заказа').fill('10')
@@ -120,7 +125,7 @@ try {
   await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByRole('heading', { name: 'Закупки и приёмки', exact: true }).waitFor()
+  await page.getByRole('heading', { name: 'Заказы поставщикам', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false)
   await mkdir('test-results', { recursive: true })
   await page.screenshot({ path: 'test-results/purchasing-mobile.png', fullPage: true })
