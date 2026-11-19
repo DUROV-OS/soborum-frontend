@@ -1,3 +1,4 @@
+import { usePurchaseSelection, usePurchaseViewState, type PurchaseTab } from '@/purchasing/PurchaseViewState'
 import { useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -239,6 +240,13 @@ function Value({ value, field = '', depth = 0 }: { value: unknown; field?: strin
 }
 
 export function MoyskladPage() {
+  const [params] = useSearchParams()
+  const type = params.get('type')
+  const purchaseTab = type === 'invoicein' ? 'supplier-invoices' : type === 'facturein' ? 'supplier-factures' : null
+  return <SourceRecords key={purchaseTab ?? 'general'} purchaseTab={purchaseTab} />
+}
+
+function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
   const [params, setParams] = useSearchParams(),
     location = useLocation()
   const context = workflowContext(location.pathname, location.search)
@@ -251,9 +259,13 @@ export function MoyskladPage() {
       else q.delete('type')
       return q
     })
-  const [query, setQuery] = useState('')
-  const [archive, setArchive] = useQueryChoice('archive', ['active', 'archived', 'all'], 'active')
-  const [offset, setOffset] = useState(0)
+  const [query, setQuery] = usePurchaseViewState(purchaseTab, 'search', '')
+  const [storedArchive, setStoredArchive] = usePurchaseViewState<'active' | 'archived' | 'all'>(purchaseTab, 'archive', 'active')
+  const [archive, setArchive] = useQueryChoice('archive', ['active', 'archived', 'all'], storedArchive)
+  const [offset, setOffset] = usePurchaseViewState(purchaseTab, 'offset', 0)
+  const [sort, setSort] = usePurchaseViewState(purchaseTab, 'sort', 'name')
+  const selection = usePurchaseSelection(purchaseTab)
+  useEffect(() => { setStoredArchive(archive) }, [archive, setStoredArchive])
   const [result, setResult] = useState<{ total: number; items: Row[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -267,9 +279,9 @@ export function MoyskladPage() {
     return () => { active = false }
   }, [params.get('record')])
   useEffect(() => {
-    setOffset(0)
+    if (!purchaseTab) setOffset(0)
     setDetail(null)
-  }, [type, archive])
+  }, [type, archive, purchaseTab, setOffset])
   useEffect(() => {
     apiRequest<Catalog>({ section: 'moysklad', path: '/catalog' })
       .then(setCatalog)
@@ -283,10 +295,15 @@ export function MoyskladPage() {
       apiRequest<{ total: number; items: Row[] }>({
         section: 'moysklad',
         path: '/records',
-        query: { query, entity_type: type || undefined, archive, offset },
+        query: { query, entity_type: type || undefined, archive, offset, sort: purchaseTab ? sort : undefined },
       })
         .then((r) => {
-          if (current) setResult(r)
+          if (!current) return
+          if (offset > 0 && offset >= r.total) {
+            setOffset(Math.max(0, Math.floor((r.total - 1) / 50) * 50))
+            return
+          }
+          setResult(r)
         })
         .catch((e) => {
           if (current) setError(e.message)
@@ -299,7 +316,7 @@ export function MoyskladPage() {
       current = false
       window.clearTimeout(timer)
     }
-  }, [type, query, archive, offset])
+  }, [type, query, archive, offset, sort, purchaseTab, setOffset])
   const open = (row: Row) => {
     setError('')
     apiRequest<Detail>({ section: 'moysklad', path: `/records/${row.id}` })
@@ -315,19 +332,20 @@ export function MoyskladPage() {
         <Database className="mt-1 text-brand" size={25} />
         <div>
           <h1 className="text-[22px] font-medium text-ink">
-            {type
+            {purchaseTab ? context?.entry.label : type
               ? catalog?.categories.find((c) => c.type === type)?.title ||
                 context?.entry.label ||
                 'Сохранённые документы'
               : 'Документы и справочники'}
           </h1>
           <p className="mt-1 text-[13px] text-muted">
-            Просмотр сохранённых данных на {date(catalog?.source_completed_at)}. Архивные записи сохранены в
-            архиве.
+            {purchaseTab
+              ? 'Сохранённые документы из МоегоСклада' + (catalog?.source_completed_at ? ' · ' + date(catalog.source_completed_at) : '')
+              : <>Просмотр сохранённых данных на {date(catalog?.source_completed_at)}. Архивные записи сохранены в архиве.</>}
           </p>
         </div>
       </div>
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {!purchaseTab && <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           ['Сохранено записей', total],
           ['В архиве', archived],
@@ -338,7 +356,7 @@ export function MoyskladPage() {
             <p className="mt-1 text-xl font-medium">{Number(n).toLocaleString('ru-RU')}</p>
           </div>
         ))}
-      </div>
+      </div>}
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="relative min-w-48 flex-1">
           <Search size={16} className="absolute left-3 top-3 text-muted" />
@@ -353,7 +371,7 @@ export function MoyskladPage() {
             }}
           />
         </div>
-        <Select
+        {!purchaseTab && <Select
           aria-label="Раздел МоегоСклада"
           value={type}
           onChange={(e) => {
@@ -371,7 +389,7 @@ export function MoyskladPage() {
               {c.title} · {c.count}
             </option>
           ))}
-        </Select>
+        </Select>}
         <Select
           aria-label="Архив"
           value={archive}
@@ -385,6 +403,12 @@ export function MoyskladPage() {
           <option value="archived">Архив</option>
           <option value="all">Все записи</option>
         </Select>
+        {purchaseTab && <Select aria-label="Порядок документов" className="sm:max-w-48" value={sort}
+          onChange={event => { setSort(event.target.value); setOffset(0) }}>
+          <option value="name">По названию</option>
+          <option value="newest">Сначала новые</option>
+          <option value="oldest">Сначала старые</option>
+        </Select>}
       </div>
       {catalog?.warnings.map((w, i) => (
         <p key={i} className="mb-3 rounded-lg border border-warning bg-warning-bg p-3 text-sm">
@@ -397,6 +421,7 @@ export function MoyskladPage() {
         </p>
       )}
       <DataTable<Row>
+        selection={purchaseTab ? selection : undefined}
         rows={result.items}
         keyOf={(r) => String(r.id)}
         loading={loading}
@@ -408,10 +433,11 @@ export function MoyskladPage() {
             accessor: (r) => (
               <div>
                 <p className="font-medium">{r.title}</p>
-                <p className="text-xs text-muted">
-                  {catalog?.categories.find((c) => c.type === r.type)?.title ?? r.type}
-                  {r.code ? ` · ${r.code}` : ''}
-                </p>
+                {purchaseTab
+                  ? r.code && <p className="text-xs text-muted">{r.code}</p>
+                  : <p className="text-xs text-muted">
+                    {catalog?.categories.find((c) => c.type === r.type)?.title ?? r.type}{r.code ? ` · ${r.code}` : ''}
+                  </p>}
               </div>
             ),
           },

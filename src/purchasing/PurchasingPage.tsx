@@ -1,7 +1,8 @@
-import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useQueryChoice } from '@/shared/lib/useQueryChoice'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { lastPurchaseEntry, usePurchaseSelection, usePurchaseViewState } from './PurchaseViewState'
+import { purchaseJournalTab, visibleWorkflows } from '@/shared/workflows'
+import { useAuthStore } from '@/auth/store'
 import { Plus, PackageCheck, Archive, Pencil } from 'lucide-react'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { useAccessLevel } from '@/app/AccessGate'
@@ -88,21 +89,40 @@ const call = <T,>(path: string, method: 'GET' | 'POST' | 'PATCH' = 'GET', body?:
   apiRequest<T>({ section: 'purchasing', path, method, body })
 
 export function PurchasingPage() {
+  const [params] = useSearchParams()
+  const hasAccess = useAuthStore(state => state.hasAccess)
+  const userId = useAuthStore(state => state.current?.id)
+  const tab = purchaseJournalTab(params)
+  if (!params.size) {
+    const entries = visibleWorkflows(hasAccess).find(group => group.id === 'purchasing')?.entries ?? []
+    const destination = lastPurchaseEntry(entries, userId)
+    if (destination) return <Navigate to={destination.to} replace />
+  }
+  const title = tab === 'orders' ? 'Заказы поставщикам' : tab === 'receipts' ? 'Приёмки' : 'Возвраты поставщикам'
+  return <PurchasingJournal key={tab} tab={tab} title={title} />
+}
+
+function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'returns'; title: string }) {
+  const [params, setParams] = useSearchParams()
+  const orderId = params.get('order')
+  const receiptId = params.get('receipt')
+  const createReceipt = params.get('receive') === '1'
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('receive') === '1') setReceiving({})
-    const id = new URLSearchParams(window.location.search).get('order')
-    if (id && /^\d+$/.test(id))
-      call<Order>(`/orders/${id}`)
-        .then(open)
-        .catch((e) => setError(e.message))
-    const receiptId = new URLSearchParams(window.location.search).get('receipt')
-    if (receiptId && /^\d+$/.test(receiptId)) call<Receipt>(`/receipts/${receiptId}`).then(setSelectedReceipt).catch(e => setError(e.message))
-  }, [])
+    let active = true
+    if (createReceipt) setReceiving({})
+    if (orderId && /^\d+$/.test(orderId))
+      call<Order>(`/orders/${orderId}`).then(row => { if (active) open(row) })
+        .catch(error => { if (active) setError(error.message) })
+    if (receiptId && /^\d+$/.test(receiptId))
+      call<Receipt>(`/receipts/${receiptId}`).then(row => { if (active) setSelectedReceipt(row) })
+        .catch(error => { if (active) setError(error.message) })
+    return () => { active = false }
+  }, [createReceipt, orderId, receiptId])
+  const scope = tab === 'orders' ? 'supplier-orders' : 'receipts'
+  const selection = usePurchaseSelection(tab === 'returns' ? null : scope)
   const [catalog, setCatalog] = useState<Catalog>({ suppliers: [], materials: [], accounts: [] })
-  const [tab, setTab] = useQueryChoice('tab', ['orders', 'receipts', 'returns'], 'orders', (q) =>
-    q.has('return') ? 'returns' : 'orders',
-  )
-  const [filters, setFilters] = useState(emptyFilters)
+  const [filters, setFilters] = usePurchaseViewState(scope, 'filters', emptyFilters)
+  const [filtersOpen, setFiltersOpen] = usePurchaseViewState(scope, 'filters-open', false)
   const [cardTab, setCardTab] = useState('positions')
   const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocuments | null>(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
@@ -112,9 +132,9 @@ export function PurchasingPage() {
     try { const saved = JSON.parse(localStorage.getItem('durov.purchasing.columns') || 'null'); if (Array.isArray(saved)) return saved.filter(v => columnNames.includes(v)) } catch { /* Use defaults when browser storage is unavailable. */ }
     return columnNames.filter(v => v !== 'Комментарий')
   })
-  const [archive, setArchive] = useState('active'),
-    [query, setQuery] = useState(''),
-    [offset, setOffset] = useState(0)
+  const [archive, setArchive] = usePurchaseViewState(scope, 'archive', 'active'),
+    [query, setQuery] = usePurchaseViewState(scope, 'search', ''),
+    [offset, setOffset] = usePurchaseViewState(scope, 'offset', 0)
   const [orders, setOrders] = useState<{ total: number; items: Order[]; summary?: JournalSummary[] }>({ total: 0, items: [] }),
     [receipts, setReceipts] = useState<{ total: number; items: Receipt[] }>({ total: 0, items: [] })
   const [selected, setSelected] = useState<Order | null>(null),
@@ -125,11 +145,6 @@ export function PurchasingPage() {
     [loading, setLoading] = useState(true)
   const [returningReceiptId, setReturningReceiptId] = useState<number | null>(null)
   const [editingReceiptId, setEditingReceiptId] = useState<number | null>(null)
-  useEffect(() => {
-    setOffset(0)
-    setSelected(null)
-    setSelectedReceipt(null)
-  }, [tab])
   const [editing, setEditing] = useState<{ row?: Order } | null>(null),
     [receiving, setReceiving] = useState<{ row?: Order } | null>(null),
     [paying, setPaying] = useState<Order | null>(null)
@@ -153,7 +168,7 @@ export function PurchasingPage() {
     setError('')
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ query, offset: String(offset) })
-      Object.entries(filters).forEach(([key, value]) => { if (value && (tab === 'orders' || !['payment', 'delivery', 'sort'].includes(key))) params.set(key, value) })
+      Object.entries(filters).forEach(([key, value]) => { if (value && (tab === 'orders' || !['payment', 'delivery'].includes(key))) params.set(key, value) })
       const request =
         tab === 'orders'
           ? call<typeof orders>(
@@ -163,6 +178,10 @@ export function PurchasingPage() {
       request
         .then((r) => {
           if (current) {
+            if (offset > 0 && offset >= r.total) {
+              setOffset(Math.max(0, Math.floor((r.total - 1) / 50) * 50))
+              return
+            }
             if (tab === 'orders') setOrders(r as typeof orders)
             else setReceipts(r as typeof receipts)
           }
@@ -178,7 +197,7 @@ export function PurchasingPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [tab, archive, query, offset, revision, filters])
+  }, [tab, archive, query, offset, revision, filters, setOffset])
   const loadReceipts = async (id: number) => {
     const generation = ++receiptGeneration.current
     setOrderReceipts([]); setLinkedDocuments(null); setReceiptLoading(true)
@@ -210,7 +229,7 @@ export function PurchasingPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-medium text-ink">Закупки</h1>
+          <h1 className="text-[22px] font-medium text-ink">{title}</h1>
           <p className="mt-1 text-sm text-muted">Заказы поставщикам, частичные поставки, остатки и оплата.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -236,19 +255,7 @@ export function PurchasingPage() {
           </button>
         </div>
       )}
-      <ModuleNavigation label="Разделы закупок"><Tabs
-        activeKey={tab}
-        onChange={(v) => {
-          setTab(v)
-          setOffset(0)
-        }}
-        tabs={[
-          { key: 'orders', label: 'Заказы поставщикам' },
-          { key: 'receipts', label: 'Приёмки' },
-          { key: 'returns', label: 'Возвраты поставщикам' },
-        ]}
-      /></ModuleNavigation>
-      {tab !== 'returns' && <JournalControls query={query} onQuery={v => { setQuery(v); setOffset(0) }} filters={filters}
+      {tab !== 'returns' && <JournalControls expanded={filtersOpen} onExpanded={setFiltersOpen} query={query} onQuery={v => { setQuery(v); setOffset(0) }} filters={filters}
         onFilters={v => { setFilters(v); setOffset(0) }} archive={archive} onArchive={v => { setArchive(v); setOffset(0) }} suppliers={catalog.suppliers} receipts={tab === 'receipts'} />}
       {tab === 'orders' && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-muted">Найдено заказов: {loading ? '…' : orders.total}</span>
@@ -270,6 +277,7 @@ export function PurchasingPage() {
         />
       ) : tab === 'orders' ? (
         <DataTable
+          selection={selection}
           rows={orders.items}
           keyOf={(r) => String(r.id)}
           onRowClick={open}
@@ -279,6 +287,7 @@ export function PurchasingPage() {
         />
       ) : (
         <DataTable
+          selection={selection}
           rows={receipts.items}
           keyOf={(r) => String(r.id)}
           onRowClick={setSelectedReceipt}
@@ -475,8 +484,7 @@ export function PurchasingPage() {
           onSaved={() => {
             setReturningReceiptId(null)
             setSelectedReceipt(null)
-            setTab('returns')
-            setRevision((v) => v + 1)
+            setParams({ tab: 'returns' })
           }}
         />
       )}

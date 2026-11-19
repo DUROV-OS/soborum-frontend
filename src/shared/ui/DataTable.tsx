@@ -10,6 +10,23 @@ export interface DataTableColumn<T> {
   sortValue?: (row: T) => string | number | Date
 }
 
+export interface RowSelection {
+  keys: string[]
+  toggle: (key: string) => void
+}
+
+export function RowSelectionCheckbox({ label, rowKey, selection }: {
+  label: string
+  rowKey: string
+  selection: RowSelection
+}) {
+  return <label className="inline-flex min-h-8 min-w-8 shrink-0 cursor-pointer items-center justify-center"
+    onClick={event => event.stopPropagation()}>
+    <input type="checkbox" aria-label={'Выделить строку ' + label}
+      checked={selection.keys.includes(rowKey)} onChange={() => selection.toggle(rowKey)} />
+  </label>
+}
+
 type SortDirection = 'asc' | 'desc'
 
 function compareSortValues(a: string | number | Date, b: string | number | Date): number {
@@ -26,6 +43,7 @@ export function DataTable<T>({
   loading = false,
   emptyLabel = 'Нет данных',
   loadingLabel = 'Загрузка…',
+  selection,
 }: {
   columns: DataTableColumn<T>[]
   rows: T[]
@@ -34,6 +52,7 @@ export function DataTable<T>({
   loading?: boolean
   emptyLabel?: string
   loadingLabel?: string
+  selection?: RowSelection
 }) {
   const [sort, setSort] = useState<{ header: string; direction: SortDirection } | null>(null)
   const [openHeader, setOpenHeader] = useState<string | null>(null)
@@ -141,14 +160,17 @@ export function DataTable<T>({
             <tr
               key={keyOf(row)}
               onClick={() => onRowClick?.(row)}
-              className={`border-b border-border last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-surface-muted/60' : ''}`}
+              className={`border-b border-border last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-surface-muted/60' : ''} ${selection?.keys.includes(keyOf(row)) ? 'bg-brand/5' : ''}`}
             >
-              {columns.map((col) => (
+              {columns.map((col, index) => (
                 <td
                   key={col.header}
                   className={`px-4 py-2.5 ${col.align === 'right' ? 'text-right' : 'text-left'} ${col.className ?? ''}`}
                 >
-                  {col.accessor(row)}
+                  {selection && index === 0 ? <div className="flex items-center gap-1">
+                    <RowSelectionCheckbox label={keyOf(row)} rowKey={keyOf(row)} selection={selection} />
+                    <div>{col.accessor(row)}</div>
+                  </div> : col.accessor(row)}
                 </td>
               ))}
             </tr>

@@ -1,3 +1,4 @@
+import { PurchaseViewProvider } from '@/purchasing/PurchaseViewState'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { NotificationToasts } from '@/notifications/components/NotificationToasts'
@@ -16,6 +17,8 @@ import { SectionNavigationHost, SectionNavigationProvider } from './SectionNavig
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
+  const userId = useAuthStore(state => state.current?.id)
   const location = useLocation()
   const mobile = useMobileNavigation()
   const contentRef = useRef<HTMLDivElement>(null)
@@ -38,7 +41,7 @@ export function AppShell() {
 
   return (
     <BrowserPhoneProvider><SectionNavigationProvider><div className="workspace-shell flex h-dvh w-full">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} desktopCollapsed={desktopCollapsed} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-ink/40 lg:hidden"
@@ -47,11 +50,12 @@ export function AppShell() {
         />
       )}
       <div ref={contentRef} className="flex min-w-0 flex-1 flex-col">
-        <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)}
+          desktopCollapsed={desktopCollapsed} toggleDesktopMenu={() => setDesktopCollapsed(value => !value)} />
         <SectionNavigationHost />
         <main ref={mainRef} id="main-content" className="workspace-content mobile-safe-content flex-1 overflow-y-auto">
           <CalendarReminders />
-          <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><Outlet /></RouteBoundary></div>
+          <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><PurchaseViewProvider key={userId}><Outlet /></PurchaseViewProvider></RouteBoundary></div>
         </main>
       </div>
       {!salesManager && <MeetingPanel />}

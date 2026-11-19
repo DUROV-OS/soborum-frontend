@@ -1,5 +1,6 @@
+import { usePurchaseSelection, usePurchaseViewState } from './PurchaseViewState'
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { apiRequest } from '@/shared/lib/httpClient'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input, Select } from '@/shared/ui/Field'
@@ -80,8 +81,11 @@ export function PurchaseReturnsPanel({
   canArchive: boolean
   canCancel: boolean
 }) {
-  const [archive, setArchive] = useState('active'),
-    [page, setPage] = useState(0),
+  const [params] = useSearchParams()
+  const selection = usePurchaseSelection('supplier-returns')
+  const [sort, setSort] = usePurchaseViewState('supplier-returns', 'sort', 'newest')
+  const [archive, setArchive] = usePurchaseViewState('supplier-returns', 'archive', 'active'),
+    [page, setPage] = usePurchaseViewState('supplier-returns', 'page', 0),
     [revision, setRevision] = useState(0)
   const [data, setData] = useState<{ total: number; items: Return[] }>({ total: 0, items: [] })
   const [loading, setLoading] = useState(true),
@@ -94,9 +98,14 @@ export function PurchaseReturnsPanel({
     let current = true
     setLoading(true)
     setError('')
-    call<typeof data>(`/returns?archive=${archive}&offset=${page * 50}`)
+    call<typeof data>(`/returns?archive=${archive}&offset=${page * 50}&sort=${sort}`)
       .then((d) => {
-        if (current) setData(d)
+        if (!current) return
+        if (page > 0 && page * 50 >= d.total) {
+          setPage(Math.max(0, Math.floor((d.total - 1) / 50)))
+          return
+        }
+        setData(d)
       })
       .catch((e) => {
         if (current) setError(errorText(e))
@@ -107,14 +116,16 @@ export function PurchaseReturnsPanel({
     return () => {
       current = false
     }
-  }, [archive, page, revision])
+  }, [archive, page, sort, revision, setPage])
+  const returnId = params.get('return')
   useEffect(() => {
-    const id = new URLSearchParams(location.search).get('return')
-    if (id && /^\d+$/.test(id))
-      call<Return>('/returns/' + id)
-        .then(setSelected)
-        .catch((e) => setError(errorText(e)))
-  }, [])
+    if (!returnId || !/^\d+$/.test(returnId)) return
+    let active = true
+    call<Return>('/returns/' + returnId)
+      .then(row => { if (active) setSelected(row) })
+      .catch(error => { if (active) setError(errorText(error)) })
+    return () => { active = false }
+  }, [returnId])
   async function refresh(id?: number) {
     setRevision((v) => v + 1)
     if (id) setSelected(await call<Return>('/returns/' + id))
@@ -157,6 +168,12 @@ export function PurchaseReturnsPanel({
           <option value="archived">Архив</option>
           <option value="all">Все</option>
         </Select>
+        <Select aria-label="Порядок возвратов" value={sort} className="w-full sm:w-48"
+          onChange={event => { setSort(event.target.value); setPage(0) }}>
+          <option value="newest">Сначала новые</option>
+          <option value="oldest">Сначала старые</option>
+          <option value="number">По номеру</option>
+        </Select>
         <Button variant="secondary" onClick={() => void refresh(selected?.id)}>
           Обновить возвраты
         </Button>
@@ -167,6 +184,7 @@ export function PurchaseReturnsPanel({
         </p>
       )}
       <DataTable
+        selection={selection}
         rows={data.items}
         keyOf={(r) => String(r.id)}
         onRowClick={setSelected}

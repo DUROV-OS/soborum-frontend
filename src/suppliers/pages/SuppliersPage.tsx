@@ -1,3 +1,4 @@
+import { usePurchaseSelection, usePurchaseViewState } from '@/purchasing/PurchaseViewState'
 import { useEffect, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
@@ -12,11 +13,13 @@ import { useSuppliersStore } from '../store'
 
 type Batch = {id:number;preview?:Preview;error?:unknown}
 export function SuppliersPage() {
-  const [params,setParams]=useSearchParams(),[offset,setOffset]=useState(0),[revision,setRevision]=useState(0)
+  const [params,setParams]=useSearchParams(),[offset,setOffset]=usePurchaseViewState('suppliers','offset',0),[revision,setRevision]=useState(0)
   const { pathname } = useLocation()
-  const [filters, setFilters] = useState<TextFilters>(emptyFilters)
-  const [statuses, setStatuses] = useState<RegistryStatus[]>([])
-  const [sort, setSort] = useState<Sort>(defaultSort)
+  const [filters, setFilters] = usePurchaseViewState<TextFilters>('suppliers', 'filters', emptyFilters)
+  const [statuses, setStatuses] = usePurchaseViewState<RegistryStatus[]>('suppliers', 'statuses', [])
+  const [sort, setSort] = usePurchaseViewState<Sort>('suppliers', 'sort', defaultSort)
+  const selection = usePurchaseSelection('suppliers')
+  const [filtersOpen, setFiltersOpen] = usePurchaseViewState('suppliers', 'filters-open', false)
   const [edit, setEdit] = useState<RegistryEdit | null>(null)
   const [data,setData]=useState<{items:Row[];total:number;can_create:boolean}>({items:[],total:0,can_create:false})
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[creating,setCreating]=useState(false),[profile,setProfile]=useState<number|null>(null)
@@ -62,12 +65,12 @@ export function SuppliersPage() {
   }
   return <div className="space-y-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-semibold text-ink">Контрагенты</h1><p className="mt-1 text-sm text-muted">Реквизиты, контакты, документы и история изменений.</p></div>{data.can_create&&<Button onClick={()=>setCreating(true)}><Plus size={16}/>Добавить</Button>}</div>
     <div className="flex flex-wrap gap-3"><Button variant="ghost" disabled={loading||busy} onClick={()=>setRevision(v=>v+1)}>Обновить список</Button>{data.can_create&&<Button variant="secondary" disabled={busy||loading||!data.items.length} onClick={()=>void previewBatch()}>Заполнить пустые поля на этой странице</Button>}</div>
-    <RegistryFilters values={filters} selected={statuses}
+    <RegistryFilters open={filtersOpen} onOpen={setFiltersOpen} values={filters} selected={statuses}
       onText={(key, value) => { setFilters(previous => ({ ...previous, [key]: value })); setOffset(0) }}
       onStatus={status => { setStatuses(previous => previous.includes(status) ? previous.filter(value => value !== status) : [...previous, status]); setOffset(0) }}
       onReset={() => { setFilters(emptyFilters); setStatuses([]); setOffset(0) }} />
     {error&&<p role="alert" className="text-sm text-danger">{error}</p>}{report&&<p role="status" className="text-sm">{report}</p>}
-    {!error && <RegistryTable rows={data.items} loading={loading || busy} sort={sort} onSort={sortBy} cardUrl={cardUrl}
+    {!error && <RegistryTable selection={selection} rows={data.items} loading={loading || busy} sort={sort} onSort={sortBy} cardUrl={cardUrl}
       onComment={row => setEdit({ row })} onStatus={(row, status) => setEdit({ row, status })} />}
     {edit && <RegistryEditor edit={edit} close={() => setEdit(null)} saved={() => {
       setEdit(null)

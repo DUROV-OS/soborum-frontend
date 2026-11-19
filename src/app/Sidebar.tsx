@@ -1,3 +1,4 @@
+import { lastPurchaseEntry } from '@/purchasing/PurchaseViewState'
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus'
 import { useMobileNavigation } from './useMobileNavigation'
 import { BitrixIcon } from '@/shared/ui/BitrixIcon'
@@ -28,7 +29,7 @@ const MENU: SectionId[] = [
   'admin',
 ]
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; desktopCollapsed: boolean; onClose: () => void }) {
   const mobile = useMobileNavigation()
   const navigationRef = useDialogFocus(mobile && open, onClose)
   useEffect(() => {
@@ -98,6 +99,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       {groups.map((group) => {
         const Icon = group.icon,
           opened = expanded.includes(group.id)
+        if (group.id === 'purchasing') {
+          const target = lastPurchaseEntry(group.entries, current?.id)
+          const active = context?.group.id === group.id
+          return <li key="workflow-purchasing">
+            <Link to={active ? context.entry.to : target.to} aria-current={active ? 'page' : undefined} onClick={onClose}
+              className={'flex min-h-11 items-center gap-3 rounded-xl px-4 py-2.5 text-sm ' +
+                (active ? 'bg-sidebar-accent text-white' : 'text-white/75 hover:text-white')}>
+              <Icon size={19} /><span>{group.label}</span>
+            </Link>
+          </li>
+        }
         return (
           <li key={'workflow-' + group.id}>
             <button
@@ -162,7 +174,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       aria-hidden={mobile && !open ? true : undefined}
       tabIndex={-1}
       aria-label="Главное меню"
-      className={`workspace-sidebar mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 motion-reduce:transition-none lg:static lg:z-auto lg:translate-x-0 ${open ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}
+      className={`workspace-sidebar mobile-safe-sidebar fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col bg-sidebar text-white transition-transform duration-200 motion-reduce:transition-none lg:static lg:z-auto lg:translate-x-0 ${desktopCollapsed ? 'lg:!hidden' : ''} ${open ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible'}`}
     >
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-white/10 px-5">
         <NavLink to={salesManager && current ? salesHome(current) : '/today'} onClick={onClose} className="flex items-center gap-2 text-[20px] font-semibold tracking-tight">

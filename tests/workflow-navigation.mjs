@@ -73,8 +73,10 @@ try {
     sidebar = page.getByRole('complementary', { name: 'Главное меню' })
   for (const name of ['Продажи', 'Закупки', 'Склад', 'Производство', 'Бухгалтерия'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
-  await sidebar.getByRole('button', { name: 'Закупки', exact: true }).click()
-  await sidebar.locator('#workflow-purchasing').getByRole('link', { name: 'Контрагенты', exact: true }).waitFor()
+  const purchases = page.getByRole('navigation', { name: 'Разделы закупок' })
+  await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
+  await purchases.getByRole('link', { name: 'Контрагенты', exact: true }).waitFor()
+  await sidebar.getByRole('link', { name: 'Разделы', exact: true }).click()
   assert.equal(await sidebar.locator('#workflow-crm').getByRole('link', { name: 'Контрагенты', exact: true }).count(), 0)
   await main.getByRole('link', { name: /Заказы покупателей/ }).click()
   await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).waitFor()
@@ -94,17 +96,12 @@ try {
     await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).getAttribute('aria-selected'),
     'true',
   )
-  await sidebar.getByRole('button', { name: 'Закупки', exact: true }).click()
-  await sidebar.getByRole('link', { name: 'Приёмки', exact: true }).click()
-  assert.equal(
-    await page.getByRole('tab', { name: 'Приёмки', exact: true }).getAttribute('aria-selected'),
-    'true',
-  )
-  await sidebar.getByRole('link', { name: 'Возвраты поставщикам', exact: true }).click()
-  assert.equal(
-    await page.getByRole('tab', { name: 'Возвраты поставщикам', exact: true }).getAttribute('aria-selected'),
-    'true',
-  )
+  await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
+  for (const name of ['Приёмки', 'Возвраты поставщикам']) {
+    const link = purchases.getByRole('link', { name, exact: true })
+    await link.click()
+    assert.equal(await link.getAttribute('aria-current'), 'page')
+  }
   await sidebar.getByRole('button', { name: 'Склад', exact: true }).click()
   await sidebar.locator('#workflow-warehouse').getByRole('button', { name: /Все разделы/ }).click()
   await sidebar.getByRole('link', { name: 'Перемещения', exact: true }).click()
