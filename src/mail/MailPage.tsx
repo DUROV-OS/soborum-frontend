@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ExternalLink, Folder, Mail, Paperclip, RefreshCw, Search } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
@@ -114,10 +115,10 @@ export function MailPage() {
     {status?.can_access && !status.configured && <section className="rounded-xl border border-border bg-surface p-5"><h2 className="font-semibold">Почтовый ящик ещё не подключён</h2><p className="mt-2 text-sm text-muted">Для отображения писем нужно настроить доступ NIC.RU на сервере. Пароль ящика не передаётся в браузер.</p></section>}
     {loading && !folder && <p role="status">Загрузка почты…</p>}
     {status?.can_access && status.configured && !loading && !error && !folders.length && <p className="text-muted">Почтовый сервис не вернул доступных папок.</p>}
-    {!!folders.length && <div className="grid min-w-0 gap-3 xl:grid-cols-[180px_minmax(260px,340px)_minmax(0,1fr)]">
-      <nav aria-label="Почтовые папки" className={`${showing ? 'hidden xl:flex' : 'flex'} gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-2 xl:flex-col xl:self-start`}>
+    {!!folders.length && <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
+      <ModuleNavigation label="Разделы почты"><nav aria-label="Почтовые папки" className="flex gap-1 overflow-x-auto border-b border-border pb-2">
         {folders.map(f => <button key={f.id} disabled={mutating} aria-current={folder === f.id ? 'page' : undefined} onClick={() => { setFolder(f.id); setQuery(''); setSearch('') }} className={`flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-left text-sm ${f.id === folder ? 'bg-brand/10 text-brand-dark' : 'hover:bg-surface-muted'}`}><Folder size={15}/><span className="flex-1">{f.name}</span>{f.unread !== null && f.unread > 0 && <span className="rounded-pill bg-brand px-2 text-xs text-white">{f.unread}</span>}</button>)}
-      </nav>
+      </nav></ModuleNavigation>
       <section aria-label="Список писем" className={`${showing ? 'hidden xl:block' : ''} min-w-0 rounded-xl border border-border bg-surface p-3`}>
         <form className="mb-3 flex gap-2" onSubmit={e => { e.preventDefault(); setSearch(query.trim()) }}><Input aria-label="Поиск писем" placeholder="Поиск писем" maxLength={200} value={query} onChange={e => setQuery(e.target.value)}/><Button variant="secondary" type="submit" aria-label="Найти письма"><Search size={16}/></Button></form>
         {loading && !list && <p role="status" className="p-3 text-sm text-muted">Загрузка писем…</p>}

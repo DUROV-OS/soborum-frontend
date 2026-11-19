@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FileText, Plus } from 'lucide-react'
@@ -320,7 +321,7 @@ export function TasksPage() {
 
       {(canSeeAll || isAdmin) && (
         <div className="mb-4">
-          <Tabs
+          <ModuleNavigation label="Разделы задач"><Tabs
             tabs={[
               { key: 'mine' as SubTab, label: 'Мои задачи' },
               ...(canSeeAll ? [{ key: 'all' as SubTab, label: 'Все задачи' }] : []),
@@ -328,7 +329,7 @@ export function TasksPage() {
             ]}
             activeKey={subTab}
             onChange={changeTab}
-          />
+          /></ModuleNavigation>
         </div>
       )}
 

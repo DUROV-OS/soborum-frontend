@@ -1,18 +1,22 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
-import { isCollaborationRoute, visibleCollaborationTools } from '@/collaboration/catalog'
-
-const links = [
-  ['/work', 'Разделы'], ['/today', 'Пульс'], ['/collaboration', 'Совместная работа'],
-  ['/calendar', 'Календарь'], ['/marketing', 'Маркетинг'],
-] as const
+import { useCollaborationTools } from '@/collaboration/useCollaborationTools'
+import { calendarSections, calendarSection } from '@/collaboration/calendarSections'
+import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 
 export function PrimaryNavigation() {
   const hasAccess = useAuthStore(s => s.hasAccess)
-  const { pathname } = useLocation()
-  const collaborationActive = pathname !== '/calendar' && isCollaborationRoute(pathname, visibleCollaborationTools(hasAccess))
-  return <nav aria-label="Основные разделы" className="collaboration-tabs shrink-0 px-4 pt-2 sm:px-6">
-    {links.filter(([to]) => to !== '/marketing' || hasAccess('marketing')).map(([to, label]) =>
-      <Link key={to} to={to} aria-current={(to === '/collaboration' ? collaborationActive : pathname === to || pathname.startsWith(to + '/')) ? 'page' : undefined}>{label}</Link>)}
+  const { pathname, search } = useLocation()
+  const tools = useCollaborationTools().filter(tool => tool.to)
+  if (pathname === '/calendar') return <nav aria-label="Разделы календаря" className="collaboration-tabs calendar-section-tabs">
+    {calendarSections.map(([id, label]) => <Link key={id} to={'/calendar?section=' + id} aria-current={calendarSection(search) === id ? 'page' : undefined}>{label}</Link>)}
+  </nav>
+  if (pathname === '/collaboration') return <nav aria-label="Инструменты совместной работы" className="collaboration-tabs">
+    {tools.map(tool => <Link key={tool.id} to={tool.to!}>{tool.label}</Link>)}
+  </nav>
+  const context = workflowContext(pathname, search, visibleWorkflows(hasAccess))
+  if (!context) return null
+  return <nav aria-label={'Раздел ' + context.group.label} className="collaboration-tabs">
+    {context.group.entries.map(entry => <Link key={entry.id} to={entry.to} aria-current={entry.id === context.entry.id ? 'page' : undefined}>{entry.label}</Link>)}
   </nav>
 }

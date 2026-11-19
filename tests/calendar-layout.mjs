@@ -17,3 +17,7 @@ result=layoutDay([event(1,[-1,30],[0,20]),event(2,[23,30],[25,0]),event(3,[24,0]
 assert.deepEqual(result.map(r=>[r.start,r.end]),[[0,20],[1410,1440]])
 assert.equal(layoutDay([event(1,[10,0],[9,0])],date).length,0)
 console.log('Calendar layout: minute precision, overlap lanes, touching events and midnight clipping passed')
+
+result=layoutDay([event(1,[7,0],[8,0]),event(2,[7,30],[9,0]),event(3,[20,30],[22,0]),event(4,[21,0],[22,0])],date,480,1260)
+assert.deepEqual(result.map(r=>[r.event.id,r.start,r.end]),[[2,480,540],[3,1230,1260]])
+console.log('Visible interval 08:00–21:00: outside events hidden, crossing events clipped')

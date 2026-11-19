@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { layoutDay, type Occurrence } from "./calendarLayout";
+import { CALENDAR_START, CALENDAR_END, CalendarCategoryIcon } from './CalendarCategory';
 import { calendarDragType, readCalendarDrag } from './calendarDrag';
 
 type Item = Occurrence & {
@@ -16,6 +17,7 @@ const defaultColors: Record<string, string> = {
   work: "#138b78",
   personal: "#8854bf",
   anniversary: "#b06b0d",
+  briefing: "#8b5a16",
 };
 const clock = (d: Date) =>
   d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
@@ -52,7 +54,7 @@ export function CalendarTimeGrid<T extends Item>({
   const [dropHint, setDropHint] = useState<{ date: number; minute: number } | null>(null);
   const dateKey = begin.toISOString();
   useEffect(() => {
-    if (viewport.current) viewport.current.scrollTop = workStart * SCALE;
+    if (viewport.current) viewport.current.scrollTop = 0;
   }, [dateKey, days, workStart]);
   const dates = Array.from({ length: days }, (_, i) => {
     const d = new Date(begin);
@@ -66,6 +68,8 @@ export function CalendarTimeGrid<T extends Item>({
     return value;
   };
   return (
+    <section className="space-y-2">
+    <p className="text-xs text-muted">Сетка 08:00–21:00. События за пределами диапазона доступны в режиме «Расписание».</p>
     <div
       ref={viewport}
       aria-label="Почасовая сетка календаря"
@@ -119,7 +123,7 @@ export function CalendarTimeGrid<T extends Item>({
                     style={{ borderColor: colors[e.category] }}
                     onClick={() => open(e)}
                   >
-                    {e.title}
+                    <CalendarCategoryIcon category={e.category} color={colors[e.category]} />{e.title}
                   </button>
                 ))}
             </div>
@@ -134,15 +138,15 @@ export function CalendarTimeGrid<T extends Item>({
         >
           <div
             className="relative bg-surface-muted"
-            style={{ height: 1440 * SCALE }}
+            style={{ height: (CALENDAR_END - CALENDAR_START) * SCALE }}
           >
-            {Array.from({ length: 24 }, (_, h) => (
+            {Array.from({ length: 14 }, (_, h) => (
               <span
                 key={h}
                 className="absolute right-2 text-xs text-muted"
-                style={{ top: h * 60 * SCALE + 2 }}
+                style={{ top: h * 60 * SCALE, transform: h === 13 ? "translateY(-100%)" : undefined }}
               >
-                {String(h).padStart(2, "0")}:00
+                {String(h + 8).padStart(2, "0")}:00
               </span>
             ))}
           </div>
@@ -152,7 +156,7 @@ export function CalendarTimeGrid<T extends Item>({
               className="relative border-l border-border bg-surface-muted"
               data-calendar-day={d.toLocaleDateString('en-CA')}
               style={{
-                height: 1440 * SCALE,
+                height: (CALENDAR_END - CALENDAR_START) * SCALE,
                 backgroundImage:
                   "linear-gradient(to bottom, var(--color-border, #e5e7eb) 1px, transparent 1px)",
                 backgroundSize: `100% ${30 * SCALE}px`,
@@ -160,7 +164,7 @@ export function CalendarTimeGrid<T extends Item>({
               onDragOver={(e) => {
                 if (disabled || !e.dataTransfer.types.includes(calendarDragType)) return;
                 e.preventDefault();
-                setDropHint({ date: d.getTime(), minute: Math.max(0, Math.min(1425, Math.round((e.clientY - e.currentTarget.getBoundingClientRect().top) / SCALE / 15) * 15)) });
+                setDropHint({ date: d.getTime(), minute: Math.max(CALENDAR_START, Math.min(CALENDAR_END - 15, CALENDAR_START + Math.round((e.clientY - e.currentTarget.getBoundingClientRect().top) / SCALE / 15) * 15)) });
               }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropHint(null); }}
               onDragEnd={() => setDropHint(null)}
@@ -175,31 +179,31 @@ export function CalendarTimeGrid<T extends Item>({
                       SCALE /
                       15,
                   ) * 15;
-                move(item.id, timeAt(d, Math.max(0, Math.min(1425, minutes))), item.occurrence);
+                move(item.id, timeAt(d, Math.max(CALENDAR_START, Math.min(CALENDAR_END - 15, CALENDAR_START + minutes))), item.occurrence);
               }}
             >
               {workingDays.includes((d.getDay() + 6) % 7) && <div
                 aria-label={`Рабочие часы ${String(Math.floor(workStart / 60)).padStart(2, '0')}:${String(workStart % 60).padStart(2, '0')}–${String(Math.floor(workEnd / 60)).padStart(2, '0')}:${String(workEnd % 60).padStart(2, '0')}`}
                 data-work-start={workStart} data-work-end={workEnd}
                 className="pointer-events-none absolute left-0 w-full bg-surface"
-                style={{ top: workStart * SCALE, height: (workEnd - workStart) * SCALE,
+                style={{ top: (Math.min(CALENDAR_END, Math.max(CALENDAR_START, workStart)) - CALENDAR_START) * SCALE, height: Math.max(0, Math.min(workEnd, CALENDAR_END) - Math.max(workStart, CALENDAR_START)) * SCALE,
                   backgroundImage: 'linear-gradient(to bottom, var(--color-border, #e5e7eb) 1px, transparent 1px)', backgroundSize: `100% ${30 * SCALE}px` }} />}
-              {dropHint?.date === d.getTime() && <div className="pointer-events-none absolute left-0 z-30 w-full border-t-2 border-brand text-xs text-brand-dark" style={{ top: dropHint.minute * SCALE }}><span className="rounded bg-surface px-2">{clock(timeAt(d, dropHint.minute))}</span></div>}
-              {Array.from({ length: 48 }, (_, i) => (
+              {dropHint?.date === d.getTime() && <div className="pointer-events-none absolute left-0 z-30 w-full border-t-2 border-brand text-xs text-brand-dark" style={{ top: (dropHint.minute - CALENDAR_START) * SCALE }}><span className="rounded bg-surface px-2">{clock(timeAt(d, dropHint.minute))}</span></div>}
+              {Array.from({ length: 26 }, (_, i) => (
                 <button
                   type="button"
                   key={i}
-                  aria-label={`Создать встречу ${d.toLocaleDateString("ru-RU")} ${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`}
+                  aria-label={`Создать встречу ${d.toLocaleDateString("ru-RU")} ${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`}
                   className="absolute left-0 w-full text-left text-xs text-transparent hover:bg-brand/5 hover:text-muted focus:bg-brand/10 focus:text-ink"
                   style={{ top: i * 30 * SCALE, height: 30 * SCALE }}
-                  onClick={() => create(timeAt(d, i * 30))}
+                  onClick={() => create(timeAt(d, CALENDAR_START + i * 30))}
                 >
                   ＋ Новая встреча
                 </button>
               ))}
               {layoutDay(
                 events.filter((e) => !e.all_day),
-                d,
+                d, CALENDAR_START, CALENDAR_END,
               ).map(({ event, start, end, lane, lanes }) => (
                 <button
                   type="button"
@@ -216,7 +220,7 @@ export function CalendarTimeGrid<T extends Item>({
                   onClick={() => open(event)}
                   className="absolute z-10 flex flex-col items-stretch overflow-hidden rounded-md border-l-4 px-1 py-1 text-left text-xs shadow-sm ring-1 ring-inset ring-white/60 hover:brightness-95 focus:z-20 focus:outline focus:outline-2 focus:outline-brand"
                   style={{
-                    top: start * SCALE,
+                    top: (start - CALENDAR_START) * SCALE,
                     height: Math.max(3, (end - start) * SCALE - 1),
                     left: `calc(${(lane / lanes) * 100}% + 2px)`,
                     width: `calc(${100 / lanes}% - 4px)`,
@@ -225,7 +229,7 @@ export function CalendarTimeGrid<T extends Item>({
                   }}
                 >
                   <span className="block truncate font-semibold">
-                    {event.title}
+                    <CalendarCategoryIcon category={event.category} color={colors[event.category]} />{event.title}
                   </span>
                   {end - start >= 20 && (
                     <span className="block truncate">
@@ -245,5 +249,6 @@ export function CalendarTimeGrid<T extends Item>({
         </div>
       </div>
     </div>
+    </section>
   );
 }

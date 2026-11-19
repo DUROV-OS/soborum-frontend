@@ -8,12 +8,11 @@ import { RouteBoundary } from './RouteBoundary'
 import { useMobileNavigation } from './useMobileNavigation'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
-import { WorkflowBar } from './WorkflowBar'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
 import { CalendarReminders } from '@/collaboration/CalendarReminders'
-import { PrimaryNavigation } from './PrimaryNavigation'
+import { SectionNavigationHost, SectionNavigationProvider } from './SectionNavigation'
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -38,7 +37,7 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
-    <BrowserPhoneProvider><div className="workspace-shell flex h-dvh w-full">
+    <BrowserPhoneProvider><SectionNavigationProvider><div className="workspace-shell flex h-dvh w-full">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
         <div
@@ -49,15 +48,14 @@ export function AppShell() {
       )}
       <div ref={contentRef} className="flex min-w-0 flex-1 flex-col">
         <Topbar menuOpen={sidebarOpen} onMenuClick={() => setSidebarOpen(true)} />
-        <PrimaryNavigation />
+        <SectionNavigationHost />
         <main ref={mainRef} id="main-content" className="workspace-content mobile-safe-content flex-1 overflow-y-auto">
-          <WorkflowBar />
           <CalendarReminders />
           <div className={`workspace-page${location.pathname === "/crm" ? " workspace-page--crm" : ""}`}><RouteBoundary><Outlet /></RouteBoundary></div>
         </main>
       </div>
       {!salesManager && <MeetingPanel />}
       {!salesManager && <NotificationToasts />}
-    </div></BrowserPhoneProvider>
+    </div></SectionNavigationProvider></BrowserPhoneProvider>
   )
 }

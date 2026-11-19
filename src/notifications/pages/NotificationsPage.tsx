@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck } from 'lucide-react'
@@ -126,14 +127,14 @@ export function NotificationsPage() {
         )}
       </div>
 
-      <Tabs
+      <ModuleNavigation label="Разделы уведомлений"><Tabs
         tabs={[
           { key: 'list', label: 'Все уведомления' },
           ...(!salesManager ? [{ key: 'settings' as const, label: 'Настройки' }] : []),
         ]}
         activeKey={tab}
         onChange={setTab}
-      />
+      /></ModuleNavigation>
 
       <div className="mt-5">
         {error && <p className="mb-4 text-[13px] text-danger">{error}</p>}

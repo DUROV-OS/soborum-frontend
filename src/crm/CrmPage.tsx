@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useAuthStore } from '@/auth/store'
 import { CrmSavedFilters } from './CrmSavedFilters'
 import type { CrmFilterSnapshot } from './savedFilters'
@@ -287,7 +288,7 @@ export function CrmPage() {
           <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="crm-filters" onClick={() => setFiltersOpen(value => !value)}><BitrixIcon name="settings" size={18} />Фильтры{filterCount ? ` · ${filterCount}` : ''}</Button>
         </div>
       </div>
-      <Tabs<Kind>
+      <ModuleNavigation label="Разделы CRM"><Tabs<Kind>
         tabs={
           (canFull ? [...tabs, { key: 'pipeline' as Kind, label: 'Воронки' }, { key: 'stage' as Kind, label: 'Этапы' }] : tabs).map(t => ({ ...t, label: catalog.counts[t.key] === undefined ? t.label : `${t.label} · ${catalog.counts[t.key].toLocaleString('ru-RU')}` }))
         }
@@ -297,7 +298,7 @@ export function CrmPage() {
           setOffset(0)
           setStage('')
         }}
-      />
+      /></ModuleNavigation>
       {accountId && ['deal', 'contact', 'company', 'task', 'inquiry'].includes(kind) && <CrmSavedFilters key={`${accountId}:${kind}`} accountId={accountId} kind={kind} current={filterSnapshot} ready={catalogReady} apply={applySavedFilter} />}
       {kind === 'deal' && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label="Вид сделок" className="flex gap-1 rounded-xl border border-border bg-surface p-1">

@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -205,7 +206,7 @@ export function SalesPage() {
         </div>
         {edit && <Button onClick={() => setEditing(true)}>Новый заказ</Button>}
       </div>
-      <Tabs
+      <ModuleNavigation label="Разделы продаж"><Tabs
         tabs={[
           { key: 'orders', label: 'Заказы покупателей' },
           { key: 'shipments', label: 'Отгрузки' },
@@ -215,7 +216,7 @@ export function SalesPage() {
           setTab(key)
           setPage(0)
         }}
-      />
+      /></ModuleNavigation>
       <div className="flex flex-wrap gap-2">
         <Input
           aria-label="Найти заказ или отгрузку"

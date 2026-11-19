@@ -25,10 +25,11 @@ export const defaultPreferences: CalendarPreferences = {
   version: 0,
   timezone: "Europe/Moscow",
   work_start: 480,
-  work_end: 1140,
+  work_end: 1260,
   weekdays: [0, 1, 2, 3, 4],
   categories: {
     meeting: { label: "Встречи", color: "#4776d0" },
+    briefing: { label: "Планёрки", color: "#8b5a16" },
     work: { label: "Задачи", color: "#138b78" },
     personal: { label: "Личное", color: "#8854bf" },
     anniversary: { label: "Юбилеи", color: "#b06b0d" },
@@ -67,7 +68,8 @@ export function CalendarSettings({
       <p className="text-sm text-muted">
         Личные настройки сохраняются в вашей учётной записи и доступны на других
         устройствах. Рабочие часы используются для подбора встреч; цвета и
-        названия категорий видны только вам.
+        названия категорий видны только вам. Сетка всегда показывает 08:00–21:00;
+        эти настройки определяют подсветку и подбор времени внутри неё.
       </p>
       <fieldset disabled={busy} className="space-y-5">
         <Field label="Часовой пояс календаря">

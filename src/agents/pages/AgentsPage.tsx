@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
@@ -109,7 +110,7 @@ export function AgentsPage() {
         <HelpButton onClick={onboarding.show} />
       </div>
 
-      <Tabs
+      <ModuleNavigation label="Разделы агентов"><Tabs
         tabs={[
           { key: 'shift', label: 'Смена' },
           { key: 'consult', label: 'Консультация' },
@@ -118,7 +119,7 @@ export function AgentsPage() {
         ]}
         activeKey={tab}
         onChange={changeTab}
-      />
+      /></ModuleNavigation>
 
       {tab === 'shift' && <ShiftBoard />}
 

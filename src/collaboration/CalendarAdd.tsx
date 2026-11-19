@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarPlus,
+  UsersRound,
   CheckSquare,
   LockKeyhole,
   Cake,
@@ -75,6 +76,7 @@ export function CalendarAdd({
           {(
             [
               ["meeting", "Встреча", CalendarPlus],
+              ["briefing", "Планёрка", UsersRound],
               ["work", "Задача", CheckSquare],
               ["personal", "Личное", LockKeyhole],
               ["anniversary", "Юбилеи", Cake],

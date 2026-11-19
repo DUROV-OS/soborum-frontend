@@ -50,7 +50,8 @@ await page.route('**/api/**', async route => {
 try {
   await page.goto(base + '/calendar')
   await page.locator('[data-work-start="480"]').first().waitFor()
-  assert.deepEqual(await page.getByRole('navigation', { name: 'Основные разделы' }).getByRole('link').allTextContents(), ['Разделы','Пульс','Совместная работа','Календарь','Маркетинг'])
+  assert.deepEqual(await page.locator('[data-section-navigation]').getByRole('link').allTextContents(), ['Мой календарь','Календари команды','Планировщик встреч','Настройки'])
+  assert.equal(await page.getByRole('navigation', { name: 'Разделы календаря' }).count(), 1)
   const toolLabels = await page.locator('#collaboration-menu-items > li > a, #collaboration-menu-items > li > span').allTextContents()
   assert.deepEqual(toolLabels.slice(0,8).map(t => t.replace('Скоро','')), ['Мессенджер Макс','Календарь','Почта','Durov GPT','Документы','Диск','Задачи','Совещания'])
   assert.equal(toolLabels.some(t => /Доски|Лента/.test(t)), false)
@@ -70,7 +71,7 @@ try {
   const drag = await page.evaluateHandle(() => new DataTransfer())
   await page.getByRole('button', { name: /Планёрка отдела,/ }).dispatchEvent('dragstart', { dataTransfer: drag })
   const target = page.locator('[data-calendar-day]').nth(2), bounds = await target.boundingBox()
-  await target.dispatchEvent('drop', { dataTransfer: drag, clientY: bounds.y + 12 * 60 * 1.2 })
+  await target.dispatchEvent('drop', { dataTransfer: drag, clientY: bounds.y + (12 - 8) * 60 * 1.2 })
   await page.getByText('Время события изменено', { exact: true }).waitFor()
   assert.equal(moves[0].scope, 'occurrence'); assert.equal(moves[0].occurrence_id, '0')
   failMove = true
@@ -99,7 +100,7 @@ try {
   assert.equal(moves.at(-1).start, '2026-11-19T11:00:00.000Z')
   await page.screenshot({ path: artifact + '/calendar-month.png', fullPage: true })
   await page.goto(base + '/chats')
-  await page.getByRole('button', { name: /MAX Производство/ }).waitFor()
+  await page.getByRole('button', { name: /Мессенджер Макс Производство/ }).waitFor()
   const before = requests.filter(p => p === '/api/max/chats').length
   await page.getByRole('button', { name: 'Группы', exact: true }).click()
   assert.equal(await page.getByRole('button', { name: /Юлия/ }).count(), 0)
@@ -145,7 +146,7 @@ try {
   actor = { ...actor, role: 'worker', job_role: 'manager', access_profile: 'sales_manager', module_access: { clients: 'edit', tasks: 'edit' } }
   await page.goto(base + '/calendar')
   await page.getByRole('heading', { name: 'Мой календарь', exact: true }).waitFor()
-  assert.equal(await page.getByRole('navigation', { name: 'Основные разделы' }).getByRole('link', { name: 'Маркетинг', exact: true }).count(), 0)
+  assert.equal(await page.locator('[data-section-navigation]').getByRole('link', { name: 'Маркетинг', exact: true }).count(), 0)
   await page.goto(base + '/work')
   await page.getByRole('heading', { name: 'Разделы.' }).waitFor()
   assert.equal(await page.getByRole('link', { name: 'Проекты Команда, задачи и документы проектов' }).count(), 1)

@@ -29,7 +29,7 @@ await page.route('**/api/**', async route => {
 })
 await mkdir('test-results/drive', { recursive: true })
 try {
-  await page.goto('http://127.0.0.1:5184/drive')
+  await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5184') + '/drive')
   await page.getByRole('heading', { name: 'Диск', exact: true }).waitFor()
   await page.getByRole('button', { name: 'Смета.pdf', exact: true }).waitFor()
   assert.equal(await page.locator('#collaboration-menu-items a[href="/drive"]').count(), 1)

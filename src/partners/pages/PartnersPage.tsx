@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Handshake, Plus, Search, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -189,7 +190,7 @@ export function PartnersPage() {
       )}
 
       <div className="mb-4">
-        <Tabs tabs={tabs} activeKey={tab} onChange={setTab} />
+        <ModuleNavigation label="Разделы партнёров"><Tabs tabs={tabs} activeKey={tab} onChange={setTab} /></ModuleNavigation>
       </div>
 
       {error ? (

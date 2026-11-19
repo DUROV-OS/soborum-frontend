@@ -1,3 +1,4 @@
+import { ModuleNavigation } from '@/app/SectionNavigation'
 import { WarehouseReturns } from '../WarehouseControl'
 import { WarehouseQueue } from '../WarehouseQueue'
 import { getMaterial } from '../api'
@@ -203,7 +204,7 @@ export function WarehousePage() {
       </div>
 
       <div className="mb-4">
-        <Tabs
+        <ModuleNavigation label="Разделы склада"><Tabs
           tabs={[
             { key: 'queue', label: 'Очередь выдачи' },
             { key: 'returns', label: 'Возвраты' },
@@ -215,7 +216,7 @@ export function WarehousePage() {
           ]}
           activeKey={tab}
           onChange={setTab}
-        />
+        /></ModuleNavigation>
       </div>
 
       {tab === 'materials' && (
