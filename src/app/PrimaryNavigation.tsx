@@ -18,8 +18,7 @@ export function PrimaryNavigation() {
     if (purchaseTab && !redirected) rememberPurchaseTab(userId, purchaseTab)
   }, [purchaseTab, userId, redirected])
 
-  if (purchasing) return <WorkspaceTabs label="Разделы закупок"
-    entries={purchasing.group.entries.filter(entry => entry.id !== 'supplier-factures')} activeId={purchasing.entry.id} />
+  if (purchasing) return <WorkspaceTabs label="Разделы закупок" entries={purchasing.group.entries} activeId={purchasing.entry.id} />
   if (pathname === '/calendar') return <nav aria-label="Разделы календаря" className="collaboration-tabs calendar-section-tabs">
     {calendarSections.map(([id, label]) => <Link key={id} to={'/calendar?section=' + id} aria-current={calendarSection(search) === id ? 'page' : undefined}>{label}</Link>)}
   </nav>

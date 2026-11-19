@@ -38,7 +38,7 @@ await page.route('**/api/**', async route => {
 
 const labels = ['Контрагенты', 'Заказы поставщикам', 'Счета поставщиков', 'Приёмки', 'Возвраты поставщикам', 'Счета-фактуры полученные']
 const nav = page.getByRole('navigation', { name: 'Разделы закупок' })
-const link = index => (index === 5 ? page.locator('#main-navigation') : nav).getByRole('link', { name: labels[index], exact: true })
+const link = index => nav.getByRole('link', { name: labels[index], exact: true })
 const select = name => page.getByRole('combobox', { name, exact: true })
 const search = name => page.getByRole('textbox', { name, exact: true })
 const next = () => page.getByRole('button', { name: 'Далее', exact: true }).click()
@@ -46,13 +46,8 @@ const checkbox = key => page.getByRole('checkbox', { name: 'Выделить с�
 const sidebar = page.getByRole('complementary', { name: 'Главное меню' })
 const table = page.getByRole('table')
 const visible = async index => {
-  if (index === 5) {
-    await page.getByRole('heading', { name: labels[index], exact: true }).waitFor()
-    assert.equal(await nav.locator('[aria-current="page"]').count(), 0)
-  } else {
-    await link(index).and(nav.locator('[aria-current="page"]')).waitFor()
-  }
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), labels.slice(0, 5))
+  await link(index).and(nav.locator('[aria-current="page"]')).waitFor()
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), labels)
   assert.equal(await page.getByRole('navigation', { name: 'Разделы закупок' }).count(), 1)
   await table.waitFor()
 }
@@ -143,16 +138,15 @@ try {
   const sideLabels = await topLevel.allTextContents()
   const purchasesIndex = sideLabels.indexOf('Закупки')
   assert.notEqual(purchasesIndex, -1)
-  assert.deepEqual(sideLabels.slice(purchasesIndex, purchasesIndex + 3),
-    ['Закупки', 'Контрагенты', 'Счета-фактуры полученные'])
+  assert.deepEqual(sideLabels.slice(purchasesIndex, purchasesIndex + 2),
+    ['Закупки', 'Контрагенты'])
   const counterparties = sidebar.getByRole('link', { name: 'Контрагенты', exact: true })
   await counterparties.click()
   await visible(0)
   assert.equal(await counterparties.getAttribute('aria-current'), 'page')
-  const received = sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true })
-  await received.click()
+  assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
+  await link(5).click()
   await visible(5)
-  assert.equal(await received.getAttribute('aria-current'), 'page')
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры оплаченные', exact: true }).count(), 0)
   await page.getByRole('button', { name: 'Свернуть боковое меню' }).click()
   await sidebar.waitFor({ state: 'hidden' })
@@ -185,7 +179,7 @@ try {
   assert.deepEqual(await nav.getByRole('link').allTextContents(), ['Контрагенты'])
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
   assert.deepEqual(errors, [])
-  console.log('Purchasing tabs passed: five identical top tabs, two standalone sidebar links, SPA switching, independent sort/filter/page/selection, last tab, mobile and role gates.')
+  console.log('Purchasing tabs passed: six identical top tabs, standalone sidebar counterparty link, SPA switching, independent sort/filter/page/selection, last tab, mobile and role gates.')
 } finally {
   await browser.close()
 }
