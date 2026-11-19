@@ -239,7 +239,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
     { header: 'Контрагент', accessor: r => r.counterparty_id
       ? <Link to={`/suppliers?counterparty=${r.counterparty_id}`} onClick={event => event.stopPropagation()}
-        className="font-medium text-accent underline underline-offset-2 hover:text-brand-dark">{r.supplier_name}</Link>
+        className="font-medium text-brand-dark underline underline-offset-2 hover:text-brand">{r.supplier_name}</Link>
       : r.supplier_name, className: 'min-w-[180px]' },
     { header: 'Организация', accessor: r => r.organization_name || '—', className: 'whitespace-nowrap' },
     { header: 'Сумма', accessor: r => <JournalAmount value={r.net_total ?? r.total_cost} target={r.total_cost}
