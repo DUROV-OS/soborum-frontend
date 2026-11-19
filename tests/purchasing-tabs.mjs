@@ -7,6 +7,20 @@ const browser = await chromium.launch({ headless: true, channel: process.env.SMO
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const errors = []
 let actor = { id: 1, full_name: 'Бухгалтер проверки', role: 'admin', is_active: true, module_access: {} }
+const statuses = [
+  { id: 1, code: 'paid', label: 'Оплачено', version: 1 },
+  { id: 2, code: 'unpaid', label: 'Не оплачено', version: 1 },
+  { id: 3, code: 'waiting', label: 'Ожидаем', version: 1 },
+]
+let statusChoice = null
+const invoice = () => ({
+  number: 'В-42', agent_name: 'Тестовый поставщик', counterparty_id: 10, warehouse: 'Технология',
+  amount: '250.00', paid: '100.00', accepted: '225.00', currency: 'RUB',
+  planned_payment_date: '2026-11-21', incoming_number: 'Вх-42', incoming_date: '2026-11-18',
+  comment: 'Доставка по вторникам', status_code: statusChoice ? 'custom' : 'unpaid',
+  status_id: statusChoice, status_version: statusChoice ? 1 : 0, automatic_label: 'Не оплачено',
+  status_label: statuses.find(status => status.id === (statusChoice || 2)).label, can_change_status: true,
+})
 page.on('pageerror', error => errors.push(error.message))
 await page.addInitScript(() => {
   localStorage.setItem('soborbum.auth.token', 'synthetic-purchases')
@@ -22,6 +36,26 @@ await page.route('**/api/**', async route => {
     organization_id: 1, organization_name: 'Технология', counterparty_id: 10 }
   const titles = { invoicein: 'Счёт поставщику', facturein: 'Полученный счёт-фактура' }
   let body = []
+  if (url.pathname.startsWith('/api/moysklad/supplier-invoice-statuses')) {
+    const payload = route.request().postDataJSON()
+    if (route.request().method() === 'POST') {
+      body = { id: 4, code: null, label: payload.label, version: 1 }
+      statuses.push(body)
+    } else {
+      const selected = statuses.find(status => status.id === Number(url.pathname.split('/').at(-1)))
+      assert.equal(payload.version, selected.version)
+      selected.label = payload.label
+      selected.version++
+      body = selected
+    }
+    return route.fulfill({json: body})
+  }
+  if (url.pathname.match(/^\/api\/moysklad\/supplier-invoices\/\d+\/status$/)) {
+    const body = route.request().postDataJSON()
+    assert.equal(body.version, 0)
+    statusChoice = body.status_id
+    return route.fulfill({json: invoice()})
+  }
   switch (url.pathname) {
     case '/api/auth/me': body = actor; break
     case '/api/purchasing/catalog': body = {
@@ -39,6 +73,11 @@ await page.route('**/api/**', async route => {
     case '/api/moysklad/catalog': body = { categories: [], warnings: [] }; break
     case '/api/moysklad/records':
       body = { total: 102, items: [{ id: sample.id, title: titles[url.searchParams.get('entity_type')] + ' ' + sample.id, type: url.searchParams.get('entity_type') }] }
+      if (url.searchParams.get('entity_type') === 'invoicein') {
+        body.items[0] = { ...body.items[0], moment: '2026-11-19 11:00:00', invoice: invoice() }
+        body.invoice_statuses = statuses
+        body.can_edit_invoice_statuses = true
+      }
       break
   }
   await route.fulfill({ json: body })
@@ -105,6 +144,24 @@ try {
 
   await link(2).click()
   await visible(2)
+  assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
+    ['№ счета', 'Дата', 'Контрагент', 'На склад', 'Сумма', 'Оплачено', 'Принято', 'Плановая дата оплаты',
+      'Входящий номер', 'Входящая дата', 'Статус', 'Комментарий'])
+  await table.getByText('Вх-42', {exact: true}).waitFor()
+  await table.getByRole('cell', {name: /225,00/}).waitFor()
+  const settings = page.getByRole('button', {name: 'Статусы', exact: true})
+  await settings.click()
+  const modal = page.getByRole('dialog', {name: 'Статусы счетов поставщиков'})
+  await modal.getByRole('textbox', {name: 'Название статуса'}).fill('На сверке')
+  await modal.getByRole('button', {name: 'Добавить', exact: true}).click()
+  const status = table.getByRole('combobox', {name: 'Статус счёта № В-42'})
+  await status.selectOption({label: 'На сверке'})
+  await settings.click()
+  await modal.getByRole('combobox', {name: 'Статус для настройки'}).selectOption({label: 'На сверке'})
+  await modal.getByRole('textbox', {name: 'Название статуса'}).fill('На проверке')
+  await modal.getByRole('button', {name: 'Переименовать', exact: true}).click()
+  await status.getByRole('option', {name: 'На проверке', exact: true}).waitFor({state: 'attached'})
+  assert.equal(await status.inputValue(), '4')
   await search('Поиск в данных МоегоСклада').fill('счёт')
   await select('Архив').selectOption('archived')
   await select('Порядок документов').selectOption('oldest')
