@@ -59,7 +59,7 @@ export function RegistryFilters({ open, onOpen, values, selected, onText, onStat
   </details>
 }
 
-export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment, onStatus, selection }: {
+export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment, onStatus, onArchive, selection }: {
   rows: Row[]
   selection: RowSelection
   loading: boolean
@@ -67,6 +67,7 @@ export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment,
   onSort: (key: Sort['key']) => void
   cardUrl: (row: Row) => string
   onComment: (row: Row) => void
+  onArchive: (row: Row) => void
   onStatus: (row: Row, status: RegistryStatus) => void
 }) {
   return <div tabIndex={0} role="region" aria-label="Реестр контрагентов" aria-busy={loading}
@@ -111,11 +112,19 @@ export function RegistryTable({ rows, loading, sort, onSort, cardUrl, onComment,
             </Select> : row.status ? statusLabels[row.status] : '—'}
           </td>
           <td className="px-3 py-1.5">
-            {row.can_edit ? <button type="button" aria-label={`Комментарий: ${row.card.name}`} title={row.comment}
-              disabled={loading} onClick={() => onComment(row)} className="flex min-h-8 w-full items-center gap-2 text-left hover:text-brand-dark">
-              <span className="min-w-0 flex-1 truncate">{row.comment || 'Добавить'}</span>
-              <Pencil size={14} className="shrink-0 text-muted" aria-hidden />
-            </button> : <p className="break-words whitespace-pre-wrap">{row.comment || '—'}</p>}
+            {row.can_edit ? <div className="flex min-w-0 items-center gap-2">
+              <button type="button" aria-label={`Комментарий: ${row.card.name}`} title={row.comment}
+                disabled={loading} onClick={() => onComment(row)} className="flex min-h-8 min-w-0 flex-1 items-center gap-2 text-left hover:text-brand-dark">
+                <span className="min-w-0 flex-1 truncate">{row.comment || 'Добавить'}</span>
+                <Pencil size={14} className="shrink-0 text-muted" aria-hidden />
+              </button>
+              <button type="button" aria-label={`${row.active ? 'Удалить' : 'Восстановить'}: ${row.card.name}`}
+                disabled={loading} onClick={() => onArchive(row)}
+                className={'min-h-11 shrink-0 rounded px-1.5 text-xs font-medium hover:underline ' +
+                  (row.active ? 'text-danger' : 'text-brand-dark')}>
+                {row.active ? 'Удалить' : 'Восстановить'}
+              </button>
+            </div> : <p className="break-words whitespace-pre-wrap">{row.comment || '—'}</p>}
           </td>
         </tr>)}
         {!rows.length && <tr><td colSpan={5} className="px-3 py-8 text-center text-muted">

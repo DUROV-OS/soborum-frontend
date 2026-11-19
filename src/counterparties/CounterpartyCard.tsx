@@ -11,7 +11,13 @@ import { useAuthStore } from '@/auth/store'
 import { blank, call, Card, labels, message, Preview, Row, statusLabels, types } from './api'
 
 type History = { id:number;actor_id:number;created_at:string;before:Row|null;after:Row;source:{kind:string;proof?:{role:'supplier'|'client';filename:string;locator:string}};kind?:string }
-export function CounterpartyCard({ id, close, saved, openProfile }: { id:number|null; close:()=>void; saved:()=>void; openProfile:(id:number)=>void }) {
+export function CounterpartyCard({ id, close, saved, openProfile, onArchive }: {
+  id: number | null
+  close: () => void
+  saved: () => void
+  openProfile: (id: number) => void
+  onArchive: (row: Row, dirty: boolean) => void
+}) {
   const canOpenProfile=useAuthStore(s=>s.hasAccess('warehouse'))
   const canReadClient=useAuthStore(s=>s.hasAccess('clients'))
   const canReadAccounting=useAuthStore(s=>s.hasAccess('accounting'))
@@ -32,7 +38,11 @@ export function CounterpartyCard({ id, close, saved, openProfile }: { id:number|
   async function apply(){if(!row||!preview)return;setBusy(true);setError('');const data={preview_id:preview.id,fields:selected};try{accept(await call<Row>(`/${row.id}/moysklad/apply`,'POST',{...data,request_id:requestId(data)}));setPreview(null);saved()}catch(e){fail(e)}finally{setBusy(false)}}
   async function verify(){if(!row)return;setBusy(true);setError('');const data={etag:row.etag,evidence};try{accept(await call<Row>(`/${row.id}/verify-bank`,'POST',{...data,request_id:requestId(data)}));saved()}catch(e){fail(e)}finally{setBusy(false)}}
   const finish=()=>{if(busy)return;if(dirty&&!window.confirm('Закрыть карточку без сохранения изменений?'))return;close()}
-  return <Modal open onClose={finish} title={preview?'Обновить данные из МойСклад':row?.card.name||(id?'Контрагент':'Новый контрагент')} width="max-w-4xl" mobileFull footer={preview?<><Button variant="ghost" disabled={busy} onClick={()=>setPreview(null)}>Отмена</Button><Button disabled={busy||!selected.length} onClick={()=>void apply()}>{busy?'Применение…':'Применить выбранное'}</Button></>:<><Button variant="ghost" disabled={busy} onClick={finish}>Закрыть</Button>{canEdit&&tab==='requisites'&&<Button disabled={busy||loading} onClick={()=>void save()}>{busy?'Сохранение…':'Сохранить'}</Button>}</>}>
+  return <Modal open onClose={finish} title={preview?'Обновить данные из МойСклад':row?.card.name||(id?'Контрагент':'Новый контрагент')} width="max-w-4xl" mobileFull footer={preview?<><Button variant="ghost" disabled={busy} onClick={()=>setPreview(null)}>Отмена</Button><Button disabled={busy||!selected.length} onClick={()=>void apply()}>{busy?'Применение…':'Применить выбранное'}</Button></>:<>
+      {row?.can_edit && tab === 'requisites' && <Button className="mr-auto" variant={row.active ? 'danger' : 'secondary'}
+        disabled={busy || loading} onClick={() => onArchive(row, !!dirty)}>{row.active ? 'Удалить' : 'Восстановить'}</Button>}
+      <Button variant="ghost" disabled={busy} onClick={finish}>Закрыть</Button>{canEdit&&tab==='requisites'&&<Button disabled={busy||loading} onClick={()=>void save()}>{busy?'Сохранение…':'Сохранить'}</Button>}
+    </>}>
     <div ref={content} className="space-y-4">{error&&<p role="alert" className="rounded-lg border border-danger/30 p-3 text-sm text-danger">{error}</p>}{loading&&<p role="status">Загрузка…</p>}
     {preview?<><p className="text-sm text-muted">{preview.source.kind==='moysklad_live'?'Данные получены сейчас из МойСклада.':'Используется сохранённый снимок. Это не запрос к МойСклад в реальном времени.'} Дата: {new Date(preview.source.fetched_at).toLocaleString('ru-RU')}.</p><p className="text-sm">Пустые поля выбраны для заполнения. Замены существующих значений отметьте отдельно.</p>
       {preview.warnings.map(w=><p key={w} className="text-xs text-muted">{w}</p>)}{!preview.changes.length&&<p>Различий для обновления нет.</p>}
@@ -50,9 +60,12 @@ export function CounterpartyCard({ id, close, saved, openProfile }: { id:number|
         </section>}
       </>}
       {tab==='documents'&&row&&<Documents id={row.id}/>}
-      {tab==='history'&&<><div className="space-y-3">{history.map(h=><article key={h.id} className="rounded-lg border border-border p-3"><p className="font-medium">{h.kind==='bank_verification'?'Проверка банковских реквизитов':h.kind==='registry_edit'?'Изменение реестра':h.before?'Изменение карточки':'Создание карточки'}</p><p className="text-xs text-muted">{new Date(h.created_at).toLocaleString('ru-RU')} · сотрудник №{h.actor_id} · {h.source.kind==='manual'?'Введено вручную':h.source.kind==='document'?'Документ':h.source.kind==='moysklad_live'?'МойСклад':'Снимок МойСклада'}</p><details className="mt-2 text-sm"><summary>Значения до и после</summary>{h.before?.status !== h.after.status && <p className="mt-2">Статус · {h.before?.status ? statusLabels[h.before.status] : '—'} → {h.after.status ? statusLabels[h.after.status] : '—'}</p>}
+      {tab==='history'&&<><div className="space-y-3">{history.map(h=><article key={h.id} className="rounded-lg border border-border p-3"><p className="font-medium">{h.kind==='bank_verification'?'Проверка банковских реквизитов':h.kind==='registry_edit'?'Изменение реестра':h.kind==='archive'?'Перемещение в архив':h.kind==='restore'?'Восстановление из архива':h.before?'Изменение карточки':'Создание карточки'}</p><p className="text-xs text-muted">{new Date(h.created_at).toLocaleString('ru-RU')} · сотрудник №{h.actor_id} · {h.source.kind==='manual'?'Введено вручную':h.source.kind==='document'?'Документ':h.source.kind==='moysklad_live'?'МойСклад':'Снимок МойСклада'}</p><details className="mt-2 text-sm"><summary>Значения до и после</summary>{h.before?.status !== h.after.status && <p className="mt-2">Статус · {h.before?.status ? statusLabels[h.before.status] : '—'} → {h.after.status ? statusLabels[h.after.status] : '—'}</p>}
         {h.before?.comment !== h.after.comment && h.after.comment !== undefined && <div className="mt-2 space-y-1 whitespace-pre-wrap break-words"><p>Комментарий до: {h.before?.comment || '—'}</p><p>Комментарий после: {h.after.comment || '—'}</p></div>}
-        {h.kind !== 'registry_edit' && <HistoryChanges before={h.before?.card} after={h.after.card}/>}
+        {h.before && h.before.active !== h.after.active && <p className="mt-2">
+          {h.after.active ? 'В архиве → Действующий' : 'Действующий → В архиве'}
+        </p>}
+        {!['registry_edit', 'archive', 'restore'].includes(h.kind || '') && <HistoryChanges before={h.before?.card} after={h.after.card}/>}
         </details>
         {h.source.proof && (h.source.proof.role === 'supplier' ? canReadAccounting : canReadClient) &&
           <Button variant="ghost" onClick={() => void downloadFile('counterparties', `/${id}/history/${h.id}/document`, h.source.proof!.filename).catch(fail)}>

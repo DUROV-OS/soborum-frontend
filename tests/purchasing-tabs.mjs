@@ -8,13 +8,17 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
 const errors = []
 let actor = { id: 1, full_name: 'Бухгалтер проверки', role: 'admin', is_active: true, module_access: {} }
 page.on('pageerror', error => errors.push(error.message))
-await page.addInitScript(() => localStorage.setItem('soborbum.auth.token', 'synthetic-purchases'))
+await page.addInitScript(() => {
+  localStorage.setItem('soborbum.auth.token', 'synthetic-purchases')
+  localStorage.setItem('durov.purchasing.columns', JSON.stringify(['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Не оплачено']))
+})
 await page.route('**/api/**', async route => {
   const url = new URL(route.request().url())
   const offset = Number(url.searchParams.get('offset') || 0)
   const sample = { id: offset + 1, number: String(offset + 1), occurred_at: '2026-11-19T07:00:00Z',
     created_at: '2026-11-19T07:00:00Z', supplier_id: 1, supplier_name: 'Тестовый поставщик', total_cost: 100,
-    paid: 0, unpaid: 100, status: 'received', currency: 'RUB', amount: 100, refunded: 0, receipt_number: 'Р-01', lines: [] }
+    paid: 0, unpaid: 100, status: 'received', currency: 'RUB', amount: 100, refunded: 0, receipt_number: 'Р-01', lines: [],
+    invoice_totals: [{ currency: 'RUB', amount: '1234.50' }] }
   const titles = { invoicein: 'Счёт поставщику', facturein: 'Полученный счёт-фактура' }
   let body = []
   switch (url.pathname) {
@@ -64,6 +68,9 @@ try {
 
   await link(1).click()
   await visible(1)
+  await table.getByRole('columnheader', { name: 'Выставлено счетов', exact: true }).waitFor()
+  assert.equal(await table.getByRole('columnheader', { name: 'Не оплачено', exact: true }).count(), 0)
+  await table.getByRole('cell', { name: /1\s*234,50/ }).waitFor()
   await search('Поиск закупок').fill('заказ')
   await select('Порядок заказов').selectOption('number')
   await next()
