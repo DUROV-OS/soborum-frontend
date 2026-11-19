@@ -40,6 +40,8 @@ type Order = {
   pending_payment: number
   available_payment: number
   unpaid: number
+  invoice_totals?: { currency: string; amount: string }[]
+  invoice_missing_currency?: boolean
   net_total?: number
   return_credit?: number
   refund_received?: number
@@ -66,6 +68,7 @@ type Receipt = {
 }
 type LinkedDocuments = {
   receipts: Receipt[]
+  invoices?: { id: number; number: string; date: string | null; amount: string; currency: string | null }[]
   returns: { id: number; number: string; receipt_id: number; occurred_at: string; amount: number; currency: string; cancelled: boolean }[]
   payments: { id: number; number: string | null; created_at: string; amount: number; currency: string; status: string; refund: boolean }[]
   opening_paid: number
@@ -127,9 +130,12 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const [linkedDocuments, setLinkedDocuments] = useState<LinkedDocuments | null>(null)
   const [receiptLoading, setReceiptLoading] = useState(false)
   const receiptGeneration = useRef(0)
-  const columnNames = ['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Не оплачено', 'Приёмка', 'Ожидаемая поставка', 'Комментарий']
+  const columnNames = ['Дата', 'Поставщик', 'Сумма', 'Оплачено', 'Выставлено счетов', 'Приёмка', 'Ожидаемая поставка', 'Комментарий']
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
-    try { const saved = JSON.parse(localStorage.getItem('durov.purchasing.columns') || 'null'); if (Array.isArray(saved)) return saved.filter(v => columnNames.includes(v)) } catch { /* Use defaults when browser storage is unavailable. */ }
+    try {
+      const saved = JSON.parse(localStorage.getItem('durov.purchasing.columns') || 'null')
+      if (Array.isArray(saved)) return saved.map(name => name === 'Не оплачено' ? 'Выставлено счетов' : name).filter(name => columnNames.includes(name))
+    } catch { /* Use defaults when browser storage is unavailable. */ }
     return columnNames.filter(v => v !== 'Комментарий')
   })
   const [archive, setArchive] = usePurchaseViewState(scope, 'archive', 'active'),
@@ -219,7 +225,13 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
     { header: 'Поставщик', accessor: r => r.supplier_name, className: 'min-w-[180px]' },
     { header: 'Сумма', accessor: r => journalMoney(r.net_total ?? r.total_cost, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Оплачено', accessor: r => journalMoney(r.paid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
-    { header: 'Не оплачено', accessor: r => journalMoney(r.unpaid, r.currency), align: 'right', className: 'whitespace-nowrap tabular-nums' },
+    { header: 'Выставлено счетов', accessor: r => (
+      <div>
+        {r.invoice_totals?.map(({ currency, amount }) => <div key={currency}>{journalMoney(Number(amount), currency)}</div>)}
+        {r.invoice_missing_currency && <div className="text-xs text-muted">Уточните валюту</div>}
+        {!r.invoice_totals?.length && !r.invoice_missing_currency && '—'}
+      </div>
+    ), align: 'right', className: 'whitespace-nowrap tabular-nums' },
     { header: 'Приёмка', accessor: r => <span className={`inline-block rounded-full px-2 py-1 text-xs ${r.status === 'received' ? 'bg-success-bg text-success' : 'bg-surface-muted text-muted'}`}>{status[r.status] || r.status}</span>, className: 'min-w-[160px]' },
     { header: 'Ожидаемая поставка', accessor: r => journalDate(r.expected_at), className: 'whitespace-nowrap' },
     { header: 'Комментарий', accessor: r => <span className="line-clamp-2" title={r.comment || ''}>{r.comment || '—'}</span>, className: 'min-w-[180px] max-w-xs' },
@@ -397,7 +409,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
                 <p>Плановая поставка: {new Date(selected.expected_at).toLocaleDateString('ru-RU')}</p>
               )}
             </div>
-            <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'control', label: 'Проверка закупки' }]} />
+            <Tabs activeKey={cardTab} onChange={setCardTab} tabs={[{ key: 'positions', label: 'Позиции' }, { key: 'documents', label: `Связанные документы${receiptLoading ? '' : ` · ${orderReceipts.length + (linkedDocuments?.invoices?.length || 0) + (linkedDocuments?.payments.length || 0) + (linkedDocuments?.returns.length || 0)}`}` }, { key: 'control', label: 'Проверка закупки' }]} />
             {cardTab === 'positions' && <>
             <DataTable
               rows={selected.items}
@@ -421,6 +433,15 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
                   <span className="font-medium text-accent">Приёмка № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{journalMoney(r.lines.reduce((sum, line) => sum + line.quantity * line.unit_price, 0), selected.currency)}</span>
                 </button>
               )) : <p className="text-muted">По этому заказу ещё нет приёмок.</p>}
+              {!!linkedDocuments?.invoices?.length && <>
+                <h3 className="pt-3 font-medium">Счета поставщика</h3>
+                {linkedDocuments.invoices.map(invoice => <Link key={invoice.id} to={`/moysklad?type=invoicein&record=${invoice.id}`}
+                  className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted">
+                  <span className="text-accent">Счёт № {invoice.number}</span>
+                  {invoice.date && <span>{journalDate(invoice.date)}</span>}
+                  <span>{invoice.currency ? journalMoney(Number(invoice.amount), invoice.currency) : 'Уточните валюту'}</span>
+                </Link>)}
+              </>}
               {!!linkedDocuments?.returns.length && <>
                 <h3 className="pt-3 font-medium">Возвраты поставщику</h3>
                 {linkedDocuments.returns.map(r => <Link key={r.id} to={`/purchasing?tab=returns&return=${r.id}`} onClick={() => setSelected(null)} className="flex flex-wrap justify-between gap-2 rounded-lg border border-border p-4 hover:bg-surface-muted"><span className="text-accent">Возврат № {r.number}</span><span>{journalDate(r.occurred_at)}</span><span>{r.cancelled ? 'Отменён' : journalMoney(r.amount, r.currency)}</span></Link>)}
