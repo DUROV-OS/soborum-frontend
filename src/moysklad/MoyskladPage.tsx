@@ -11,6 +11,7 @@ import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Chip } from '@/shared/ui/Chip'
 import { invoiceColumns, receivedFactureColumns, InvoiceStatusSettings, type InvoiceFields, type InvoiceStatus, type ReceivedFactureFields } from './SupplierInvoiceRegister'
+import { SupplierInvoiceDetail } from './SupplierInvoiceDetail'
 
 type Category = { type: string; title: string; count: number; archived: number }
 type Catalog = {
@@ -247,6 +248,9 @@ export function MoyskladPage() {
   const [params] = useSearchParams()
   const type = params.get('type')
   const purchaseTab = type === 'invoicein' ? 'supplier-invoices' : type === 'facturein' ? 'supplier-factures' : null
+  const invoiceId = Number(params.get('record'))
+  if (purchaseTab === 'supplier-invoices' && Number.isSafeInteger(invoiceId) && invoiceId > 0)
+    return <SupplierInvoiceDetail key={invoiceId} id={invoiceId} />
   return <SourceRecords key={purchaseTab ?? 'general'} purchaseTab={purchaseTab} />
 }
 
@@ -328,6 +332,10 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
     }
   }, [type, query, archive, offset, sort, purchaseTab, setOffset, revision])
   const open = (row: Row) => {
+    if (purchaseTab === 'supplier-invoices') {
+      setParams({ type: 'invoicein', record: String(row.id) })
+      return
+    }
     setError('')
     apiRequest<Detail>({ section: 'moysklad', path: `/records/${row.id}` })
       .then(setDetail)

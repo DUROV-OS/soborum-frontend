@@ -227,7 +227,7 @@ export const useAccountingStore = create<AccountingState>((set, get) => ({
   openMovementById: async (id) => {
     const known = get().movements.find((m) => m.id === id)
     if (known) {
-      set({ externalMovement: null })
+      set({ externalMovement: known })
       return
     }
     try {

@@ -109,7 +109,7 @@ try {
   })
   await page.goto(base + '/purchasing', { waitUntil: 'networkidle' })
   await page.getByRole('navigation', { name: 'Разделы закупок' }).getByRole('link', { name: 'Приёмки', exact: true }).click()
-  await page.getByText('№ ПР-10', { exact: true }).click()
+  await page.getByRole('button', { name: 'ПР-10', exact: true }).click()
   await page.getByRole('button', { name: 'Вернуть поставщику', exact: true }).click()
   let dialog = page.getByRole('dialog', { name: 'Возврат по приёмке № ПР-10', exact: true })
   await dialog.getByLabel('Причина возврата', { exact: true }).fill('Выявлен брак')

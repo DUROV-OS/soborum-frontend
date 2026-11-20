@@ -138,6 +138,13 @@ const WORKFLOW_DEFINITIONS: WorkGroup[] = [
         readOnly: true,
         note: 'Сохранённые счета-фактуры поставщиков',
       },
+      {
+        id: 'purchase-money',
+        label: 'Деньги',
+        to: '/accounting?tab=register&workspace=purchasing',
+        section: 'accounting',
+        note: 'Платёжные документы и движение по счетам организаций',
+      },
     ],
   },
   {
@@ -531,6 +538,11 @@ export function workflowContext(pathname: string, search: string, groups: WorkGr
     query.set('tab', 'catalog')
   }
   if (pathname === '/purchasing') query.set('tab', purchaseJournalTab(query))
+  if (pathname === '/moysklad' && query.get('workspace') === 'purchasing' &&
+      ['paymentout', 'cashout'].includes(query.get('type') || '')) {
+    pathname = '/accounting'
+    query.set('tab', 'register')
+  }
   if ((pathname === '/partners' || pathname.startsWith('/partners/')) && !query.has('category')) query.set('category', 'ALL')
   if (pathname === '/warehouse') {
     const tab = query.get('tab') || 'queue'

@@ -4,10 +4,10 @@ const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
 const sidebarLabels = async menu =>
   (await menu.locator('nav > ul > li > :is(a, button)').allTextContents()).map(label => label.trim())
 const ownerMenu = [
-  'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Продажи', 'Склад', 'Закупки',
-  'Номенклатура', 'Производство', 'Проекты', 'Маркетинг', 'Бухгалтерия', 'Архив',
+  'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Продажи', 'Контрагенты', 'Склад', 'Закупки',
+  'Номенклатура', 'Производство', 'Проекты', 'Каталог и цены', 'Типовые проекты домов', 'Маркетинг', 'Бухгалтерия', 'Архив',
   'Совет директоров', 'Агенты', 'Предложения ИИ', 'Уведомления', 'Мои заявки', 'Заявки',
-  'Доступы и настройки', 'Каталог и цены', 'Типовые проекты домов', 'Контрагенты',
+  'Доступы и настройки',
 ]
 const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL || undefined })
 try {
@@ -252,8 +252,8 @@ try {
   for (const name of ['CRM', 'Партнёры', 'Каталог и цены'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
   assert.deepEqual(await sidebarLabels(sidebar), [
-    'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Уведомления', 'Мои заявки',
-    'Команда', 'Подать заявку', 'Каталог и цены',
+    'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Каталог и цены', 'Уведомления', 'Мои заявки',
+    'Команда', 'Подать заявку',
   ])
   assert.equal(await sidebar.getByRole('link', { name: 'Продажи', exact: true }).count(), 0)
   assert.equal(await main.locator('a[href="/clients"], a[href="/crm?tab=pipeline"], a[href="/costing?tab=prices"]').count(), 0)
