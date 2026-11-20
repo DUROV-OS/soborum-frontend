@@ -273,7 +273,7 @@ export function AppRouter() {
             </AccessGate>
           }
         />
-        <Route path="/work" element={salesManager ? <SalesWorkspace view="work" /> : <WorkPage />} />
+        <Route path="/work" element={<WorkPage />} />
         <Route
           path="/accounting"
           element={

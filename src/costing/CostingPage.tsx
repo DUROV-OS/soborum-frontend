@@ -16,7 +16,11 @@ import { TemplateCards } from './TemplateCards'
 import { ItemPreview } from './ItemPreview'
 import { CatalogModels } from './CatalogDetailPage'
 
-const labels: Record<string, string> = { assistant: 'Помощник', materials: 'Материалы', template: 'Типовые сметы', prices: 'Розничные цены', addon: 'Допы', package: 'Пакеты опций', estimates: 'Клиентские сметы', catalog: 'Прайс', settings: 'Настройки', journal: 'Журнал', help: 'Как работать' }
+const labels: Record<string, string> = {
+  catalog: 'Прайс', assistant: 'Помощник', materials: 'Материалы для смет', estimates: 'Клиентские сметы',
+  template: 'Типовые сметы', prices: 'Розничные цены', addon: 'Допы и замены', package: 'Пакеты опций',
+  settings: 'Настройки', journal: 'Журнал изменений', help: 'Как работать',
+}
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : 'Не удалось выполнить действие'
 function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) { return <div className="max-w-full overflow-x-auto rounded-xl border border-border"><table className="w-full text-left text-[13px]"><thead className="bg-surface-muted"><tr>{headers.map((h, i) => <th key={i} className="whitespace-nowrap px-4 py-3 font-medium text-muted">{h}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, i) => <tr key={i} className="border-t border-border align-top">{row.map((cell, j) => <td className="px-4 py-3" key={j}>{cell}</td>)}</tr>) : <tr><td colSpan={headers.length} className="p-8 text-center text-muted">Здесь пока нет записей</td></tr>}</tbody></table></div> }
 function Margin({ value }: { value: string | null | undefined }) { return <span className={value != null && Number(value) < 35 ? 'font-medium text-danger' : 'text-ink'}>{value == null ? '—' : value + '%'}</span> }
@@ -94,7 +98,7 @@ export function CostingPage() {
   const visibleItems = items.filter(i => i.kind === tab && (archive === 'all' || i.archived === (archive === 'archived')) && (!appliedQuery || (i.title + i.content.code + i.content.category + i.content.model).toLocaleLowerCase().includes(appliedQuery.toLocaleLowerCase())))
   const used = new Set(items.flatMap(i => [...i.content.lines, ...i.content.replacements].map(l => l.material_id)))
   const visibleMaterials = materials.filter(m => (archive === 'all' || m.archived === (archive === 'archived')) && (!category || m.category === category) && (!unused || !used.has(m.id)) && (m.name + m.category).toLocaleLowerCase().includes(appliedQuery.toLocaleLowerCase()))
-  const tabs = access?.internal ? ['catalog', 'assistant', 'materials', 'template', 'prices', 'addon', 'package', 'estimates', 'settings', 'journal', 'help'] : ['estimates', 'catalog', 'help']
+  const tabs = access?.internal ? Object.keys(labels) : ['catalog', 'estimates', 'help']
   const shown = revisionView ?? detail
   async function savePrices() { await call('/prices', 'POST', { reason, items: Object.entries(priceEdits).map(([id, value]) => { const item = items.find(i => i.id === Number(id))!; return { id: item.id, version: item.version, ...(item.kind === 'template' && item.content.mode === 'area' ? { rate: value } : { price: value }) } }) }); await saved() }
   function search(e: FormEvent) { e.preventDefault(); setPage(0); setAppliedQuery(query); const next = new URLSearchParams(params); if(query) next.set('q',query); else next.delete('q'); setParams(next) }

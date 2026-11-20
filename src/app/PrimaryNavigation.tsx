@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react'
 import { rememberPurchaseTab } from '@/purchasing/PurchaseViewState'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 import { WorkspaceTabs } from '@/shared/ui/WorkspaceTabs'
 import { calendarSections, calendarSection } from '@/collaboration/calendarSections'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
@@ -9,8 +10,9 @@ import { visibleWorkflows, workflowContext } from '@/shared/workflows'
 export function PrimaryNavigation() {
   const hasAccess = useAuthStore(s => s.hasAccess)
   const userId = useAuthStore(s => s.current?.id)
+  const salesManager = useAuthStore(s => isSalesManager(s.current))
   const { pathname, search } = useLocation()
-  const context = workflowContext(pathname, search, visibleWorkflows(hasAccess))
+  const context = workflowContext(pathname, search, visibleWorkflows(hasAccess, salesManager))
   const purchasing = context?.group.id === 'purchasing' ? context : undefined
   const purchaseTab = purchasing?.entry.id
   const redirected = pathname === '/purchasing' && !search

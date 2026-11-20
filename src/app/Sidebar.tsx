@@ -48,7 +48,7 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
   const unseenFeedbackCount = useFeedbackStore((s) => s.mine.reduce((sum, r) => sum + r.unseen_updates, 0))
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname, search } = useLocation()
-  const groups = salesManager ? [] : visibleWorkflows(hasAccess)
+  const groups = visibleWorkflows(hasAccess, salesManager)
   const context = isCollaborationRoute(pathname, visibleCollaborationTools(hasAccess)) ? null : workflowContext(pathname, search, groups)
   const [allEntries, setAllEntries] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
@@ -77,18 +77,15 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
   // «Работа» видна, если доступен хотя бы один вложенный раздел
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
-  const menu: SectionId[] = salesManager ? ['work', 'today', 'crm', 'estimates', 'partners', 'notifications', 'feedback_my'] : MENU
-  let items = menu.flatMap((id) => {
+  const menu: SectionId[] = salesManager ? ['work', 'today', 'notifications', 'feedback_my'] : MENU
+  const items = menu.flatMap((id) => {
     const section = SECTIONS.find((s) => s.id === id)
     return section && canSee(id) ? [section] : []
   })
   if (salesManager) {
-    items = items.map(item => item.id === 'estimates' ? { ...item, path: '/costing?tab=estimates' } : item)
     const crm = SECTIONS.find(s => s.id === 'crm')!
     const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
-    const estimates = SECTIONS.find(s => s.id === 'estimates')!
-    if (hasAccess('estimates')) items.splice(items.findIndex(item => item.id === 'estimates') + 1, 0, { ...estimates, label: 'Каталог и цены', path: '/costing?tab=catalog' })
-    if (hasAccess('crm')) items.splice(items.findIndex(item => item.id === 'partners'), 0,
+    if (hasAccess('crm')) items.splice(items.findIndex(item => item.id === 'today') + 1, 0,
       { ...crm, label: 'Команда', path: '/team' },
     )
     items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
@@ -200,12 +197,11 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
                 >
                   <NavLink
                     to={section.path}
-                    aria-current={section.id === 'estimates' && (new URLSearchParams(search).get('tab') || 'estimates') !== new URLSearchParams(section.path.split('?')[1]).get('tab') ? false : 'page'}
                     end={section.path === '/feedback'}
                     onClick={onClose}
                     className={({ isActive }) =>
                       `group flex min-h-[52px] items-center gap-3.5 rounded-xl px-4 py-3 text-[14px] transition-colors ${
-                        (section.id === 'work' ? workActive : isActive && (section.id !== 'estimates' || (new URLSearchParams(search).get('tab') || 'estimates') === new URLSearchParams(section.path.split('?')[1]).get('tab')))
+                        (section.id === 'work' ? workActive : isActive)
                           ? 'bg-white font-medium text-sidebar'
                           : 'text-white/75 hover:bg-sidebar-accent hover:text-white'
                       }`

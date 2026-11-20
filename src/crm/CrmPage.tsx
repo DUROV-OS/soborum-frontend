@@ -1,5 +1,7 @@
 import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
+import { visibleWorkflows } from '@/shared/workflows'
 import { CrmSavedFilters } from './CrmSavedFilters'
 import type { CrmFilterSnapshot } from './savedFilters'
 import { useEffect, useState } from 'react'
@@ -55,13 +57,10 @@ const localTime = (s: unknown) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 const date = (s: unknown) => (s ? new Date(String(s)).toLocaleString('ru-RU') : 'Срок не указан')
-const tabs: { key: Kind; label: string }[] = ['inquiry', 'deal', 'contact', 'company', 'task'].map((k) => ({
-  key: k as Kind,
-  label: labels[k as Kind],
-}))
-
 export function CrmPage() {
   const accountId = useAuthStore(state => state.current?.id)
+  const hasAccess = useAuthStore(state => state.hasAccess)
+  const salesManager = useAuthStore(state => isSalesManager(state.current))
   const [catalogReady, setCatalogReady] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -73,6 +72,11 @@ export function CrmPage() {
   )
   const [pipeline, setPipeline] = useQueryChoice('pipeline', catalog.pipelines.map(p => String(p.id)), '')
   const [view, setView] = useQueryChoice('view', ['board', 'list'] as const, 'board')
+  const tabs = (visibleWorkflows(hasAccess, salesManager).find(group => group.id === 'crm')?.entries ?? []).map(entry => {
+    const key = entry.id === 'clients' ? 'clients' as const : new URLSearchParams(entry.to.split('?')[1]).get('tab') as Kind
+    const count = key === 'clients' ? undefined : catalog.counts[key]
+    return { key, label: count === undefined ? entry.label : `${entry.label} · ${count.toLocaleString('ru-RU')}` }
+  })
   const isBoard = kind === 'deal' && view === 'board'
   const boardPipeline = pipeline || String(catalog.pipelines[0]?.id || '')
   const [stage, setStage] = useState('')
@@ -288,12 +292,14 @@ export function CrmPage() {
           <Button variant="secondary" aria-expanded={filtersOpen} aria-controls="crm-filters" onClick={() => setFiltersOpen(value => !value)}><BitrixIcon name="settings" size={18} />Фильтры{filterCount ? ` · ${filterCount}` : ''}</Button>
         </div>
       </div>
-      <ModuleNavigation label="Разделы CRM"><Tabs<Kind>
-        tabs={
-          (canFull ? [...tabs, { key: 'pipeline' as Kind, label: 'Воронки' }, { key: 'stage' as Kind, label: 'Этапы' }] : tabs).map(t => ({ ...t, label: catalog.counts[t.key] === undefined ? t.label : `${t.label} · ${catalog.counts[t.key].toLocaleString('ru-RU')}` }))
-        }
+      <ModuleNavigation label="Разделы CRM"><Tabs<Kind | 'clients'>
+        tabs={tabs}
         activeKey={kind}
         onChange={(k) => {
+          if (k === 'clients') {
+            navigate('/clients')
+            return
+          }
           setKind(k)
           setOffset(0)
           setStage('')

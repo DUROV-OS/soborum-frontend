@@ -14,7 +14,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<boolean>
   logout: () => void
   loadAccounts: () => Promise<void>
-  hasAccess: (section: SectionId) => boolean
+  hasAccess: (section: SectionId, minimum?: AccessLevel) => boolean
   accessLevel: (section: SectionId) => AccessLevel
   updateAccess: (id: number, moduleAccess: Partial<Record<SectionId, AccessLevel>>) => Promise<void>
   addAccount: (input: authApi.CreateAccountInput) => Promise<void>
@@ -105,7 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return account.module_access[section] ?? 'none'
   },
 
-  hasAccess: (section) => get().accessLevel(section) !== 'none',
+  hasAccess: (section, minimum = 'view') => accessLevelAtLeast(get().accessLevel(section), minimum),
 
   updateAccess: async (id, moduleAccess) => {
     const updated = await authApi.updateAccountAccess(id, moduleAccess)

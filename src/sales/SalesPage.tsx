@@ -1,4 +1,3 @@
-import { ModuleNavigation } from '@/app/SectionNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryChoice } from '@/shared/lib/useQueryChoice'
@@ -10,7 +9,6 @@ import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
-import { Tabs } from '@/shared/ui/Tabs'
 import { Chip } from '@/shared/ui/Chip'
 import { localInputToIso, localNowInput } from '@/warehouse/components/OperationLinesEditor'
 import type { Catalog, Order, Shipment, Line, SalesEvent } from './types'
@@ -59,7 +57,7 @@ export function SalesPage() {
     full = accessLevelAtLeast(level, 'full')
   const stockEdit = accessLevelAtLeast(stockLevel, 'edit'),
     stockFull = accessLevelAtLeast(stockLevel, 'full')
-  const [tab, setTab] = useQueryChoice('tab', ['orders', 'shipments'], 'orders', (q) =>
+  const [tab] = useQueryChoice('tab', ['orders', 'shipments'], 'orders', (q) =>
     q.has('shipment') ? 'shipments' : 'orders',
   )
   const [archive, setArchive] = useState('active'),
@@ -199,24 +197,13 @@ export function SalesPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Заказы и отгрузки</h1>
+          <h1 className="text-2xl font-semibold">{tab === 'orders' ? 'Заказы покупателей' : 'Отгрузки'}</h1>
           <p className="mt-1 text-sm text-muted">
             Покупатели, товары и услуги, исполнение заказов и история выдачи.
           </p>
         </div>
         {edit && <Button onClick={() => setEditing(true)}>Новый заказ</Button>}
       </div>
-      <ModuleNavigation label="Разделы продаж"><Tabs
-        tabs={[
-          { key: 'orders', label: 'Заказы покупателей' },
-          { key: 'shipments', label: 'Отгрузки' },
-        ]}
-        activeKey={tab}
-        onChange={(key) => {
-          setTab(key)
-          setPage(0)
-        }}
-      /></ModuleNavigation>
       <div className="flex flex-wrap gap-2">
         <Input
           aria-label="Найти заказ или отгрузку"
