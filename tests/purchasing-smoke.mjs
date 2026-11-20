@@ -39,7 +39,7 @@ let order = {
   version: 1,
   archived: false,
   status: 'ordered',
-  source_state: null,
+  source_state: 'счет выставлен',
   comment: null,
   expected_at: null,
 }
@@ -112,7 +112,7 @@ await page.route('**/api/**', async (route) => {
   else if (path === '/api/purchasing/orders/1/documents') body = {
     invoices: [storedInvoice],
     receipts: [{ id: 92, number: 'ПР-92', occurred_at: '2026-11-09T17:11:00+03:00', status: 'posted', lines: [{ quantity: 10, unit_price: 20 }] }],
-    payments: [{ id: 93, number: 'П-93', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'posted', refund: false, invoice_ids: [91] }],
+    payments: [{ id: 93, number: 'П-93', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'posted', refund: false, invoice_ids: [91], account_label: 'Р/с ••6999 · ИД Групп' }],
     factures: [{ id: 94, number: 'СФ-94', date: '2026-11-09', amount: '200.00', currency: 'RUB', receipt_ids: [92] }],
     returns: [], opening_paid: 0,
   }
@@ -206,18 +206,21 @@ try {
     }
   }
   await assertCardSpacing()
-  for (const [title, number, destination, href] of [
-    ['Заказ поставщику', '1', 'Заказы поставщикам → Позиции', '/purchasing?tab=orders&order=1'],
-    ['Счет поставщика', 'С-91', 'Счета поставщиков', '/moysklad?type=invoicein&record=91'],
-    ['Исходящий платеж', 'П-93', 'Деньги', '/accounting?tab=register&workspace=purchasing&movement=93'],
-    ['Приемка', 'ПР-92', 'Приёмки', '/purchasing?tab=receipts&receipt=92'],
-    ['Счет-фактура полученный', 'СФ-94', 'Счета-фактуры полученные', '/moysklad?type=facturein&record=94'],
+  for (const [title, number, label, color, href] of [
+    ['Заказ поставщику', '1', 'Счет выставлен', 'bg-info-bg', '/purchasing?tab=orders&order=1'],
+    ['Счет поставщика', 'С-91', 'Оплачено', 'bg-success-bg', '/moysklad?type=invoicein&record=91'],
+    ['Исходящий платеж', 'П-93', 'Р/с ••6999 · ИД Групп', 'bg-info-bg', '/accounting?tab=register&workspace=purchasing&movement=93'],
+    ['Приемка', 'ПР-92', 'На складе', 'bg-success-bg', '/purchasing?tab=receipts&receipt=92'],
+    ['Счет-фактура полученный', 'СФ-94', 'Статус не указан', 'bg-surface-muted', '/moysklad?type=facturein&record=94'],
   ]) {
     const link = documentMap.getByRole('region', { name: title, exact: true }).getByRole('link')
     assert.equal(await link.getAttribute('href'), href)
     assert(await link.getByText(title, { exact: true }).isVisible())
     assert(await link.getByText('№ ' + number, { exact: true }).isVisible())
-    assert(await link.getByText(destination, { exact: true }).isVisible())
+    assert.equal(await link.getByText(label, { exact: true }).count(), 1)
+    const footer = link.locator(':scope > span:last-child')
+    assert.equal(await footer.innerText(), label)
+    assert(await footer.evaluate((node, color) => node.classList.contains(color) && getComputedStyle(node).backgroundColor !== 'rgba(0, 0, 0, 0)', color))
   }
   await page.setViewportSize({ width: 390, height: 844 })
   await assertCardSpacing()

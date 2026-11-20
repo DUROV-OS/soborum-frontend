@@ -18,6 +18,7 @@ export type LinkedDocuments = {
     number: string
     occurred_at: string
     status: string
+    status_label?: string | null
     via_supplier_invoice?: boolean
     lines: { quantity: number; unit_price: number }[]
   }[]
@@ -31,6 +32,7 @@ export type LinkedDocuments = {
     source_record_id?: number
     source_type?: 'paymentout' | 'cashout'
     invoice_ids?: number[]
+    account_label?: string | null
   })[]
   factures?: (OrderDocument & { receipt_ids: number[] })[]
   returns: {
@@ -49,25 +51,27 @@ type Card = DocumentSummary & {
   id: string
   href: string
   status?: string | null
+  account_label?: string | null
   evidence?: string
 }
 
-type DocumentStage = { title: string; destination: string; icon: LucideIcon }
+type DocumentStage = { title: string; icon: LucideIcon }
 type Stage = DocumentStage & { cards: Card[]; empty?: string }
 
 export const documentStages = {
-  order: { title: 'Заказ поставщику', destination: 'Заказы поставщикам → Позиции', icon: ClipboardList },
-  invoice: { title: 'Счет поставщика', destination: 'Счета поставщиков', icon: FileText },
-  payment: { title: 'Исходящий платеж', destination: 'Деньги', icon: Wallet },
-  receipt: { title: 'Приемка', destination: 'Приёмки', icon: PackageCheck },
-  facture: { title: 'Счет-фактура полученный', destination: 'Счета-фактуры полученные', icon: FileCheck2 },
-  return: { title: 'Возврат поставщику', destination: 'Возвраты поставщикам', icon: RotateCcw },
-  refund: { title: 'Возврат денег', destination: 'Деньги', icon: Wallet },
+  order: { title: 'Заказ поставщику', icon: ClipboardList },
+  invoice: { title: 'Счет поставщика', icon: FileText },
+  payment: { title: 'Исходящий платеж', icon: Wallet },
+  receipt: { title: 'Приемка', icon: PackageCheck },
+  facture: { title: 'Счет-фактура полученный', icon: FileCheck2 },
+  return: { title: 'Возврат поставщику', icon: RotateCcw },
+  refund: { title: 'Возврат денег', icon: Wallet },
 } satisfies Record<string, DocumentStage>
 
 export type RelatedDocument = OrderDocument & {
   kind: keyof typeof documentStages
   source_type?: 'paymentout' | 'cashout'
+  account_label?: string | null
 }
 
 export function RelatedDocumentCards({ documents }: { documents: RelatedDocument[] }) {
@@ -97,6 +101,31 @@ const paymentStatus: Record<string, string> = {
   approved: 'Согласован',
   posted: 'Проведён',
   cancelled: 'Отменён',
+}
+
+const statusColors = {
+  success: 'border-success/20 bg-success-bg text-success',
+  info: 'border-info/20 bg-info-bg text-info',
+  warning: 'border-warning/20 bg-warning-bg text-warning',
+  danger: 'border-danger/20 bg-danger-bg text-danger',
+  neutral: 'border-border bg-surface-muted text-muted',
+}
+
+const statusTones: Record<string, keyof typeof statusColors> = {
+  'выставлен': 'info', 'счет выставлен': 'info', 'согласован': 'info',
+  'оплачен': 'success', 'оплачено': 'success', 'на складе': 'success', 'получено': 'success',
+  'проведен': 'success', 'проведена': 'success',
+  'оплачен частично': 'warning', 'оплачено частично': 'warning', 'ожидаем': 'warning',
+  'на согласовании': 'warning', 'не оплачено': 'warning', 'черновик': 'warning',
+  'отменен': 'danger', 'отменена': 'danger', 'отклонен': 'danger',
+}
+
+function cardFooter(card: Card) {
+  const status = card.status?.trim() || 'Статус не указан'
+  const key = status.toLocaleLowerCase('ru-RU').replace(/ё/g, 'е')
+  if (key === 'проведен' && card.account_label) return { label: card.account_label, color: statusColors.info }
+  const label = key === 'оплачен' ? 'Оплачено' : key === 'оплачен частично' ? 'Оплачено частично' : status
+  return { label: label.charAt(0).toLocaleUpperCase('ru-RU') + label.slice(1), color: statusColors[statusTones[key] ?? 'neutral'] }
 }
 
 function money(amount: Card['amount'], currency: Card['currency']) {
@@ -138,7 +167,7 @@ export function OrderDocumentMap({ order, documents, confirmLeave }: {
       cards: documents.receipts.map(row => ({
         id: 'receipt-' + row.id, number: row.number, date: row.occurred_at, currency: order.currency,
         amount: row.lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price), 0),
-        status: row.status === 'posted' ? 'Проведена' : row.status === 'draft' ? 'Черновик' : row.status,
+        status: row.status_label || (row.status === 'posted' ? 'На складе' : row.status === 'draft' ? 'Черновик' : row.status),
         evidence: row.via_supplier_invoice ? 'Связана через счёт' : undefined,
         href: `/purchasing?tab=receipts&receipt=${row.id}`,
       })),
@@ -178,12 +207,14 @@ export function OrderDocumentMap({ order, documents, confirmLeave }: {
 function DocumentCardGrid({ stages, currentId, confirmLeave }: { stages: Stage[]; currentId?: string; confirmLeave?: () => boolean }) {
   return (
       <div className="grid max-w-[68rem] grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))] lg:gap-4">
-        {stages.map(({ title, destination, icon: Icon, cards, empty }) => (
+        {stages.map(({ title, icon: Icon, cards, empty }) => (
           <section key={title} aria-label={title} className="min-w-0 space-y-2">
-            {cards.map(card => (
+            {cards.map(card => {
+              const footer = cardFooter(card)
+              return (
               <Link key={card.id} to={card.href}
                 onClick={event => { if (card.id !== currentId && confirmLeave && !confirmLeave()) event.preventDefault() }}
-                className={'group flex aspect-square min-h-48 w-full min-w-0 max-w-56 flex-col rounded-xl border bg-surface text-ink shadow-card transition-colors hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand '
+                className={'flex aspect-square min-h-48 w-full min-w-0 max-w-56 flex-col rounded-xl border bg-surface text-ink shadow-card transition-colors hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand '
                   + (card.id === currentId ? 'border-brand/50' : 'border-border')}>
                 <span className={'flex items-start gap-2 rounded-t-xl border-b border-border px-3 py-2 text-sm font-semibold leading-tight '
                   + (card.id === currentId ? 'bg-brand/10 text-brand-dark' : 'bg-surface-muted')}>
@@ -195,14 +226,14 @@ function DocumentCardGrid({ stages, currentId, confirmLeave }: { stages: Stage[]
                   <span className="text-xs text-muted">{journalDate(card.date)}</span>
                   <span className="max-w-full break-words font-semibold tabular-nums">{money(card.amount, card.currency)}</span>
                   {card.evidence && <span className="max-w-full break-words text-xs text-muted">{card.evidence}</span>}
-                  {card.status && <span className="mt-auto max-w-full break-words rounded-md bg-surface-muted px-2 py-1 text-xs font-medium">{card.status}</span>}
                 </span>
-                <span className="flex items-center justify-between gap-1 rounded-b-xl border-t border-border bg-surface-muted px-3 py-2 text-xs font-semibold text-brand-dark group-hover:bg-brand/10">
-                  <span className="min-w-0 break-words">{destination}</span>
+                <span className={`flex items-center justify-between gap-1 rounded-b-xl border-t px-3 py-2 text-xs font-semibold ${footer.color}`}>
+                  <span className="min-w-0 break-words">{footer.label}</span>
                   <ChevronRight size={16} className="shrink-0" aria-hidden />
                 </span>
               </Link>
-            ))}
+              )
+            })}
             {!cards.length && <div className="space-y-2 rounded-xl border border-dashed border-border p-3 text-xs text-muted">
               <h3 className="flex items-start gap-2 font-semibold text-ink">
                 <Icon size={16} className="shrink-0 text-brand" aria-hidden /> {title}
