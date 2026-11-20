@@ -12,13 +12,13 @@ import { Button } from '@/shared/ui/Button'
 import { Chip } from '@/shared/ui/Chip'
 import { Input, Select, Textarea, Field } from '@/shared/ui/Field'
 import { DataTable, type DataTableColumn } from '@/shared/ui/DataTable'
-import { Drawer } from '@/shared/ui/Drawer'
 import { Modal } from '@/shared/ui/Modal'
 import { Tabs } from '@/shared/ui/Tabs'
 import { PurchaseReturnEditor, PurchaseReturnsPanel } from './PurchaseReturns'
 import { AutomaticReview } from './AutomaticReview'
 import { ReceiptEditor } from './ReceiptEditor'
-import { OrderFiles } from './OrderFiles'
+import { PurchaseDocumentFiles } from './OrderFiles'
+import { PurchaseDocumentSections } from './PurchaseDocumentSections'
 import { OrderDocumentMap, type LinkedDocuments } from './OrderDocumentMap'
 import { OrderMaterialLink, OrderPositions } from './OrderPositions'
 import { JournalAmount, JournalControls, JournalTotals, emptyFilters, journalDate, journalMoney, type JournalSummary } from './JournalControls'
@@ -135,14 +135,18 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const [params, setParams] = useSearchParams()
   const requestedOrder = Number(params.get('order'))
   const orderId = tab === 'orders' && Number.isSafeInteger(requestedOrder) && requestedOrder > 0 ? requestedOrder : null
-  const receiptId = params.get('receipt')
+  const requestedReceipt = Number(params.get('receipt'))
+  const receiptId = tab === 'receipts' && Number.isSafeInteger(requestedReceipt) && requestedReceipt > 0 ? requestedReceipt : null
   const createReceipt = params.get('receive') === '1'
   useEffect(() => {
     let active = true
     if (createReceipt) setReceiving({})
-    if (receiptId && /^\d+$/.test(receiptId))
+    if (receiptId) {
+      document.getElementById('main-content')?.scrollTo({ top: 0 })
+      setError('')
       call<Receipt>(`/receipts/${receiptId}`).then(row => { if (active) setSelectedReceipt(row) })
         .catch(error => { if (active) setError(error.message) })
+    }
     return () => { active = false }
   }, [createReceipt, receiptId])
   const scope = tab === 'orders' ? 'supplier-orders' : 'receipts'
@@ -173,8 +177,9 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
   const [orders, setOrders] = useState<{ total: number; items: Order[]; summary?: JournalSummary[] }>({ total: 0, items: [] }),
     [receipts, setReceipts] = useState<{ total: number; items: Receipt[] }>({ total: 0, items: [] })
   const [loadedOrder, setSelected] = useState<Order | null>(null),
-    [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
+    [loadedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
   const selected = loadedOrder?.id === orderId ? loadedOrder : null
+  const selectedReceipt = loadedReceipt?.id === receiptId ? loadedReceipt : null
   const [revision, setRevision] = useState(0),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true)
@@ -224,7 +229,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
       .catch((e) => setError(e.message))
   }, [])
   useEffect(() => {
-    if (orderId) return
+    if (orderId || receiptId) return
     if (tab === 'returns') {
       setLoading(false)
       return
@@ -263,7 +268,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
       current = false
       clearTimeout(timer)
     }
-  }, [tab, orderId, archive, query, offset, revision, filters, setOffset])
+  }, [tab, orderId, receiptId, archive, query, offset, revision, filters, setOffset])
 
   const loadDocuments = async (id: number) => {
     const generation = ++documentGeneration.current
@@ -296,6 +301,9 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
     if (id) { setSelected(await call<Order>(`/orders/${id}`)); await loadDocuments(id) }
   }
   const open = (row: Order) => setParams({ tab: 'orders', order: String(row.id) })
+  const openReceipt = (row: Receipt) => {
+    setParams({ tab: 'receipts', receipt: String(row.id) })
+  }
   const orderColumns: DataTableColumn<Order>[] = [
     { header: '№', accessor: r => <button className="whitespace-nowrap font-medium text-accent hover:underline" onClick={e => { e.stopPropagation(); open(r) }}>№ {r.number}</button> },
     { header: 'Дата', accessor: r => journalDate(r.created_at), className: 'whitespace-nowrap' },
@@ -327,7 +335,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
     { header: 'Номер', className: 'whitespace-nowrap', accessor: r => (
       <button type="button" className={registerLink} onClick={event => {
         event.stopPropagation()
-        setSelectedReceipt(r)
+        openReceipt(r)
       }}>{r.number}</button>
     ) },
     { header: 'Дата', accessor: r => journalDate(r.occurred_at), className: 'whitespace-nowrap' },
@@ -355,7 +363,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
       linkedDocuments.payments.length + linkedDocuments.returns.length + (linkedDocuments.factures?.length ?? 0))
   return (
     <div>
-      {!orderId && <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      {!orderId && !receiptId && <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-medium text-ink">{title}</h1>
           <p className="mt-1 text-sm text-muted">Заказы поставщикам, частичные поставки, остатки и оплата.</p>
@@ -383,7 +391,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           </button>
         </div>
       )}
-      {!orderId && <>
+      {!orderId && !receiptId && <>
       {tab !== 'returns' && <JournalControls expanded={filtersOpen} onExpanded={setFiltersOpen} query={query} onQuery={v => { setQuery(v); setOffset(0) }} filters={filters}
         onFilters={v => { setFilters(v); setOffset(0) }} archive={archive} onArchive={v => { setArchive(v); setOffset(0) }} suppliers={catalog.suppliers} receipts={tab === 'receipts'} />}
       {tab === 'orders' && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -419,7 +427,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           selection={selection}
           rows={receipts.items}
           keyOf={(r) => String(r.id)}
-          onRowClick={setSelectedReceipt}
+          onRowClick={openReceipt}
           loading={loading}
           columns={receiptColumns}
           emptyLabel="Приёмки не найдены"
@@ -540,7 +548,7 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
                 canOpenMaterial={accessLevelAtLeast(warehouse, 'view')} />
               {selected.comment && <p className="mt-4 whitespace-pre-wrap">{selected.comment}</p>}
             </>}
-            {cardTab === 'files' && <OrderFiles key={selected.id} orderId={selected.id} canUpload={canEdit && !selected.archived} />}
+            {cardTab === 'files' && <PurchaseDocumentFiles key={selected.id} resource="orders" id={selected.id} canUpload={canEdit && !selected.archived} />}
             {cardTab === 'control' && <AutomaticReview key={selected.id} orderId={selected.id} orderVersion={selected.version} canEdit={canEdit} />}
             {cardTab === 'documents' && (
               documentError ? <div role="alert" className="flex flex-wrap items-center gap-3 text-danger">
@@ -562,40 +570,46 @@ function PurchasingJournal({ tab, title }: { tab: 'orders' | 'receipts' | 'retur
           </div>
         )}
       </section>}
-      <Drawer
-        open={!!selectedReceipt}
-        onClose={() => setSelectedReceipt(null)}
-        title={selectedReceipt ? 'Приёмка № ' + selectedReceipt.number : ''}
-      >
+      {receiptId && <section aria-label={`Приёмка № ${selectedReceipt?.number ?? receiptId}`} className="min-w-0 space-y-5 text-sm">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-[22px] font-medium text-ink">Приёмка № {selectedReceipt?.number ?? receiptId}</h1>
+            {selectedReceipt && <p className="mt-1 text-muted">{[
+              selectedReceipt.supplier_name ?? catalog.suppliers.find(supplier => supplier.id === selectedReceipt.supplier_id)?.name,
+              selectedReceipt.organization_name, selectedReceipt.warehouse,
+            ].filter(Boolean).join(' · ')}</p>}
+          </div>
+          <Button variant="secondary" onClick={() => {
+            setError(''); setSelectedReceipt(null); setParams({ tab: 'receipts' }, { replace: true })
+          }}>К списку приёмок</Button>
+        </header>
+        {!selectedReceipt && !error && <p role="status" className="text-muted">Загружаем приёмку…</p>}
         {selectedReceipt && (
-          <div className="space-y-4 text-sm">
-            <p>
-              {new Date(selectedReceipt.occurred_at).toLocaleString('ru-RU')} ·{' '}
-              {status[selectedReceipt.status]}
+          <div className="space-y-4">
+            <p className="text-muted">
+              {journalDate(selectedReceipt.occurred_at)} · {selectedReceipt.status_label || status[selectedReceipt.status] || selectedReceipt.status}
             </p>
-            <p>{catalog.suppliers.find((s) => s.id === selectedReceipt.supplier_id)?.name}</p>
-            {canEdit && selectedReceipt.status === 'posted' && <Button onClick={() => setEditingReceiptId(selectedReceipt.id)}>Изменить приёмку</Button>}
-            {canEdit && canReceive && selectedReceipt.status === 'posted' && (
-              <Button onClick={() => setReturningReceiptId(selectedReceipt.id)}>Вернуть поставщику</Button>
-            )}
-            {selectedReceipt.source_id && (
-              <p className="text-muted">
-                Документ перенесён из МоегоСклада. Остатки по нему учтены при переносе.
-              </p>
-            )}
-            <DataTable
-              rows={selectedReceipt.lines}
-              keyOf={(r) => String(selectedReceipt.lines.indexOf(r))}
-              columns={[
-                { header: 'Материал', accessor: (r) => r.title },
-                { header: 'Количество', accessor: (r) => qty(r.quantity) + ' ' + r.unit },
-                { header: 'Цена', accessor: (r) => money(r.unit_price) },
-              ]}
-            />
-            <p className="whitespace-pre-wrap">{selectedReceipt.note}</p>
+            <div className="flex flex-wrap gap-2">
+              {canEdit && selectedReceipt.status === 'posted' && <Button variant="secondary" onClick={() => setEditingReceiptId(selectedReceipt.id)}>Изменить приёмку</Button>}
+              {canEdit && canReceive && selectedReceipt.status === 'posted' && (
+                <Button variant="secondary" onClick={() => setReturningReceiptId(selectedReceipt.id)}>Вернуть поставщику</Button>
+              )}
+            </div>
+            <PurchaseDocumentSections key={selectedReceipt.id} id={selectedReceipt.id} resource="receipts"
+              canUpload={canEdit} positions={<>
+                <DataTable rows={selectedReceipt.lines} keyOf={line => String(selectedReceipt.lines.indexOf(line))}
+                  columns={[
+                    { header: '№', accessor: line => selectedReceipt.lines.indexOf(line) + 1 },
+                    { header: 'Наименование', accessor: line => line.title },
+                    { header: 'Количество', accessor: line => qty(line.quantity) + ' ' + line.unit },
+                    { header: 'Цена', align: 'right', accessor: line => receiptMoney(line.unit_price, selectedReceipt.currency) },
+                    { header: 'Сумма', align: 'right', accessor: line => receiptMoney(Number(line.quantity) * Number(line.unit_price), selectedReceipt.currency) },
+                  ]} emptyLabel="В приёмке нет позиций" />
+                {selectedReceipt.note && <p className="whitespace-pre-wrap">{selectedReceipt.note}</p>}
+              </>} />
           </div>
         )}
-      </Drawer>
+      </section>}
       {editingReceiptId && <ReceiptEditor id={editingReceiptId} onClose={() => setEditingReceiptId(null)} onSaved={async () => {
         const updated = await call<Receipt>(`/receipts/${editingReceiptId}`)
         setSelectedReceipt(updated); setEditingReceiptId(null); setRevision(v => v + 1)

@@ -49,6 +49,9 @@ let created = false,
   archived = false,
   edited = false
 const uploads = []
+const receiptUploads = []
+const storedInvoice = { kind: 'invoice', id: 91, number: 'С-91', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'Оплачен' }
+const storedReceipt = { kind: 'receipt', id: 92, number: 'ПР-92', date: '2026-11-09', amount: '200.00', currency: 'RUB', status: 'Проведена' }
 await page.route('**/api/**', async (route) => {
   const req = route.request(),
     url = new URL(req.url()),
@@ -107,11 +110,31 @@ await page.route('**/api/**', async (route) => {
   else if (path === '/api/purchasing/orders/1/files/1')
     return route.fulfill({status: 200, contentType: 'application/pdf', body: '%PDF-1.7\nsynthetic'})
   else if (path === '/api/purchasing/orders/1/documents') body = {
-    invoices: [{ id: 91, number: 'С-91', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'Оплачен' }],
+    invoices: [storedInvoice],
     receipts: [{ id: 92, number: 'ПР-92', occurred_at: '2026-11-09T17:11:00+03:00', status: 'posted', lines: [{ quantity: 10, unit_price: 20 }] }],
     payments: [{ id: 93, number: 'П-93', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'posted', refund: false, invoice_ids: [91] }],
     factures: [{ id: 94, number: 'СФ-94', date: '2026-11-09', amount: '200.00', currency: 'RUB', receipt_ids: [92] }],
     returns: [], opening_paid: 0,
+  }
+  else if (path === '/api/purchasing/supplier-invoices/91') body = {
+    ...storedInvoice, agent_name: order.supplier_name, status_label: storedInvoice.status, archived: false,
+    positions: [{ number: 1, name: 'Тестовый брус', quantity: 10, unit: 'шт', vat: 20, price: '20.00', amount: '200.00' }],
+  }
+  else if (path === '/api/purchasing/supplier-invoices/91/documents') body = [storedReceipt]
+  else if (path === '/api/purchasing/supplier-invoices/91/files') body = [
+    { key: 'source-0', filename: 'supplier-invoice.pdf', size: 120, source: 'МойСклад', path: '/supplier-invoices/91/files/imported/0' },
+  ]
+  else if (path === '/api/purchasing/receipts/92') body = {
+    ...storedReceipt, status: 'posted', occurred_at: storedReceipt.date, supplier_name: order.supplier_name,
+    lines: [{ title: 'Тестовый брус', quantity: 10, unit: 'шт', unit_price: 20 }],
+  }
+  else if (path === '/api/purchasing/receipts/92/documents') body = [storedInvoice]
+  else if (path === '/api/purchasing/receipts/92/files') {
+    if (req.method() === 'POST') {
+      assert.match(req.postData(), /filename="test-receipt.pdf"/)
+      body = { key: 'local-2', filename: 'test-receipt.pdf', size: 21, source: 'Durov OS', path: '/receipts/92/files/2' }
+      receiptUploads.push(body)
+    } else body = receiptUploads
   }
   else if (path === '/api/accounting/money-summary') body = { organizations: [] }
   else if (path === '/api/accounting/money-movements/93') body = {
@@ -171,12 +194,19 @@ try {
   const documentMap = card.getByRole('region', {name: 'Связанные документы заказа', exact: true})
   await documentMap.waitFor()
   assert.equal(await page.getByRole('dialog').count(), 0)
-  for (const [label, href] of [
-    [/^№ С-91/, '/moysklad?type=invoicein&record=91'],
-    [/^№ ПР-92/, '/purchasing?tab=receipts&receipt=92'],
-    [/^№ СФ-94/, '/moysklad?type=facturein&record=94'],
-    [/^№ П-93/, '/accounting?tab=register&workspace=purchasing&movement=93'],
-  ]) assert.equal(await documentMap.getByRole('link', { name: label }).getAttribute('href'), href)
+  for (const [title, number, destination, href] of [
+    ['Заказ поставщику', '1', 'Заказы поставщикам → Позиции', '/purchasing?tab=orders&order=1'],
+    ['Счет поставщика', 'С-91', 'Счета поставщиков', '/moysklad?type=invoicein&record=91'],
+    ['Исходящий платеж', 'П-93', 'Деньги', '/accounting?tab=register&workspace=purchasing&movement=93'],
+    ['Приемка', 'ПР-92', 'Приёмки', '/purchasing?tab=receipts&receipt=92'],
+    ['Счет-фактура полученный', 'СФ-94', 'Счета-фактуры полученные', '/moysklad?type=facturein&record=94'],
+  ]) {
+    const link = documentMap.getByRole('region', { name: title, exact: true }).getByRole('link')
+    assert.equal(await link.getAttribute('href'), href)
+    assert(await link.getByText(title, { exact: true }).isVisible())
+    assert(await link.getByText('№ ' + number, { exact: true }).isVisible())
+    assert(await link.getByText(destination, { exact: true }).isVisible())
+  }
   await page.setViewportSize({ width: 390, height: 844 })
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await documentMap.getByRole('link', { name: /П-93/ }).click()
@@ -187,6 +217,28 @@ try {
   await page.goBack()
   await documentMap.waitFor()
   await page.reload()
+  await documentMap.waitFor()
+  await documentMap.getByRole('link', { name: /^Счет поставщика № С-91/ }).click()
+  const supplierInvoice = page.getByRole('region', { name: 'Счёт поставщика № С-91', exact: true })
+  await supplierInvoice.getByRole('cell', { name: 'Тестовый брус', exact: true }).waitFor()
+  await supplierInvoice.getByRole('tab', { name: 'Файлы' }).click()
+  await supplierInvoice.getByRole('button', { name: 'Скачать supplier-invoice.pdf' }).waitFor()
+  await page.reload()
+  await supplierInvoice.getByRole('button', { name: 'Скачать supplier-invoice.pdf' }).waitFor()
+  await supplierInvoice.getByRole('tab', { name: 'Связанные документы' }).click()
+  await supplierInvoice.getByRole('link', { name: /ПР-92/ }).click()
+  const receiptCard = page.getByRole('region', { name: 'Приёмка № ПР-92', exact: true })
+  await receiptCard.getByRole('cell', { name: 'Тестовый брус', exact: true }).waitFor()
+  await receiptCard.getByRole('tab', { name: 'Связанные документы' }).click()
+  assert.equal(await receiptCard.getByRole('link', { name: /С-91/ }).getAttribute('href'), '/moysklad?type=invoicein&record=91')
+  await receiptCard.getByRole('tab', { name: 'Файлы' }).click()
+  await receiptCard.getByText('У документа пока нет вложений.').waitFor()
+  await receiptCard.getByLabel('Выбрать файл приёмки').setInputFiles({
+    name: 'test-receipt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7\nsynthetic'),
+  })
+  await receiptCard.getByRole('button', { name: 'Скачать test-receipt.pdf' }).waitFor()
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+  await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173') + '/purchasing?tab=orders&order=1&section=documents')
   await documentMap.waitFor()
   await page.setViewportSize({ width: 1440, height: 1000 })
   await card.getByRole('tab', {name: 'Файлы', exact: true}).click()

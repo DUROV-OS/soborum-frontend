@@ -13,8 +13,15 @@ type OrderFile = {
   path: string
 }
 
-export function OrderFiles({ orderId, canUpload }: { orderId: number; canUpload: boolean }) {
-  const path = `/orders/${orderId}/files`
+const documentNames = { orders: 'заказа', receipts: 'приёмки', 'supplier-invoices': 'счёта поставщика' }
+
+export function PurchaseDocumentFiles({ id, resource, canUpload }: {
+  id: number
+  resource: keyof typeof documentNames
+  canUpload: boolean
+}) {
+  const path = `/${resource}/${id}/files`
+  const name = documentNames[resource]
   const browse = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<OrderFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,9 +62,9 @@ export function OrderFiles({ orderId, canUpload }: { orderId: number; canUpload:
     }
   }
 
-  return <section className="space-y-4" aria-label="Файлы заказа">
+  return <section className="space-y-4" aria-label={`Файлы ${name}`}>
     {canUpload && <div className="flex flex-wrap items-center gap-3">
-      <input ref={browse} aria-label="Выбрать файл заказа" type="file" className="hidden"
+      <input ref={browse} aria-label={`Выбрать файл ${name}`} type="file" className="hidden"
         accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" onChange={event => {
           const file = event.currentTarget.files?.[0]
           event.currentTarget.value = ''
@@ -76,7 +83,9 @@ export function OrderFiles({ orderId, canUpload }: { orderId: number; canUpload:
       }}>Повторить</Button>}
     </div>}
     {loading ? <p role="status" className="text-muted">Загружаем файлы…</p> : !files.length && !error &&
-      <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-muted">К заказу пока нет вложений.</p>}
+      <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-muted">
+        {resource === 'orders' ? 'К заказу пока нет вложений.' : 'У документа пока нет вложений.'}
+      </p>}
     {!!files.length && <ul className="divide-y divide-border rounded-lg border border-border">
       {files.map(file => <li key={file.key} className="flex flex-wrap items-center gap-3 px-4 py-3">
         <FileText size={20} className="shrink-0 text-muted" />
