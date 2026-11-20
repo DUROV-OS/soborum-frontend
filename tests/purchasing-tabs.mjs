@@ -289,7 +289,7 @@ try {
   const purchasesIndex = sideLabels.indexOf('Закупки')
   assert.notEqual(purchasesIndex, -1)
   assert.deepEqual(sideLabels.slice(purchasesIndex, purchasesIndex + 2),
-    ['Закупки', 'Контрагенты'])
+    ['Закупки', 'Номенклатура'])
   const counterparties = sidebar.getByRole('link', { name: 'Контрагенты', exact: true })
   await counterparties.click()
   await visibleCounterparties()

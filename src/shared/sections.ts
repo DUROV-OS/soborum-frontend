@@ -144,7 +144,7 @@ export const SECTIONS: SectionMeta[] = [
   { id: 'notifications', label: 'Уведомления', path: '/notifications', icon: Bell, notAssignable: true },
   { id: 'feedback_my', label: 'Мои заявки', path: '/feedback/my', icon: MessageSquareText, notAssignable: true },
   { id: 'feedback_admin', label: 'Заявки', path: '/feedback/all', icon: Inbox, adminOnly: true },
-  { id: 'admin', label: 'Доступ', path: '/admin', icon: ShieldCheck, adminOnly: true },
+  { id: 'admin', label: 'Доступы и настройки', path: '/admin', icon: ShieldCheck, adminOnly: true },
 ]
 
 /**
