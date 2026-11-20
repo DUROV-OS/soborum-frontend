@@ -118,7 +118,7 @@ const visibleCounterparties = async () => {
 }
 const visible = async index => {
   await link(index).and(nav.locator('[aria-current="page"]')).waitFor()
-  assert.deepEqual(await nav.getByRole('link').allTextContents(), labels)
+  assert.deepEqual(await nav.getByRole('link').allTextContents(), [...labels, 'Деньги'])
   assert.equal(await page.getByRole('navigation', { name: 'Разделы закупок' }).count(), 1)
   await table.waitFor()
 }
@@ -337,7 +337,7 @@ try {
   assert.equal(await sidebar.getByRole('link', { name: 'Контрагенты', exact: true }).getAttribute('aria-current'), 'page')
   assert.equal(await sidebar.getByRole('link', { name: 'Счета-фактуры полученные', exact: true }).count(), 0)
   assert.deepEqual(errors, [])
-  console.log('Purchasing tabs passed: five tabs, independent counterparties, direct card links, saved views, mobile and role gates.')
+  console.log('Purchasing tabs passed: register navigation, independent counterparties, direct card links, saved views, mobile and role gates.')
 } finally {
   await browser.close()
 }

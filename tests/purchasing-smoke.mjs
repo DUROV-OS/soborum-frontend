@@ -106,7 +106,20 @@ await page.route('**/api/**', async (route) => {
   }
   else if (path === '/api/purchasing/orders/1/files/1')
     return route.fulfill({status: 200, contentType: 'application/pdf', body: '%PDF-1.7\nsynthetic'})
-  else if (path === '/api/purchasing/orders/1/documents') body = { receipts: [], payments: [], returns: [], opening_paid: 0 }
+  else if (path === '/api/purchasing/orders/1/documents') body = {
+    invoices: [{ id: 91, number: 'С-91', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'Оплачен' }],
+    receipts: [{ id: 92, number: 'ПР-92', occurred_at: '2026-11-09T17:11:00+03:00', status: 'posted', lines: [{ quantity: 10, unit_price: 20 }] }],
+    payments: [{ id: 93, number: 'П-93', date: '2026-11-06', amount: '200.00', currency: 'RUB', status: 'posted', refund: false, invoice_ids: [91] }],
+    factures: [{ id: 94, number: 'СФ-94', date: '2026-11-09', amount: '200.00', currency: 'RUB', receipt_ids: [92] }],
+    returns: [], opening_paid: 0,
+  }
+  else if (path === '/api/accounting/money-summary') body = { organizations: [] }
+  else if (path === '/api/accounting/money-movements/93') body = {
+    id: 93, external_number: 'П-93', direction: 'expense', subkind: 'supply_payment',
+    status: 'posted', amount: 200, currency: 'RUB', tax: 0, assessment: 'actual',
+    source_kind: 'supply', source_label: 'Заказ поставщику № 1', documents: [],
+    doc_date: '2026-11-06', created_at: '2026-11-06', posted_at: '2026-11-06',
+  }
   else if (path === '/api/purchasing/receipts' && req.method() === 'POST') {
     const b = req.postDataJSON()
     assert.equal(b.lines[0].quantity, '3')
@@ -139,7 +152,7 @@ try {
   await page.goto((process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173') + '/purchasing?tab=orders')
   await page.getByRole('heading', { name: 'Заказы поставщикам', exact: true }).waitFor()
   await page.getByRole('button', {name: '№ 1', exact: true}).click()
-  const card = page.getByRole('dialog', {name: 'Заказ № 1', exact: true})
+  const card = page.getByRole('region', {name: 'Заказ № 1', exact: true})
   const positions = card.getByRole('region', {name: 'Позиции заказа'})
   await positions.getByRole('cell', {name: 'Тестовый брус'}).waitFor()
   const material = positions.getByRole('link', { name: 'Тестовый брус', exact: true })
@@ -154,6 +167,28 @@ try {
   assert(await positions.getByRole('table').evaluate(table => table.parentElement.scrollWidth > table.parentElement.clientWidth))
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await page.setViewportSize({ width: 1440, height: 1000 })
+  await card.getByRole('tab', {name: /^Связанные документы/}).click()
+  const documentMap = card.getByRole('region', {name: 'Связанные документы заказа', exact: true})
+  await documentMap.waitFor()
+  assert.equal(await page.getByRole('dialog').count(), 0)
+  for (const [label, href] of [
+    [/^№ С-91/, '/moysklad?type=invoicein&record=91'],
+    [/^№ ПР-92/, '/purchasing?tab=receipts&receipt=92'],
+    [/^№ СФ-94/, '/moysklad?type=facturein&record=94'],
+    [/^№ П-93/, '/accounting?tab=register&workspace=purchasing&movement=93'],
+  ]) assert.equal(await documentMap.getByRole('link', { name: label }).getAttribute('href'), href)
+  await page.setViewportSize({ width: 390, height: 844 })
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+  await documentMap.getByRole('link', { name: /П-93/ }).click()
+  await page.getByRole('heading', { name: 'Деньги', exact: true }).waitFor()
+  const purchasingNavigation = page.getByRole('navigation', { name: 'Разделы закупок' })
+  assert.equal(await purchasingNavigation.getByRole('link', {name: 'Деньги', exact: true}).getAttribute('aria-current'), 'page')
+  await page.getByRole('dialog', { name: /^оплата поставки/i }).waitFor()
+  await page.goBack()
+  await documentMap.waitFor()
+  await page.reload()
+  await documentMap.waitFor()
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await card.getByRole('tab', {name: 'Файлы', exact: true}).click()
   const files = card.getByRole('region', {name: 'Файлы заказа'})
   await files.getByText('К заказу пока нет вложений.').waitFor()
@@ -163,7 +198,7 @@ try {
   const download = page.waitForEvent('download')
   await files.getByRole('button', {name: 'Скачать test-order.pdf'}).click()
   assert.equal((await download).suggestedFilename(), 'test-order.pdf')
-  await card.getByRole('button', {name: 'Закрыть', exact: true}).click()
+  await card.getByRole('button', {name: 'К списку заказов', exact: true}).click()
   await page.getByRole('button', { name: 'Заказ поставщику', exact: true }).click()
   const form = page.getByRole('dialog', { name: 'Заказ поставщику', exact: true })
   await form.getByLabel('Организация', { exact: true }).selectOption({ label: 'Технология' })
@@ -205,7 +240,7 @@ try {
   await page.getByText('На согласовании: 50 ₽', { exact: false }).waitFor()
   await page.getByRole('button', { name: 'В архив', exact: true }).click()
   await page.getByRole('button', { name: 'Вернуть из архива' }).waitFor()
-  await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
+  await card.getByRole('button', { name: 'К списку заказов', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await page.reload({ waitUntil: 'networkidle' })
   await page.getByRole('heading', { name: 'Заказы поставщикам', exact: true }).waitFor()

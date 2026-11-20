@@ -137,6 +137,8 @@ export function AccountingPage() {
   const isAdmin = useAuthStore((s) => s.current?.role === 'admin')
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const purchaseMoney = searchParams.get('workspace') === 'purchasing' && searchParams.get('tab') === 'register'
+  const requestedMovement = Number(searchParams.get('movement'))
   const [creating, setCreating] = useState(false)
   const [importing, setImporting] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(() => {
@@ -153,16 +155,25 @@ export function AccountingPage() {
   )
 
   useEffect(() => {
-    // Переход по ссылке «создана проводка» (0011-f) — открываем карточку и
-    // убираем параметр из адреса, чтобы обновление страницы не переоткрывало её.
-    if (searchParams.get('movement'))
+    if (!Number.isSafeInteger(requestedMovement) || requestedMovement <= 0) return
+    setSelectedId(requestedMovement)
+    void openMovementById(requestedMovement)
+    if (!purchaseMoney)
       setSearchParams((previous) => {
         const next = new URLSearchParams(previous)
         next.delete('movement')
         return next
       }, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [requestedMovement, purchaseMoney, openMovementById, setSearchParams])
+
+  function closeMovement() {
+    setSelectedId(null)
+    if (purchaseMoney && requestedMovement) setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      next.delete('movement')
+      return next
+    }, { replace: true })
+  }
 
   async function handleDeleteRow(id: number) {
     if (!window.confirm('Удалить проводку? Отменить нельзя.')) return
@@ -291,7 +302,7 @@ export function AccountingPage() {
     <div>
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-[20px] font-medium text-ink">Бухгалтерия</h1>
+          <h1 className="text-[20px] font-medium text-ink">{purchaseMoney ? 'Деньги' : 'Бухгалтерия'}</h1>
           <p className="mt-1 text-[13px] text-muted">
             {tab === 'register' && currentOrganization
               ? `${currentOrganization.name} — движение денег по выбранному счёту.`
@@ -312,7 +323,7 @@ export function AccountingPage() {
         )}
       </div>
 
-      <div className="mb-4">
+      {!purchaseMoney && <div className="mb-4">
         <ModuleNavigation label="Разделы бухгалтерии"><Tabs
           tabs={[
             { key: 'review', label: 'Рабочий обзор' },
@@ -332,7 +343,7 @@ export function AccountingPage() {
             selectOrganization(Number(key.replace('org-', '')))
           }}
         /></ModuleNavigation>
-      </div>
+      </div>}
 
       {tab === 'review' ? (
         <EvidenceWorkspace />
@@ -640,7 +651,7 @@ export function AccountingPage() {
 
       <CreateMovementModal open={creating} onClose={() => setCreating(false)} />
       <ImportStatementModal open={importing} onClose={() => setImporting(false)} />
-      <MovementDetailDrawer movement={selected} onClose={() => setSelectedId(null)} />
+      <MovementDetailDrawer movement={selected} onClose={closeMovement} />
       <CounterpartyDrawer
         onOpenMovement={(id) => {
           void showCounterparty(null)
