@@ -104,11 +104,11 @@ const paymentStatus: Record<string, string> = {
 }
 
 const statusColors = {
-  success: 'border-success/20 bg-success-bg text-success',
-  info: 'border-info/20 bg-info-bg text-info',
-  warning: 'border-warning/20 bg-warning-bg text-warning',
-  danger: 'border-danger/20 bg-danger-bg text-danger',
-  neutral: 'border-border bg-surface-muted text-muted',
+  success: 'border-success/20 bg-success-bg',
+  info: 'border-info/20 bg-info-bg',
+  warning: 'border-warning/20 bg-warning-bg',
+  danger: 'border-danger/20 bg-danger-bg',
+  neutral: 'border-border bg-surface-muted',
 }
 
 const statusTones: Record<string, keyof typeof statusColors> = {
