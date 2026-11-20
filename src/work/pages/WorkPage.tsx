@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { ArrowUpRight, Briefcase, CircleCheck, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/auth/store'
+import { isSalesManager } from '@/auth/salesNavigation'
 import { getSectionSignal } from '@/today/api'
 import { DashboardAction, WidgetTone } from '@/today/types'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -29,7 +30,8 @@ function heatOf(tone: WidgetTone): Heat {
 
 export function WorkPage() {
   const hasAccess = useAuthStore((s) => s.hasAccess)
-  const groups = visibleWorkflows(hasAccess)
+  const salesManager = useAuthStore(s => isSalesManager(s.current))
+  const groups = visibleWorkflows(hasAccess, salesManager)
   return (
     <div className="space-y-7">
       <div>

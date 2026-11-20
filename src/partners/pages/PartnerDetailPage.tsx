@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAccessLevel } from '@/app/AccessGate'
 import { accessLevelAtLeast } from '@/auth/types'
 import { ReadRow, Section } from '@/clients/components/PanelPrimitives'
@@ -13,6 +13,7 @@ import { PartnerNotesPanel } from '../components/PartnerNotesPanel'
 import { ReferredClientsPanel } from '../components/ReferredClientsPanel'
 
 export function PartnerDetailPage() {
+  const [params] = useSearchParams()
   const { id = '' } = useParams()
   const partnerId = Number(id)
   const navigate = useNavigate()
@@ -58,7 +59,7 @@ export function PartnerDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/partners" className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+      <Link to={{ pathname: '/partners', search: params.toString() }} className="mb-4 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
         <ArrowLeft size={14} />
         База партнёров
       </Link>

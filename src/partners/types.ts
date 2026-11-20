@@ -3,10 +3,10 @@
 export type PartnerCategory = 'COMMERCE' | 'REAL_ESTATE_AGENCY' | 'REALTOR' | 'LAND_SPECIALIST'
 
 export const PARTNER_CATEGORIES: { key: PartnerCategory; label: string; plural: string }[] = [
-  { key: 'COMMERCE', label: 'Коммерция', plural: 'Коммерция' },
   { key: 'REAL_ESTATE_AGENCY', label: 'Агентство недвижимости', plural: 'Агентства недвижимости' },
-  { key: 'REALTOR', label: 'Риэлтор', plural: 'Риэлторы' },
+  { key: 'REALTOR', label: 'Риелтор', plural: 'Риелторы' },
   { key: 'LAND_SPECIALIST', label: 'Специалист по земле', plural: 'Специалисты по земле' },
+  { key: 'COMMERCE', label: 'Коммерция', plural: 'Коммерция' },
 ]
 
 export function categoryLabel(category: PartnerCategory): string {

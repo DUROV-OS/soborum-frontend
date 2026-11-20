@@ -9,7 +9,8 @@ try {
   })
   await context.addInitScript(() => {
     localStorage.setItem('soborbum.auth.token', 'synthetic-navigation-test')
-    localStorage.setItem('soborbum.onboarding.warehouse', '1')
+    for (const id of ['warehouse', 'cycle', 'clients'])
+      localStorage.setItem('soborbum.onboarding.' + id, '1')
   })
   const page = await context.newPage(),
     errors = [],
@@ -39,6 +40,9 @@ try {
     else if (path === '/api/notifications/unread-count') body = { count: 0 }
     else if (path === '/api/sales/catalog') body = { counterparties: [], organizations: [], materials: [] }
     else if (path === '/api/purchasing/catalog') body = { suppliers: [], materials: [], accounts: [] }
+    else if (path === '/api/costing/access') body = { internal: actor.role === 'admin' }
+    else if (path === '/api/costing/catalog/models') body = { items: [] }
+    else if (path === '/api/house-models/catalog') body = { series: [], individual: [] }
     else if (path === '/api/warehouse/warehouses') body = ['Склад проверки']
     else if (path === '/api/moysklad/catalog')
       body = {
@@ -72,7 +76,8 @@ try {
   await page.goto(base + '/work', { waitUntil: 'networkidle' })
   const main = page.getByRole('main'),
     sidebar = page.getByRole('complementary', { name: 'Главное меню' })
-  for (const name of ['Продажи', 'Закупки', 'Контрагенты', 'Склад', 'Номенклатура', 'Производство', 'Бухгалтерия'])
+  for (const name of ['Продажи', 'CRM', 'Партнёры', 'Каталог и цены', 'Типовые проекты домов',
+    'Закупки', 'Контрагенты', 'Склад', 'Номенклатура', 'Производство', 'Бухгалтерия'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
   await main.getByRole('region', { name: 'Контрагенты', exact: true }).getByRole('link', { name: /Реестр контрагентов/ }).waitFor()
   assert.equal(await main.getByRole('region', { name: 'Закупки', exact: true }).locator('a[href="/suppliers"]').count(), 0)
@@ -81,25 +86,19 @@ try {
   await purchases.getByRole('link', { name: 'Заказы поставщикам', exact: true }).waitFor()
   assert.equal(await purchases.getByRole('link', { name: 'Контрагенты', exact: true }).count(), 0)
   await sidebar.getByRole('link', { name: 'Разделы', exact: true }).click()
-  assert.equal(await sidebar.locator('#workflow-crm').getByRole('link', { name: 'Контрагенты', exact: true }).count(), 0)
+  assert.equal(await main.getByRole('region', { name: 'CRM', exact: true }).locator('a[href="/suppliers"]').count(), 0)
   await main.getByRole('link', { name: /Заказы покупателей/ }).click()
-  await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).waitFor()
-  await page.locator('[data-section-navigation]').getByRole('tab', { name: 'Отгрузки', exact: true }).click()
-  await page.locator('[data-section-navigation]').getByRole('tab', { name: 'Отгрузки', exact: true }).waitFor()
-  assert.equal(
-    await page.getByRole('tab', { name: 'Отгрузки', exact: true }).getAttribute('aria-selected'),
-    'true',
-  )
+  const sales = page.getByRole('navigation', { name: 'Раздел «Продажи»' })
+  await sales.waitFor()
+  assert.deepEqual(await sales.getByRole('link').allTextContents(),
+    ['Заказы покупателей', 'Счета покупателям', 'Отгрузки', 'Счета-фактуры выданные'])
+  const shipments = sales.getByRole('link', { name: 'Отгрузки', exact: true })
+  await shipments.click()
+  assert.equal(await shipments.getAttribute('aria-current'), 'page')
   await page.reload({ waitUntil: 'networkidle' })
-  assert.equal(
-    await page.getByRole('tab', { name: 'Отгрузки', exact: true }).getAttribute('aria-selected'),
-    'true',
-  )
+  assert.equal(await shipments.getAttribute('aria-current'), 'page')
   await page.goBack({ waitUntil: 'networkidle' })
-  assert.equal(
-    await page.getByRole('tab', { name: 'Заказы покупателей', exact: true }).getAttribute('aria-selected'),
-    'true',
-  )
+  assert.equal(await sales.getByRole('link', { name: 'Заказы покупателей', exact: true }).getAttribute('aria-current'), 'page')
   await sidebar.getByRole('link', { name: 'Закупки', exact: true }).click()
   for (const name of ['Приёмки', 'Возвраты поставщикам']) {
     const link = purchases.getByRole('link', { name, exact: true })
@@ -154,15 +153,17 @@ try {
   await main.getByRole('heading', { name: 'Заявки производства', exact: true }).waitFor()
   assert.equal(await page.getByRole('navigation', { name: 'Раздел Производство' }).getByRole('link', { name: 'Заявки производства', exact: true }).getAttribute('aria-current'), 'page')
   assert.equal(await warehouseTabs.count(), 0)
-  if (
-    (await sidebar.getByRole('button', { name: 'Продажи', exact: true }).getAttribute('aria-expanded')) ===
-    'false'
-  )
-    await sidebar.getByRole('button', { name: 'Продажи', exact: true }).click()
-  await sidebar.locator('#workflow-sales').getByRole('button', { name: /Все разделы/ }).click()
-  await sidebar.getByRole('link', { name: /Счета покупателям/ }).click()
+  const cycle = page.getByRole('navigation', { name: 'Раздел Производство' }).getByRole('link', { name: 'Цикл клиента', exact: true })
+  await cycle.click()
+  await page.waitForURL('**/cycles')
+  assert.equal(await cycle.getAttribute('aria-current'), 'page')
+  await sidebar.getByRole('link', { name: 'Продажи', exact: true }).click()
+  await sales.getByRole('link', { name: 'Счета-фактуры выданные', exact: true }).click()
+  await main.getByRole('heading', { name: 'Счета-фактуры выданные', exact: true }).waitFor()
+  const customerInvoices = sales.getByRole('link', { name: 'Счета покупателям', exact: true })
+  await customerInvoices.click()
   await page.getByRole('heading', { name: 'Счета покупателям', exact: true }).waitFor()
-  assert.equal(await page.getByLabel('Раздел МоегоСклада').inputValue(), 'invoiceout')
+  assert.equal(await customerInvoices.getAttribute('aria-current'), 'page')
   await page.getByLabel('Архив', { exact: true }).selectOption('archived')
   await page.reload({ waitUntil: 'networkidle' })
   assert.equal(await page.getByLabel('Архив', { exact: true }).inputValue(), 'archived')
@@ -175,12 +176,38 @@ try {
     ),
   )
   await sidebar.getByRole('link', { name: 'CRM', exact: true }).click()
+  const crmTabs = page.getByRole('navigation', { name: 'Разделы CRM', exact: true })
+  await crmTabs.waitFor()
+  assert.deepEqual(await crmTabs.getByRole('tab').allTextContents(),
+    ['Входящие', 'Сделки', 'Контакты', 'Компании', 'Задачи', 'Воронки', 'Клиенты и договоры', 'Этапы'])
+  await crmTabs.getByRole('tab', { name: 'Клиенты и договоры', exact: true }).click()
+  await page.waitForURL('**/clients')
+  const crmLinks = page.getByRole('navigation', { name: 'Раздел «CRM»', exact: true })
+  await crmLinks.getByRole('link', { name: 'Контакты', exact: true }).click()
   await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).click()
   await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).waitFor()
   assert.equal(
     await page.getByRole('tab', { name: /^Контакты(?: · \d+)?$/ }).getAttribute('aria-selected'),
     'true',
   )
+  await sidebar.getByRole('link', { name: 'Партнёры', exact: true }).click()
+  const partnerTabs = page.getByRole('navigation', { name: 'Разделы партнёров', exact: true })
+  await partnerTabs.waitFor()
+  assert.deepEqual((await partnerTabs.getByRole('tab').allTextContents()).map(text => text.split(' · ')[0]),
+    ['Все', 'Агентства недвижимости', 'Риелторы', 'Специалисты по земле', 'Коммерция'])
+  const realtors = partnerTabs.getByRole('tab', { name: /^Риелторы/ })
+  await realtors.click()
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(await realtors.getAttribute('aria-selected'), 'true')
+  await sidebar.getByRole('link', { name: 'Каталог и цены', exact: true }).click()
+  const catalog = page.getByRole('navigation', { name: 'Разделы смет', exact: true })
+  await catalog.getByRole('button', { name: 'Помощник', exact: true }).waitFor()
+  assert.deepEqual(await catalog.getByRole('button').allTextContents(),
+    ['Прайс', 'Помощник', 'Материалы для смет', 'Клиентские сметы', 'Типовые сметы', 'Розничные цены',
+      'Допы и замены', 'Пакеты опций', 'Настройки', 'Журнал изменений', 'Как работать'])
+  await sidebar.getByRole('link', { name: 'Типовые проекты домов', exact: true }).click()
+  await page.waitForURL('**/house-models')
+  await main.getByRole('heading', { name: 'Типовые проекты домов', exact: true }).waitFor()
   assert.ok(requests.some((r) => r.startsWith('/api/warehouse/documents?') && r.includes('kind=inventory')))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
@@ -204,6 +231,16 @@ try {
   await mobileMenu.waitFor({ state: 'hidden' })
   await page.getByRole('heading', { name: 'Товары и материалы', exact: true }).waitFor()
   assert.equal(await catalogTabs.getByRole('link').count(), 6)
+  actor = { ...actor, job_role: 'manager', module_access: { clients: 'edit', costing: 'full', accounting: 'view' } }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(base + '/work', { waitUntil: 'networkidle' })
+  for (const name of ['CRM', 'Партнёры', 'Каталог и цены'])
+    await main.getByRole('heading', { name, exact: true }).waitFor()
+  assert.equal(await sidebar.getByRole('link', { name: 'Продажи', exact: true }).count(), 0)
+  assert.equal(await main.locator('a[href="/clients"], a[href="/crm?tab=pipeline"], a[href="/costing?tab=prices"]').count(), 0)
+  await sidebar.getByRole('link', { name: 'CRM', exact: true }).click()
+  await crmTabs.getByRole('tab', { name: 'Входящие', exact: true }).waitFor()
+  assert.equal(await crmTabs.getByRole('tab', { name: /Клиенты и договоры|Этапы/ }).count(), 0)
   assert.deepEqual(errors, [])
   console.log(
     'Workflow navigation passed: process groups, correct register links, same-page switching, reload/back, archive, mobile and module grants',

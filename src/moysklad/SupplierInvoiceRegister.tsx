@@ -40,6 +40,18 @@ type InvoiceRow = {
   invoice?: InvoiceFields
 }
 
+export type ReceivedFactureFields = {
+  number: string
+  agent_name: string | null
+  counterparty_id: number | null
+  organization: string | null
+  amount: string | null
+  currency: string | null
+  incoming_number: string | null
+  incoming_date: string | null
+  comment: string | null
+}
+
 const quantityStyle = 'whitespace-nowrap tabular-nums'
 const standardLink = 'font-medium text-brand-dark underline underline-offset-2 hover:text-brand'
 const value = (text?: string | null) => text || '—'
@@ -47,6 +59,32 @@ const amount = (value?: string | null, currency?: string | null) => {
   if (value == null) return '—'
   if (currency) return journalMoney(Number(value), currency)
   return Number(value).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export function receivedFactureColumns<Row extends InvoiceRow & { facture?: ReceivedFactureFields }>(
+  open: (row: Row) => void,
+): DataTableColumn<Row>[] {
+  return [
+    { header: '№', className: 'whitespace-nowrap', accessor: row => (
+      <button type="button" className={standardLink}
+        onClick={event => { event.stopPropagation(); open(row) }}>{row.facture?.number || row.title}</button>
+    ) },
+    { header: 'Дата', className: 'whitespace-nowrap', accessor: row => journalDate(row.moment?.slice(0, 10)) },
+    { header: 'Контрагент', className: 'min-w-[170px]', accessor: row => {
+      const name = value(row.facture?.agent_name || row.agent)
+      return row.facture?.counterparty_id ? (
+        <Link className={standardLink} to={`/suppliers?counterparty=${row.facture.counterparty_id}`}
+          onClick={event => event.stopPropagation()}>{name}</Link>
+      ) : name
+    } },
+    { header: 'Организация', className: 'min-w-32', accessor: row => value(row.facture?.organization) },
+    { header: 'Сумма', className: quantityStyle, align: 'right', accessor: row => amount(row.facture?.amount, row.facture?.currency) },
+    { header: 'Входящий номер', className: 'whitespace-nowrap', accessor: row => value(row.facture?.incoming_number) },
+    { header: 'Входящая дата', className: 'whitespace-nowrap', accessor: row => journalDate(row.facture?.incoming_date) },
+    { header: 'Комментарий', className: 'min-w-[180px] max-w-xs', accessor: row => (
+      <span className="line-clamp-2" title={row.facture?.comment || ''}>{value(row.facture?.comment)}</span>
+    ) },
+  ]
 }
 
 export function invoiceColumns<Row extends InvoiceRow>(

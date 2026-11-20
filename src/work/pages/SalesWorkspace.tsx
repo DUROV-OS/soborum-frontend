@@ -17,8 +17,8 @@ const links = [
 ]
 
 /** Sales landing deliberately does not load the owner dashboard or ERP clients. */
-export function SalesWorkspace({ view = 'today' }: { view?: 'today' | 'work' | 'sales' }) {
-  const title = view === 'today' ? 'Главное на сегодня' : view === 'work' ? 'Разделы' : 'Продажи'
+export function SalesWorkspace({ view = 'today' }: { view?: 'today' | 'sales' }) {
+  const title = view === 'today' ? 'Главное на сегодня' : 'Продажи'
   const today = new Date().toLocaleDateString('ru-RU', { timeZone: 'Europe/Moscow', weekday: 'long', day: 'numeric', month: 'long' })
   return <div className="mx-auto max-w-[1440px] space-y-7 pb-6">
     <div><p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Рабочий обзор</p>

@@ -10,7 +10,7 @@ import { Input, Select } from '@/shared/ui/Field'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Drawer } from '@/shared/ui/Drawer'
 import { Chip } from '@/shared/ui/Chip'
-import { invoiceColumns, InvoiceStatusSettings, type InvoiceFields, type InvoiceStatus } from './SupplierInvoiceRegister'
+import { invoiceColumns, receivedFactureColumns, InvoiceStatusSettings, type InvoiceFields, type InvoiceStatus, type ReceivedFactureFields } from './SupplierInvoiceRegister'
 
 type Category = { type: string; title: string; count: number; archived: number }
 type Catalog = {
@@ -31,6 +31,7 @@ type Row = {
   applicable?: boolean
   agent?: string
   invoice?: InvoiceFields
+  facture?: ReceivedFactureFields
 }
 type ListResult = { total: number; items: Row[]; invoice_statuses?: InvoiceStatus[]; can_edit_invoice_statuses?: boolean }
 type Detail = Row & { payload: Record<string, unknown>; working_links?: { title: string; url: string }[] }
@@ -254,6 +255,8 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
     location = useLocation()
   const context = workflowContext(location.pathname, location.search)
   const nomenclature = context?.group.id === 'nomenclature'
+  const salesRegister = context?.group.id === 'sales'
+  const dedicatedRegister = nomenclature || salesRegister
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const type = params.get('type') || ''
   const setType = (type: string) =>
@@ -356,7 +359,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
         <Database className="mt-1 text-brand" size={25} />
         <div>
           <h1 className="text-[22px] font-medium text-ink">
-            {purchaseTab || nomenclature ? context?.entry.label : type
+            {purchaseTab || dedicatedRegister ? context?.entry.label : type
               ? catalog?.categories.find((c) => c.type === type)?.title ||
                 context?.entry.label ||
                 'Сохранённые документы'
@@ -369,7 +372,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
           </p>
         </div>
       </div>
-      {!purchaseTab && !nomenclature && <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {!purchaseTab && !dedicatedRegister && <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
           ['Сохранено записей', total],
           ['В архиве', archived],
@@ -395,7 +398,7 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
             }}
           />
         </div>
-        {!purchaseTab && !nomenclature && <Select
+        {!purchaseTab && !dedicatedRegister && <Select
           aria-label="Раздел МоегоСклада"
           value={type}
           onChange={(e) => {
@@ -453,7 +456,8 @@ function SourceRecords({ purchaseTab }: { purchaseTab: PurchaseTab | null }) {
         loading={loading}
         onRowClick={open}
         emptyLabel="Записей по этим условиям нет"
-        columns={purchaseTab === 'supplier-invoices' ? invoiceColumns(result.invoice_statuses || [], open, changeStatus, savingStatus) : [
+        columns={purchaseTab === 'supplier-invoices' ? invoiceColumns(result.invoice_statuses || [], open, changeStatus, savingStatus)
+          : purchaseTab === 'supplier-factures' ? receivedFactureColumns(open) : [
           {
             header: 'Название',
             accessor: (r) => (

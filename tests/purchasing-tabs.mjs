@@ -89,6 +89,14 @@ await page.route('**/api/**', async route => {
         body.invoice_statuses = statuses
         body.can_edit_invoice_statuses = true
       }
+      if (url.searchParams.get('entity_type') === 'facturein') {
+        body.items[0].moment = '2026-11-19 11:00:00'
+        body.items[0].facture = {
+          number: '000042', agent_name: 'Тестовый поставщик', counterparty_id: 10,
+          organization: 'ИД Групп', amount: '567.89', currency: 'EUR', incoming_number: 'ВХ-1',
+          incoming_date: '2026-11-16', comment: 'Документы проверены',
+        }
+      }
       break
   }
   await route.fulfill({ json: body })
@@ -224,6 +232,21 @@ try {
   await checkbox('51').check()
 
   await link(4).click()
+  await visible(4)
+  assert.deepEqual((await table.getByRole('columnheader').allTextContents()).map(label => label.trim()).filter(Boolean),
+    ['№', 'Дата', 'Контрагент', 'Организация', 'Сумма', 'Входящий номер', 'Входящая дата', 'Комментарий'])
+  await table.getByRole('button', { name: '000042', exact: true }).waitFor()
+  for (const name of ['19.11.2026', 'ИД Групп', /567,89/, 'ВХ-1', '16.11.2026', 'Документы проверены'])
+    await table.getByRole('cell', { name, exact: typeof name === 'string' }).waitFor()
+  const factureCounterparty = table.getByRole('link', { name: 'Тестовый поставщик', exact: true })
+  assert.equal(await factureCounterparty.getAttribute('href'), '/suppliers?counterparty=10')
+  assert(await factureCounterparty.evaluate(node => {
+    const [red, green, blue] = getComputedStyle(node).color.match(/\d+/g).map(Number)
+    return blue > red && blue > green
+  }))
+  await factureCounterparty.click()
+  await page.getByRole('dialog', { name: 'Тестовый поставщик', exact: true }).waitFor()
+  await page.goBack()
   await visible(4)
   assert.equal(await search('Поиск в данных МоегоСклада').inputValue(), '')
   await search('Поиск в данных МоегоСклада').fill('фактура')

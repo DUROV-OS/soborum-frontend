@@ -18,7 +18,7 @@ export function Topbar({ onMenuClick, menuOpen, desktopCollapsed, toggleDesktopM
   const section = SECTIONS.find((s) => location.pathname.startsWith(s.path))
   const hasAccess = useAuthStore((s) => s.hasAccess)
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
-  const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess))
+  const context = workflowContext(location.pathname, location.search, visibleWorkflows(hasAccess, salesManager))
   const workTitle = context && (context.group.standalone ? context.group.label : context.group.label + ' · ' + context.entry.label)
   const collaborationTool = useCollaborationTools().find(tool => tool.to && (location.pathname === tool.to || location.pathname.startsWith(tool.to + '/')))
 

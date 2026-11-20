@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button'
 import { DataTable, DataTableColumn } from '@/shared/ui/DataTable'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { Input, Select } from '@/shared/ui/Field'
+import { useQueryChoice } from '@/shared/lib/useQueryChoice'
 import { Tabs } from '@/shared/ui/Tabs'
 import { exportPartners } from '../api'
 import { usePartnersStore } from '../store'
@@ -15,6 +16,7 @@ import { categoryLabel, Partner, PARTNER_CATEGORIES, PartnerCategory } from '../
 import { PartnerFormModal } from '../components/PartnerFormModal'
 
 type CategoryTab = 'ALL' | PartnerCategory
+const CATEGORY_TABS: CategoryTab[] = ['ALL', ...PARTNER_CATEGORIES.map(category => category.key)]
 
 function digitsOf(value: string): string {
   const digits = value.replace(/\D/g, '')
@@ -90,7 +92,7 @@ export function PartnersPage() {
   const load = usePartnersStore((s) => s.load)
   const navigate = useNavigate()
   const canEdit = accessLevelAtLeast(useAccessLevel('clients'), 'edit')
-  const [tab, setTab] = useState<CategoryTab>('ALL')
+  const [tab, setTab] = useQueryChoice('category', CATEGORY_TABS, 'ALL')
   const [city, setCity] = useState('')
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -214,7 +216,7 @@ export function PartnersPage() {
           columns={COLUMNS}
           rows={rows}
           keyOf={(p) => String(p.id)}
-          onRowClick={(p) => navigate(`/partners/${p.id}`)}
+          onRowClick={(p) => navigate(`/partners/${p.id}?category=${tab}`)}
           loading={loading}
           emptyLabel={filtering ? 'Никого не нашлось — попробуйте изменить фильтры' : 'В базе пока никого нет'}
         />
