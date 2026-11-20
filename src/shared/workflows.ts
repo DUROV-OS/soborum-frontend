@@ -497,7 +497,7 @@ export const WORKFLOWS: WorkGroup[] = [
 
 WORKFLOWS.push(
   { id: 'projects', label: 'Проекты', icon: Building2, note: 'Команда и ход выполнения проектов', entries: [{ id: 'projects', label: 'Проекты', to: '/projects', section: 'projects', note: 'Команда, задачи, обсуждения и документы' }] },
-  { id: 'data', label: 'Данные и архив', icon: Building2, note: 'Сохранённые документы и справочники', entries: [
+  { id: 'data', label: 'Архив', icon: Building2, note: 'Сохранённые документы и справочники', entries: [
     ...groupById.company.entries.filter(entry => entry.id === 'source-history'),
     { id: 'customer-returns', label: 'Возвраты покупателей', to: '/moysklad?type=salesreturn', section: 'moysklad', gate: 'clients', readOnly: true, note: 'Сохранённые документы возврата покупателей' },
   ] },

@@ -11,12 +11,25 @@ import { useFeedbackStore } from '@/feedback/store'
 import { awaitsReply } from '@/feedback/types'
 import { useNotificationsStore } from '@/notifications/store'
 import { SECTIONS, SectionId } from '@/shared/sections'
-import { visibleWorkflows, workflowContext } from '@/shared/workflows'
+import { visibleWorkflows, workflowContext, type WorkGroup } from '@/shared/workflows'
 import { InstallAppButton } from '@/shared/mobile/InstallApp'
 import { CollaborationMenu } from '@/collaboration/CollaborationMenu'
 import { isCollaborationRoute, visibleCollaborationTools } from '@/collaboration/catalog'
 
-/** Общие инструменты; рабочие процессы добавляются из единого справочника. */
+const WORKFLOW_MENU_ORDER = [
+  'crm',
+  'partners',
+  'sales',
+  'warehouse',
+  'purchasing',
+  'nomenclature',
+  'production',
+  'projects',
+  'company',
+  'money',
+  'data',
+]
+
 const MENU: SectionId[] = [
   'work',
   'today',
@@ -49,6 +62,8 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
   const unreadNotificationsCount = useNotificationsStore((s) => s.unreadCount)
   const { pathname, search } = useLocation()
   const groups = visibleWorkflows(hasAccess, salesManager)
+  const orderedGroups = WORKFLOW_MENU_ORDER.flatMap(id => groups.filter(group => group.id === id))
+  const additionalGroups = groups.filter(group => !WORKFLOW_MENU_ORDER.includes(group.id))
   const context = isCollaborationRoute(pathname, visibleCollaborationTools(hasAccess)) ? null : workflowContext(pathname, search, groups)
   const [allEntries, setAllEntries] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>(context ? [context.group.id] : [])
@@ -74,7 +89,7 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
     return () => window.clearInterval(timer)
   }, [loadMyFeedback, salesManager])
 
-  // «Работа» видна, если доступен хотя бы один вложенный раздел
+  // «Разделы» видны, если доступен хотя бы один рабочий модуль.
   const showWork = salesManager || groups.length > 0
   const canSee = (id: SectionId) => (id === 'work' ? showWork : hasAccess(id))
   const menu: SectionId[] = salesManager ? ['work', 'today', 'notifications', 'feedback_my'] : MENU
@@ -85,15 +100,13 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
   if (salesManager) {
     const crm = SECTIONS.find(s => s.id === 'crm')!
     const feedback = SECTIONS.find(s => s.id === 'feedback_my')!
-    if (hasAccess('crm')) items.splice(items.findIndex(item => item.id === 'today') + 1, 0,
-      { ...crm, label: 'Команда', path: '/team' },
-    )
+    if (hasAccess('crm')) items.push({ ...crm, label: 'Команда', path: '/team' })
     items.push({ ...feedback, label: 'Подать заявку', path: '/feedback' })
   }
   const workActive = !!context || pathname === '/work'
-  const workflowItems = (
+  const renderWorkflowItems = (menuGroups: WorkGroup[]) => (
     <>
-      {groups.map((group) => {
+      {menuGroups.map((group) => {
         const Icon = group.icon,
           opened = expanded.includes(group.id)
         if (group.id === 'purchasing' || group.standalone) {
@@ -233,10 +246,11 @@ export function Sidebar({ open, desktopCollapsed, onClose }: { open: boolean; de
                     {section.id === 'ai' && <ArrowUpRight size={15} className="opacity-50" />}
                   </NavLink>
                 </li>
-                {section.id === 'today' && <><CollaborationMenu onNavigate={onClose}/>{workflowItems}</>}
+                {section.id === 'today' && <><CollaborationMenu onNavigate={onClose}/>{renderWorkflowItems(orderedGroups)}</>}
               </Fragment>
             )
           })}
+          {renderWorkflowItems(additionalGroups)}
         </ul>
         <div className="mt-5">
           <InstallAppButton dark />

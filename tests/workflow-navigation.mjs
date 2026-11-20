@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 const base = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:5173'
+const sidebarLabels = async menu =>
+  (await menu.locator('nav > ul > li > :is(a, button)').allTextContents()).map(label => label.trim())
+const ownerMenu = [
+  'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Продажи', 'Склад', 'Закупки',
+  'Номенклатура', 'Производство', 'Проекты', 'Маркетинг', 'Бухгалтерия', 'Архив',
+  'Совет директоров', 'Агенты', 'Предложения ИИ', 'Уведомления', 'Мои заявки', 'Заявки',
+  'Доступы и настройки', 'Каталог и цены', 'Типовые проекты домов', 'Контрагенты',
+]
 const browser = await chromium.launch({ headless: true, channel: process.env.SMOKE_BROWSER_CHANNEL || undefined })
 try {
   const context = await browser.newContext({
@@ -76,9 +84,14 @@ try {
   await page.goto(base + '/work', { waitUntil: 'networkidle' })
   const main = page.getByRole('main'),
     sidebar = page.getByRole('complementary', { name: 'Главное меню' })
+  assert.deepEqual(await sidebarLabels(sidebar), ownerMenu)
   for (const name of ['Продажи', 'CRM', 'Партнёры', 'Каталог и цены', 'Типовые проекты домов',
-    'Закупки', 'Контрагенты', 'Склад', 'Номенклатура', 'Производство', 'Бухгалтерия'])
+    'Закупки', 'Контрагенты', 'Склад', 'Номенклатура', 'Производство', 'Бухгалтерия', 'Архив'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
+  await sidebar.getByRole('button', { name: 'Архив', exact: true }).click()
+  await sidebar.locator('#workflow-data').getByRole('link', { name: /Возвраты покупателей/ }).click()
+  await page.waitForURL('**/moysklad?type=salesreturn')
+  await sidebar.getByRole('link', { name: 'Разделы', exact: true }).click()
   await main.getByRole('region', { name: 'Контрагенты', exact: true }).getByRole('link', { name: /Реестр контрагентов/ }).waitFor()
   assert.equal(await main.getByRole('region', { name: 'Закупки', exact: true }).locator('a[href="/suppliers"]').count(), 0)
   const purchases = page.getByRole('navigation', { name: 'Разделы закупок' })
@@ -211,7 +224,9 @@ try {
   assert.ok(requests.some((r) => r.startsWith('/api/warehouse/documents?') && r.includes('kind=inventory')))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Открыть меню', exact: true }).click()
-  await page.getByRole('dialog', { name: 'Главное меню' }).getByRole('link', { name: 'CRM', exact: true }).click()
+  const ownerMobileMenu = page.getByRole('dialog', { name: 'Главное меню' })
+  assert.deepEqual(await sidebarLabels(ownerMobileMenu), ownerMenu)
+  await ownerMobileMenu.getByRole('link', { name: 'CRM', exact: true }).click()
   await page.getByRole('tab', { name: 'Компании', exact: true }).click()
   assert.equal(
     await page.getByRole('tab', { name: 'Компании', exact: true }).getAttribute('aria-selected'),
@@ -236,6 +251,10 @@ try {
   await page.goto(base + '/work', { waitUntil: 'networkidle' })
   for (const name of ['CRM', 'Партнёры', 'Каталог и цены'])
     await main.getByRole('heading', { name, exact: true }).waitFor()
+  assert.deepEqual(await sidebarLabels(sidebar), [
+    'Разделы', 'Пульс', 'Совместная работа', 'CRM', 'Партнёры', 'Уведомления', 'Мои заявки',
+    'Команда', 'Подать заявку', 'Каталог и цены',
+  ])
   assert.equal(await sidebar.getByRole('link', { name: 'Продажи', exact: true }).count(), 0)
   assert.equal(await main.locator('a[href="/clients"], a[href="/crm?tab=pipeline"], a[href="/costing?tab=prices"]').count(), 0)
   await sidebar.getByRole('link', { name: 'CRM', exact: true }).click()
