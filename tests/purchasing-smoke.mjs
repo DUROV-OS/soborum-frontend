@@ -194,6 +194,18 @@ try {
   const documentMap = card.getByRole('region', {name: 'Связанные документы заказа', exact: true})
   await documentMap.waitFor()
   assert.equal(await page.getByRole('dialog').count(), 0)
+  const assertCardSpacing = async () => {
+    const cards = await documentMap.getByRole('link').evaluateAll(links => links.map(link => {
+      const { top, left, right } = link.getBoundingClientRect()
+      return { top, left, right }
+    }))
+    for (const [index, card] of cards.entries()) {
+      for (const next of cards.slice(index + 1)) {
+        if (Math.abs(card.top - next.top) < 2) assert(next.left - card.right >= 8)
+      }
+    }
+  }
+  await assertCardSpacing()
   for (const [title, number, destination, href] of [
     ['Заказ поставщику', '1', 'Заказы поставщикам → Позиции', '/purchasing?tab=orders&order=1'],
     ['Счет поставщика', 'С-91', 'Счета поставщиков', '/moysklad?type=invoicein&record=91'],
@@ -208,6 +220,7 @@ try {
     assert(await link.getByText(destination, { exact: true }).isVisible())
   }
   await page.setViewportSize({ width: 390, height: 844 })
+  await assertCardSpacing()
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
   await documentMap.getByRole('link', { name: /П-93/ }).click()
   await page.getByRole('heading', { name: 'Деньги', exact: true }).waitFor()

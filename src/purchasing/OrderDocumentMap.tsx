@@ -177,13 +177,13 @@ export function OrderDocumentMap({ order, documents, confirmLeave }: {
 
 function DocumentCardGrid({ stages, currentId, confirmLeave }: { stages: Stage[]; currentId?: string; confirmLeave?: () => boolean }) {
   return (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,146px),1fr))] gap-3 lg:gap-4">
+      <div className="grid max-w-[68rem] grid-cols-[repeat(auto-fill,minmax(min(100%,10rem),1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))] lg:gap-4">
         {stages.map(({ title, destination, icon: Icon, cards, empty }) => (
           <section key={title} aria-label={title} className="min-w-0 space-y-2">
             {cards.map(card => (
               <Link key={card.id} to={card.href}
                 onClick={event => { if (card.id !== currentId && confirmLeave && !confirmLeave()) event.preventDefault() }}
-                className={'group flex aspect-square min-h-48 flex-col rounded-xl border bg-surface text-ink shadow-card transition-colors hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand '
+                className={'group flex aspect-square min-h-48 w-full min-w-0 max-w-56 flex-col rounded-xl border bg-surface text-ink shadow-card transition-colors hover:border-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand '
                   + (card.id === currentId ? 'border-brand/50' : 'border-border')}>
                 <span className={'flex items-start gap-2 rounded-t-xl border-b border-border px-3 py-2 text-sm font-semibold leading-tight '
                   + (card.id === currentId ? 'bg-brand/10 text-brand-dark' : 'bg-surface-muted')}>
