@@ -7,6 +7,7 @@ import { Modal } from '@/shared/ui/Modal'
 import * as api from './api'
 import type { Catalog, Entry } from './api'
 import { CrmInboxColumn } from './CrmInboxColumn'
+import { useWebsiteInboxRevision } from './WebsiteInquiryUpdates'
 import { crmDateQuery, crmSourceDateLabel } from './dates'
 
 const PAGE_SIZE = 25
@@ -60,6 +61,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
   const [summaryError, setSummaryError] = useState(false)
   const dragged = useRef<Entry | null>(null)
   const generation = useRef(0)
+  const inboxRevision = useWebsiteInboxRevision()
   const saving = useRef(false)
   const pageLoads = useRef(new Set<string>())
 
@@ -74,7 +76,7 @@ export function CrmBoard({ catalog, pipeline, stage, query, archive, owner, date
       }).catch(() => { if (!cancelled) setSummaryError(true) })
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [pipeline, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload])
+  }, [pipeline, query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload, inboxRevision])
 
   useEffect(() => {
     const run = ++generation.current

@@ -24,6 +24,7 @@ import * as api from './api'
 import { Catalog, Entry, Kind, History } from './api'
 import { LeadControl } from './LeadControl'
 import { CrmBoard } from './CrmBoard'
+import { useWebsiteInboxRevision } from './WebsiteInquiryUpdates'
 import { CrmRecordCard } from './CrmRecordCard'
 import { CrmTasksTable } from './CrmTasksTable'
 import { TaskPriorityFilter } from '@/tasks/components/TaskPriorityFilter'
@@ -78,6 +79,8 @@ export function CrmPage() {
     return { key, label: count === undefined ? entry.label : `${entry.label} · ${count.toLocaleString('ru-RU')}` }
   })
   const isBoard = kind === 'deal' && view === 'board'
+  const liveRevision = useWebsiteInboxRevision()
+  const inboxRevision = kind === 'inquiry' ? liveRevision : 0
   const boardPipeline = pipeline || String(catalog.pipelines[0]?.id || '')
   const [stage, setStage] = useState('')
   const [archive, setArchive] = useState('active')
@@ -167,7 +170,7 @@ export function CrmPage() {
       current = false
       clearTimeout(timer)
     }
-  }, [kind, query, archive, owner, priority, dates, spam, temperature, pipeline, stage, offset, revision, isBoard])
+  }, [kind, query, archive, owner, priority, dates, spam, temperature, pipeline, stage, offset, revision, isBoard, inboxRevision])
   const refreshHistory = (entry: Entry, offset = 0) =>
     api
       .history(entry.id, offset)

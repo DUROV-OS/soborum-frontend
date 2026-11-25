@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { RoleSwitcher } from '@/auth/pages/RoleSwitcher'
 import { FeedbackButton } from '@/feedback/components/FeedbackButton'
 import { MeetingButton } from '@/meeting/components/MeetingButton'
+import { WebsiteInquirySoundButton } from '@/crm/WebsiteInquiryUpdates'
 import { PushNotificationsButton } from '@/notifications/components/PushNotificationsButton'
 import { SECTIONS } from '@/shared/sections'
 import { visibleWorkflows, workflowContext } from '@/shared/workflows'
@@ -49,6 +50,7 @@ export function Topbar({ onMenuClick, menuOpen, desktopCollapsed, toggleDesktopM
         {!salesManager && <MeetingButton />}
         {!salesManager && <PushNotificationsButton />}
         {!salesManager && <FeedbackButton />}
+        <WebsiteInquirySoundButton />
         <RoleSwitcher />
       </div>
     </header>
