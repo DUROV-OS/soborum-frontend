@@ -4,6 +4,7 @@ import { GripVertical } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import * as api from './api'
 import type { Catalog, Entry } from './api'
+import { useWebsiteInboxRevision } from './WebsiteInquiryUpdates'
 import { compareCrmSourceDates, crmDateQuery, crmSourceDateLabel } from './dates'
 
 const FETCH_SIZE = 100
@@ -40,6 +41,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
   const [limits, setLimits] = useState<Record<string, number>>({})
+  const inboxRevision = useWebsiteInboxRevision()
 
   useEffect(() => {
     let cancelled = false
@@ -83,7 +85,7 @@ export function CrmInboxColumn({ catalog, pipeline, query, archive, owner, dateF
       }
     }, 200)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload])
+  }, [query, archive, owner, dateFrom, dateTo, dateUnknown, spam, temperature, revision, reload, inboxRevision])
 
   const defaultPipeline = catalog.pipelines.find(item => item.name.trim().toLocaleLowerCase('ru-RU') === 'допродажная воронка')?.id ?? catalog.pipelines[0]?.id
   // Website intake may have no assigned funnel yet; display it at the agreed entry point without marking it processed.

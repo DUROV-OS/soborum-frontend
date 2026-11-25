@@ -12,6 +12,7 @@ import { Topbar } from './Topbar'
 import { useAuthStore } from '@/auth/store'
 import { isSalesManager } from '@/auth/salesNavigation'
 import { BrowserPhoneProvider } from '@/crm/BrowserPhone'
+import { WebsiteInquiryUpdates } from '@/crm/WebsiteInquiryUpdates'
 import { CalendarReminders } from '@/collaboration/CalendarReminders'
 import { SectionNavigationHost, SectionNavigationProvider } from './SectionNavigation'
 
@@ -31,6 +32,7 @@ export function AppShell() {
 
   useEffect(() => { mainRef.current?.scrollTo({ top: 0 }) }, [location.pathname])
   const salesManager = useAuthStore((s) => isSalesManager(s.current))
+  const canViewCrm = useAuthStore(state => state.hasAccess('crm'))
   useNotificationPolling(!salesManager)
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export function AppShell() {
   }, [location.pathname, location.search])
 
   return (
+    <WebsiteInquiryUpdates key={userId} enabled={canViewCrm && (salesManager || location.pathname === "/crm")}
+      soundUserId={canViewCrm && salesManager ? userId : undefined}>
     <BrowserPhoneProvider><WorkspaceViewProvider key={userId}><SectionNavigationProvider><div className="workspace-shell flex h-dvh w-full">
       <Sidebar open={sidebarOpen} desktopCollapsed={desktopCollapsed} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
@@ -61,5 +65,6 @@ export function AppShell() {
       {!salesManager && <MeetingPanel />}
       {!salesManager && <NotificationToasts />}
     </div></SectionNavigationProvider></WorkspaceViewProvider></BrowserPhoneProvider>
+    </WebsiteInquiryUpdates>
   )
 }

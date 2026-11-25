@@ -60,6 +60,7 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | string[] | undefined>
   form?: FormData
   timeoutMs?: number
+  signal?: AbortSignal
 }
 
 function buildUrl(section: string, path: string, query?: RequestOptions['query']): string {
@@ -86,11 +87,13 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
     body = JSON.stringify(options.body)
   }
 
+  const timeout = options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined
+  const signal = options.signal && timeout ? AbortSignal.any([options.signal, timeout]) : options.signal ?? timeout
   const response = await fetch(buildUrl(options.section, options.path, options.query), {
     method: options.method ?? 'GET',
     headers,
     body,
-    signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined,
+    signal,
   })
 
   if (!response.ok) {
